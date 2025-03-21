@@ -20,21 +20,21 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            // unsigned long current_time = millis();
-            // if (current_time - last_sent_time_ >= 10000)
-            // {
-            //     ESP_LOGD(TAG, "LOOP!");
-            //     // send_uart_command();
-            //     last_sent_time_ = current_time;
-            // }
+            unsigned long current_time = millis();
+            if (current_time - last_sent_time_ >= 10000)
+            {
+                send_uart_command();
+                sent_counter_++;
+                last_sent_time_ = current_time;
+                ESP_LOGD(TAG, "Loop %x", sent_counter_);
+            }
         }
 
-        // void HlinkAc::send_uart_command()
-        // {
-        //     const uint8_t command[] = {0x00};
-        //     this->write_array(command, sizeof(command));
-        //     ESP_LOGD(TAG, "Sent UART command: 0x00");
-        // }
+        void HlinkAc::send_uart_command()
+        {
+            const uint8_t command[] = {0x00};
+            this->write_array(command, sizeof(command));
+        }
 
     }
 }

@@ -14,9 +14,10 @@ namespace esphome
       void loop() override;
       void dump_config() override;
 
-    // protected:
-    //   unsigned long last_sent_time_ = 0;
-    //   void send_uart_command();
+    protected:
+      unsigned long last_sent_time_ = 0;
+      unsigned long sent_counter_ = 0;
+      void send_uart_command();
     };
   }
 }
