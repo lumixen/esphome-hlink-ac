@@ -16,7 +16,9 @@ namespace esphome
 
     protected:
       unsigned long last_sent_time_ = 0;
+      bool requested_update_ = false;
       uint16_t requested_address_ = -1;
+      void request_update_();
     };
   }
 }

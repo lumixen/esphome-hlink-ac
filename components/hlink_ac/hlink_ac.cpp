@@ -11,6 +11,7 @@ namespace esphome
 
         void HlinkAc::setup()
         {
+            this->set_interval(6500, [this] { this->request_update_(); });
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
@@ -20,15 +21,20 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
         }
 
+        void HlinkAc::request_update_()
+        {
+            this->requested_update_ = true;
+        }
+
         void HlinkAc::loop()
         {
-            if (this->requested_address_ != -1) {
+            if (this->requested_update_ && this->requested_address_ == -1) {
                 uint16_t p_value = 1;
                 uint16_t c_value = p_value ^ 0xFFFF;
                 char buffer[20];
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                this->requested_address_ = 1;
+                this->requested_address_ = p_value;
             }
             
             if (this->requested_address_ != -1 && this->available() > 0) {
@@ -36,6 +42,7 @@ namespace esphome
                 int length = this->read_array(response_buffer, sizeof(response_buffer));
                 ESP_LOGD(TAG, "Response: %s", response_buffer);
                 this->requested_address_ = -1;
+                this->requested_update_ = false;
             }
             
         }
