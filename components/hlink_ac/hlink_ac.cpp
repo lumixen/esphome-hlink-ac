@@ -19,6 +19,9 @@ namespace esphome
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
+            // Log this->requested_update_ and this->requested_address_
+            ESP_LOGCONFIG(TAG, "  Requested update: %s", this->requested_update_ ? "true" : "false");
+            ESP_LOGCONFIG(TAG, "  Requested address: %d", this->requested_address_);
         }
 
         void HlinkAc::request_status_update_()
