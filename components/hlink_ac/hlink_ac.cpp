@@ -29,12 +29,12 @@ namespace esphome
             // }
         }
 
-        void HlinkAcComponent::send_uart_command()
-        {
-            const uint8_t command[] = {0x00};
-            this->write_array(command, sizeof(command));
-            ESP_LOGD(TAG, "Sent UART command: 0x00");
-        }
+        // void HlinkAcComponent::send_uart_command()
+        // {
+        //     const uint8_t command[] = {0x00};
+        //     this->write_array(command, sizeof(command));
+        //     ESP_LOGD(TAG, "Sent UART command: 0x00");
+        // }
 
     }
 }
