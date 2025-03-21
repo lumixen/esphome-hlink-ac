@@ -34,8 +34,8 @@ namespace esphome
 
         void HlinkAc::send_uart_command()
         {
-            int a_value = 1;
-            int c_value = a_value ^ 0xFF;
+            uint16_t a_value = 1;
+            uint16_t c_value = a_value ^ 0xFFFF;
             std::ostringstream oss;
             oss << std::uppercase << "MT P=" << std::setw(4) << std::setfill('0') << std::hex << a_value 
                 << " C=" << std::setw(4) << std::setfill('0') << std::hex << c_value << (char)0x0D << (char)0x00;
