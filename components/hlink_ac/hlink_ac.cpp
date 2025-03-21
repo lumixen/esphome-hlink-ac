@@ -19,9 +19,8 @@ namespace esphome
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
-            // Log this->requested_update_ and this->requested_address_
             ESP_LOGCONFIG(TAG, "  Requested update: %s", this->requested_update_ ? "true" : "false");
-            ESP_LOGCONFIG(TAG, "  Requested address: %d", this->requested_address_);
+            ESP_LOGCONFIG(TAG, "  Requested address: %d", this->requested_sequence_number_);
         }
 
         void HlinkAc::request_status_update_()
@@ -31,20 +30,20 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            if (this->requested_update_ && this->requested_address_ == -1) {
+            if (this->requested_update_ && this->requested_sequence_number_ == -1) {
                 uint16_t p_value = 1;
                 uint16_t c_value = p_value ^ 0xFFFF;
                 char buffer[20];
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                this->requested_address_ = p_value;
+                this->requested_sequence_number_ = 1;
             }
             
-            if (this->requested_address_ != -1 && this->available() > 0) {
+            if (this->requested_sequence_number_ != -1 && this->available() > 0) {
                 uint8_t response_buffer[20];
                 int length = this->read_array(response_buffer, sizeof(response_buffer));
                 ESP_LOGD(TAG, "Response: %s", response_buffer);
-                this->requested_address_ = -1;
+                this->requested_sequence_number_ = -1;
                 this->requested_update_ = false;
             }
             
