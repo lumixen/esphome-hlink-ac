@@ -38,7 +38,7 @@ namespace esphome
             int c_value = a_value ^ 0xFF;
             std::ostringstream oss;
             oss << std::uppercase << "MT P=" << std::setw(4) << std::setfill('0') << std::hex << a_value 
-                << " C=" << std::setw(4) << std::setfill('0') << std::hex << c_value << std::hex << (int)0x0D << (int)0x00;
+                << " C=" << std::setw(4) << std::setfill('0') << std::hex << c_value << "\r";
             this->write_str(oss.str().c_str());
         }
 
