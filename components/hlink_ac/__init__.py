@@ -7,12 +7,12 @@ CODEOWNERS = ["@lumixen"]
 DEPENDENCIES = ["uart"]
 
 hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
-HlinkAcComponent = hlink_ac_ns.class_("HlinkAcComponent", cg.Component)
+HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component)
 
 CONFIG_SCHEMA = (
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(HlinkAcComponent),
+            cv.GenerateID(): cv.declare_id(HlinkAc),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)

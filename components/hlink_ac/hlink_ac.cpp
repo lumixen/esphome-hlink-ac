@@ -7,18 +7,18 @@ namespace esphome
     {
         static const char *const TAG = "hlink_ac";
 
-        void HlinkAcComponent::setup()
+        void HlinkAc::setup()
         {
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
 
-        void HlinkAcComponent::dump_config()
+        void HlinkAc::dump_config()
         {
             ESP_LOGD(TAG, "Hlink AC component");
         }
 
-        void HlinkAcComponent::loop()
+        void HlinkAc::loop()
         {
             // unsigned long current_time = millis();
             // if (current_time - last_sent_time_ >= 10000)
@@ -29,7 +29,7 @@ namespace esphome
             // }
         }
 
-        // void HlinkAcComponent::send_uart_command()
+        // void HlinkAc::send_uart_command()
         // {
         //     const uint8_t command[] = {0x00};
         //     this->write_array(command, sizeof(command));

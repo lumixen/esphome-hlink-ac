@@ -7,7 +7,7 @@ namespace esphome
 {
   namespace hlink_ac
   {
-    class HlinkAcComponent : public Component, public uart::UARTDevice
+    class HlinkAc : public Component, public uart::UARTDevice
     {
     public:
       void setup() override;
