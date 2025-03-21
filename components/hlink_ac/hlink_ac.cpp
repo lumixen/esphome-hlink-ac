@@ -41,7 +41,7 @@ namespace esphome
             }
             
             if (this->requested_sequence_number_ != -1 && this->available() > 0) {
-                char response_buffer[20];
+                uint8_t response_buffer[20];
                 int length = this->read_array(response_buffer, sizeof(response_buffer));
                 ESP_LOGD(TAG, "Response: %s", response_buffer);
                 this->requested_sequence_number_ = -1;
