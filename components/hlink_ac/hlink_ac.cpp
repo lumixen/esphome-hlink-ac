@@ -37,10 +37,11 @@ namespace esphome
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
                 this->requested_sequence_number_ = 1;
+                return;
             }
             
             if (this->requested_sequence_number_ != -1 && this->available() > 0) {
-                uint8_t response_buffer[20];
+                char response_buffer[20];
                 int length = this->read_array(response_buffer, sizeof(response_buffer));
                 ESP_LOGD(TAG, "Response: %s", response_buffer);
                 this->requested_sequence_number_ = -1;
