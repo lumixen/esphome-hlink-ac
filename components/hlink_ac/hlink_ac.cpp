@@ -26,7 +26,7 @@ namespace esphome
                 send_uart_command();
                 sent_counter_++;
                 last_sent_time_ = current_time;
-                ESP_LOGD(TAG, "Loop %x", sent_counter_);
+                ESP_LOGD(TAG, "Loop %d", sent_counter_);
             }
         }
 
