@@ -4,7 +4,7 @@
 namespace esphome
 {
     namespace hlink_ac
-    {s
+    {
         static const char *const TAG = "hlink_ac";
 
         void HlinkAc::setup()
