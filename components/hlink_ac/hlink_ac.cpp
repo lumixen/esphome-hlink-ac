@@ -11,7 +11,7 @@ namespace esphome
 
         void HlinkAc::setup()
         {
-            this->set_interval(6500, [this] { this->request_update_(); });
+            this->set_interval(6500, [this] { this->request_status_update_(); });
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
@@ -21,7 +21,7 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
         }
 
-        void HlinkAc::request_update_()
+        void HlinkAc::request_status_update_()
         {
             this->requested_update_ = true;
         }

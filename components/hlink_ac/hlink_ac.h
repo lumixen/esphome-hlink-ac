@@ -15,10 +15,10 @@ namespace esphome
       void dump_config() override;
 
     protected:
-      unsigned long last_sent_time_ = 0;
+      // unsigned long last_sent_time_ = 0;
       bool requested_update_ = false;
       uint16_t requested_address_ = -1;
-      void request_update_();
+      void request_status_update_();
     };
   }
 }
