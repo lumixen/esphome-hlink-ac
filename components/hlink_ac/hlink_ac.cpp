@@ -1,3 +1,5 @@
+#include <sstream>
+#include <iomanip>
 #include "esphome/core/log.h"
 #include "hlink_ac.h"
 
@@ -32,8 +34,12 @@ namespace esphome
 
         void HlinkAc::send_uart_command()
         {
-            const uint8_t command[] = {0x00};
-            this->write_array(command, sizeof(command));
+            int a_value = 1;
+            int c_value = a_value ^ 0xFF;
+            std::ostringstream oss;
+            oss << "MT P=" << std::setw(4) << std::setfill('0') << std::hex << a_value 
+                << " C=" << std::setw(4) << std::setfill('0') << std::hex << c_value;
+            this->write_str(oss.str().c_str());
         }
 
     }
