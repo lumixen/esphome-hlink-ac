@@ -12,6 +12,7 @@ namespace esphome
     public:
       void setup() override;
       void loop() override;
+      void dump_config() override;
 
     private:
       unsigned long last_sent_time_ = 0;
