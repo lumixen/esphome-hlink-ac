@@ -15,7 +15,7 @@ namespace esphome
 
         void HlinkAc::dump_config()
         {
-            ESP_LOGD(TAG, "Hlink AC component");
+            ESP_LOGCONFIG(TAG, "Hlink AC component:");
         }
 
         void HlinkAc::loop()
