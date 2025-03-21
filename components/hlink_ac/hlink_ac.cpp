@@ -15,8 +15,9 @@ namespace esphome
         {
             unsigned long current_time = millis();
             if (current_time - last_sent_time_ >= 10000)
-            { // 10-second interval
-                send_uart_command();
+            {
+                ESP_LOGD("hlink_ac", "LOOP!");
+                // send_uart_command();
                 last_sent_time_ = current_time;
             }
         }

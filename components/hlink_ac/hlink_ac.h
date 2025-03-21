@@ -12,11 +12,9 @@ namespace esphome
     public:
       void setup() override;
       void loop() override;
-      // void set_uart_parent(uart::UARTComponent *parent) { this->uart_channel_ = parent; }
 
     private:
       unsigned long last_sent_time_ = 0;
-      // uart::UARTComponent *uart_;
       void send_uart_command();
     };
   }
