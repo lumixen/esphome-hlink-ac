@@ -16,8 +16,7 @@ namespace esphome
 
     protected:
       unsigned long last_sent_time_ = 0;
-      unsigned long sent_counter_ = 0;
-      void send_uart_command();
+      uint16_t requested_address_ = -1;
     };
   }
 }

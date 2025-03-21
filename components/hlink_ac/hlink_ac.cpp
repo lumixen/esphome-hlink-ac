@@ -22,24 +22,22 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            unsigned long current_time = millis();
-            if (current_time - last_sent_time_ >= 10000)
-            {
-                send_uart_command();
-                sent_counter_++;
-                last_sent_time_ = current_time;
-                ESP_LOGD(TAG, "Loop %d", sent_counter_);
+            if (this->requested_address_ != -1) {
+                uint16_t p_value = 1;
+                uint16_t c_value = p_value ^ 0xFFFF;
+                char buffer[20];
+                sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
+                this->write_str(buffer);
+                this->requested_address_ = 1;
             }
-        }
-
-        void HlinkAc::send_uart_command()
-        {
-            uint16_t a_value = 1;
-            uint16_t c_value = a_value ^ 0xFFFF;
-            std::ostringstream oss;
-            oss << std::uppercase << "MT P=" << std::setw(4) << std::setfill('0') << std::hex << a_value 
-                << " C=" << std::setw(4) << std::setfill('0') << std::hex << c_value << (char)0x0D << (char)0x00;
-            this->write_str(oss.str().c_str());
+            
+            if (this->requested_address_ != -1 && this->available() > 0) {
+                uint8_t response_buffer[20];
+                int length = this->read_array(response_buffer, sizeof(response_buffer));
+                ESP_LOGD(TAG, "Response: %s", response_buffer);
+                this->requested_address_ = -1;
+            }
+            
         }
 
     }
