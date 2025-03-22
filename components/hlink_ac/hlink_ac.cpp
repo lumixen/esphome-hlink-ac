@@ -36,7 +36,7 @@ namespace esphome
                 char buffer[20];
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                ESP_LOGD(TAG, "Wrote: %s", 20, buffer);
+                ESP_LOGD(TAG, "Wrote: %s", buffer);
                 this->requested_sequence_number_ = 1;
                 return;
             }
@@ -46,17 +46,16 @@ namespace esphome
                 uint8_t response_buffer[MAX_BUFFER_SIZE] = {0};  // Fixed-size buffer
                 int index = 0;
             
-                while (this->available() > 0 && index < MAX_BUFFER_SIZE - 1) {  
-                    uint8_t byte = this->read();  // Read one byte
-                    response_buffer[index++] = byte;
-            
-                    if (byte == 0x0D) {  // Stop reading when stop byte (0x0D) is encountered
+                while (this->available() && index < MAX_BUFFER_SIZE - 1) {  
+                    this->read_byte(&response_buffer[index]);
+                    if (response_buffer[index] == 0x0D) {  // Stop reading when stop byte (0x0D) is encountered
                         break;
                     }
+                    index++;
                 }
 
-                response_buffer[index] = '\0';  // Null-terminate for logging
-                ESP_LOGD(TAG, "Response: %s", MAX_BUFFER_SIZE, response_buffer);
+                response_buffer[++index] = '\0';  // Null-terminate for logging
+                ESP_LOGD(TAG, "Response: %s", response_buffer);
                 this->requested_sequence_number_ = -1;
                 this->requested_update_ = false;
             }
