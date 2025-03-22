@@ -33,11 +33,10 @@ namespace esphome
             if (this->requested_update_ && this->requested_sequence_number_ == -1) {
                 uint16_t p_value = 1;
                 uint16_t c_value = p_value ^ 0xFFFF;
-                char buffer[20];
+                char buffer[20] = {0};
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                ESP_LOGD(TAG, "Wrote: %s", buffer);
-                // ESP_LOGD(TAG, "Wrote: %s", buffer);
+                ESP_LOGD(TAG, "Wrote: '%s'", buffer);
                 this->requested_sequence_number_ = 1;
                 return;
             }
