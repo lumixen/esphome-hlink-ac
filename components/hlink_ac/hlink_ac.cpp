@@ -57,6 +57,7 @@ namespace esphome
                 }
             }
             
+            // Reset update status if we reached timeout
             if (this->status_.state != PENDING && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT) {
                 this->status_.state = PENDING;
                 ESP_LOGW(TAG, "Reached timeout while updating H-link AC status.");
@@ -88,20 +89,20 @@ namespace esphome
                     }
                     index++;
                 }
-                std::vector<std::string> responseTokens;
+                std::vector<std::string> response_tokens;
                 for (int i, last_space_i = 0; i < response.size(); i++) {
                     if (response[i] == ' ') {
-                        responseTokens.push_back(response.substr(last_space_i, i - last_space_i));
+                        response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
                         last_space_i = i + 1;
                     }
                 }
-                // if (responseTokens.size() < 2) {
-                //     ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
-                //     return false;
-                // }
-                // ESP_LOGD(TAG, "Status: %s", responseTokens[0].c_str());
-                // ESP_LOGD(TAG, "P: %s", responseTokens[1].c_str());
-                // ESP_LOGD(TAG, "C: %s", responseTokens[2].c_str());
+                if (response_tokens.size() < 2) {
+                    ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
+                    return false;
+                }
+                ESP_LOGD(TAG, "Status: %s", response_tokens[0].c_str());
+                ESP_LOGD(TAG, "P: %s", response_tokens[1].c_str());
+                ESP_LOGD(TAG, "C: %s", response_tokens[2].c_str());
                 return true;
             }
             return false;
