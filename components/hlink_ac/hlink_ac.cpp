@@ -53,6 +53,7 @@ namespace esphome
                 bool success = this->read_status_(10);
                 if (success) {
                     if (this->status_.requested_feature + 1 < features_size) {
+                        this->status_.state = REQUEST_NEXT_FEATURE;
                         this->status_.requested_feature++;
                     } else {
                         this->status_.state = PENDING;

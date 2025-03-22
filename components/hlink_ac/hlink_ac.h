@@ -23,7 +23,7 @@ namespace esphome
 
     struct HlinkAcStatus {
       State state = PENDING;
-      uint16_t status_changed_at_ms = 0;
+      uint32_t status_changed_at_ms = 0;
       int8_t requested_feature = 0;
     };
     
