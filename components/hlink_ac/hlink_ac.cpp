@@ -92,8 +92,8 @@ namespace esphome
                 std::vector<std::string> response_tokens;
                 for (int i = 0, last_space_i = 0; i < read_index; i++) {
                     if (response[i] == ' ' || response[i] == '\r') {
-                        uint8_t pos = last_space_i + (last_space_i > 0 ? 2 : 0); // Shift ahead to remove 'X=' from the tokens after initial OK/NG
-                        response_tokens.push_back(response.substr(pos, i - last_space_i));
+                        uint8_t pos_shift = last_space_i > 0 ? 2 : 0; // Shift ahead to remove 'X=' from the tokens after initial OK/NG
+                        response_tokens.push_back(response.substr(last_space_i + pos_shift, i - last_space_i - pos_shift));
                         last_space_i = i + 1;
                     }
                 }
