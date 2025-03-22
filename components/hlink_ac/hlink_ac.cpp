@@ -81,7 +81,7 @@ namespace esphome
                 std::string response(30, '\0');
                 int index = 0;
                 // Read response unless termination symbol or timeout
-                while (millis() - started_millis < timeout_ms) {
+                while (millis() - started_millis < timeout_ms || index < 30) {
                     this->read_byte((uint8_t*)&response[index]);
                     if (response[index] == CMD_TERMINATION_SYMBOL) {
                         break;
