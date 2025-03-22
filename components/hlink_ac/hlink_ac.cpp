@@ -60,7 +60,7 @@ namespace esphome
             if (this->available() > 2) {
                 uint8_t response_buffer[30] = {0};
                 int index = 0;
-                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 4000) {
+                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 30) {
                     this->read_byte(&response_buffer[++index]);
                 }
                 this->receiving_response_ = false;
