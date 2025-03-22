@@ -80,18 +80,18 @@ namespace esphome
             if (this->available() > 2) {
                 uint32_t started_millis = millis();
                 std::string response(30, '\0');
-                int index = 0;
+                int read_index = 0;
                 // Read response unless termination symbol or timeout
-                while (millis() - started_millis < timeout_ms || index < 30) {
-                    this->read_byte((uint8_t*)&response[index]);
-                    if (response[index] == CMD_TERMINATION_SYMBOL) {
+                while (millis() - started_millis < timeout_ms || read_index < 30) {
+                    this->read_byte((uint8_t*)&response[read_index]);
+                    if (response[read_index] == CMD_TERMINATION_SYMBOL) {
                         break;
                     }
-                    index++;
+                    read_index++;
                 }
-                ESP_LOGD(TAG, "Response: %s", response.substr(0, 12).c_str());
+                // ESP_LOGD(TAG, "Response: %s", response.substr(0, 12).c_str());
                 std::vector<std::string> response_tokens;
-                for (int i, last_space_i = 0; i < response.size(); i++) {
+                for (int i, last_space_i = 0; i < read_index - 1; i++) {
                     if (response[i] == ' ') {
                         response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
                         last_space_i = i + 1;
