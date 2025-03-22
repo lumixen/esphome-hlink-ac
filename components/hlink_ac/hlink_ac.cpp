@@ -78,15 +78,15 @@ namespace esphome
         bool HlinkAc::read_cmd_response_(uint32_t timeout_ms) {
             if (this->available() > 2) {
                 uint32_t started_millis = millis();
-                // uint8_t response_buffer[30] = {0};
                 std::string response(30, '\0');
                 int index = 0;
                 // Read response unless termination symbol or timeout
-                while (response[index] != CMD_TERMINATION_SYMBOL) {
-                    if (millis() - started_millis > timeout_ms) {
-                        return false;
-                    }
+                while (millis() - started_millis < timeout_ms) {
                     this->read_byte((uint8_t*)&response[index]);
+                    if (response[index] == CMD_TERMINATION_SYMBOL) {
+                        break;
+                    }
+                    index++;
                 }
                 std::string status = response.substr(0, 2);
                 ESP_LOGD(TAG, "Status: %s", status.c_str());
