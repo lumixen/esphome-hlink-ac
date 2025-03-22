@@ -24,12 +24,12 @@ namespace esphome
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
-            ESP_LOGCONFIG(TAG, "  Requested sequence: %d", this->requested_feature_);
+            ESP_LOGCONFIG(TAG, "  Requested feature: %d", this->requested_feature_);
         }
 
         void HlinkAc::request_status_update_()
         {
-            if (this->requested_feature_ != -1) {
+            if (this->requested_feature_ == -1) {
                 this->requested_feature_ = 0;
                 this->requested_update_ms = millis();
             }
