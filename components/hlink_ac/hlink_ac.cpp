@@ -88,8 +88,19 @@ namespace esphome
                     }
                     index++;
                 }
-                std::string status = response.substr(0, 2);
-                ESP_LOGD(TAG, "Status: %s", status.c_str());
+                std::vector<std::string> responseTokens;
+                for (int i = 0; i < response.size(); i++) {
+                    if (response[i] == ' ') {
+                        responseTokens.push_back(response.substr(0, i));
+                    }
+                }
+                if (responseTokens.size() < 2) {
+                    ESP_LOGW(TAG, "Invalid H-link AC response: %s", response.c_str());
+                    return false;
+                }
+                ESP_LOGD(TAG, "Status: %s", responseTokens[0].c_str());
+                ESP_LOGD(TAG, "P: %s", responseTokens[1].c_str());
+                ESP_LOGD(TAG, "C: %s", responseTokens[2].c_str());
                 return true;
             }
             return false;
