@@ -88,12 +88,13 @@ namespace esphome
                     }
                     index++;
                 }
-                // std::vector<std::string> responseTokens;
-                // for (int i = 0; i < response.size(); i++) {
-                //     if (response[i] == ' ') {
-                //         responseTokens.push_back(response.substr(0, i));
-                //     }
-                // }
+                std::vector<std::string> responseTokens;
+                for (int i, last_space_i = 0; i < response.size(); i++) {
+                    if (response[i] == ' ') {
+                        responseTokens.push_back(response.substr(last_space_i, i - last_space_i));
+                        last_space_i = i + 1;
+                    }
+                }
                 // if (responseTokens.size() < 2) {
                 //     ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
                 //     return false;
