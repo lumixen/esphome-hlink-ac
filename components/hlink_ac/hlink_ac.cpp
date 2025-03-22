@@ -97,13 +97,13 @@ namespace esphome
                         last_space_i = i + 1;
                     }
                 }
-                if (response_tokens.size() < 2) {
-                    ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
-                    return false;
-                }
                 ESP_LOGD(TAG, "Response tokens size: %d", response_tokens.size());
                 for (int i = 0; i < response_tokens.size(); i++) {
                     ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
+                }
+                if (response_tokens.size() != 3) {
+                    ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
+                    return false;
                 }
                 return true;
             }
