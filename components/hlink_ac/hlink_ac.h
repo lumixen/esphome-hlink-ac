@@ -25,7 +25,7 @@ namespace esphome
     protected:
       bool receiving_response_ = false;
       int8_t requested_feature_ = -1;
-      uint32_t requested_update_ms = 0;
+      uint32_t started_status_update_ms_ = 0;
       void request_status_update_();
       void write_cmd_request_(FeatureType feature_type);
       void read_status_(uint16_t timeout_ms);

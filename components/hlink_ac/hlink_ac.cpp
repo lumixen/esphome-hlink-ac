@@ -32,6 +32,7 @@ namespace esphome
         {
             if (this->requested_feature_ == -1) {
                 this->requested_feature_ = 0;
+                this->started_status_update_ms_ = millis();
             }
         }
 
@@ -51,6 +52,11 @@ namespace esphome
                 } else {
                     this->requested_feature_ = -1;
                 }
+            }
+
+            if (this->requested_feature_ != -1 && millis() - this->started_status_update_ms_ > 2000) {
+                this->requested_feature_ = -1;
+                this->receiving_response_ = false;
             }
             
         }
