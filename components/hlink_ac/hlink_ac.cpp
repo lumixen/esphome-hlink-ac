@@ -22,7 +22,7 @@ namespace esphome
         // static const std::map<uint32_t, 
     
         // AC status features
-        FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
+        FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, DEVICE_SN };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()

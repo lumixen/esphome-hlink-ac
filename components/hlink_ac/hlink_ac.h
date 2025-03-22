@@ -22,7 +22,8 @@ namespace esphome
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002
+      FAN_MODE = 0x0002,
+      DEVICE_SN = 0x0900
     };
 
     enum HlinkComponentState : uint8_t
