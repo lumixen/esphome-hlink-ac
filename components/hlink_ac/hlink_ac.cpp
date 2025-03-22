@@ -31,7 +31,7 @@ namespace esphome
         void HlinkAc::request_status_update_()
         {
             if (this->status_.state == PENDING) {
-                // Begin update sequence
+                // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
                 this->status_.requested_feature = 0;
                 this->status_.status_changed_at_ms = millis();
@@ -91,8 +91,8 @@ namespace esphome
                 }
                 // ESP_LOGD(TAG, "Response: %s", response.substr(0, 12).c_str());
                 std::vector<std::string> response_tokens;
-                for (int i, last_space_i = 0; i < read_index - 1; i++) {
-                    if (std::isspace(response[i])) {
+                for (int i = 0, last_space_i = 0; i < read_index - 1; i++) {
+                    if (response[i] == ' ') {
                         response_tokens.push_back(response.substr(last_space_i + 1, i - last_space_i));
                         last_space_i = i;
                     }
