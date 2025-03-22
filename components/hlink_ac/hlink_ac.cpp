@@ -89,26 +89,22 @@ namespace esphome
                     }
                     read_index++;
                 }
-                // ESP_LOGD(TAG, "Response: %s", response.substr(0, 12).c_str());
                 std::vector<std::string> response_tokens;
-                for (int i = 0, last_space_i = 0; i < response.size(); i++) {
+                for (int i = 0, last_space_i = 0; i < read_index; i++) {
                     if (response[i] == ' ' || response[i] == '\r') {
-                        response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
+                        uint8_t pos = last_space_i + (last_space_i > 0 ? 2 : 0); // Shift ahead to remove 'X=' from the tokens after initial OK/NG
+                        response_tokens.push_back(response.substr(pos, i - last_space_i));
                         last_space_i = i + 1;
                     }
                 }
-                // if (response_tokens.size() < 2) {
-                //     ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
-                //     return false;
-                // }
-                // Iterate and print tokens
+                if (response_tokens.size() < 2) {
+                    ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
+                    return false;
+                }
                 ESP_LOGD(TAG, "Response tokens size: %d", response_tokens.size());
                 for (int i = 0; i < response_tokens.size(); i++) {
                     ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
                 }
-                // ESP_LOGD(TAG, "Status: %s", response_tokens[0].c_str());
-                // ESP_LOGD(TAG, "P: %s", response_tokens[1].c_str());
-                // ESP_LOGD(TAG, "C: %s", response_tokens[2].c_str());
                 return true;
             }
             return false;
