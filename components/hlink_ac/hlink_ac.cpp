@@ -9,6 +9,7 @@ namespace esphome
     {
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
+        static const uint8_t STATUS_UPDATE_TIMEOUT = 100;
     
         // Status update AC features
         FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
@@ -31,25 +32,32 @@ namespace esphome
         {
             if (this->requested_feature_ == -1) {
                 this->requested_feature_ = 0;
-                this->requested_update_ms = millis();
             }
         }
 
         void HlinkAc::loop()
         {
             if (this->requested_feature_ != -1 && !this->receiving_response_) {
-                this->write_status_update_request_(features[this->requested_feature_]);
+                this->write_cmd_request_(features[this->requested_feature_]);
+                this->receiving_response_ = true;
             }
             
-            if (this->requested_feature_ != -1) {
-                this->read_status_update_();
+            if (this->receiving_response_) {
+                this->read_status_(10);
+                this->receiving_response_ = false;
+                // Request next feature from features sequence or reset to none if done
+                if (this->requested_feature_ + 1 < features_size) {
+                    this->requested_feature_++;
+                } else {
+                    this->requested_feature_ = -1;
+                }
             }
             
         }
         
-        void HlinkAc::write_status_update_request_(FeatureType feature_type) {
+        void HlinkAc::write_cmd_request_(FeatureType feature_type) {
             while (this->available()) {
-                // Reset uart buffer before requesting
+                // Reset uart buffer before requesting next cmd
                 this->read();
             }
             uint16_t p_value = feature_type;
@@ -57,23 +65,16 @@ namespace esphome
             char buf[18] = {0};
             int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
             this->write_str(buf);
-            this->receiving_response_ = true;
         }
 
-        void HlinkAc::read_status_update_() {
+        void HlinkAc::read_status_(uint16_t timeout_ms) {
             if (this->available() > 2) {
+                uint32_t started_millis = millis();
                 uint8_t response_buffer[30] = {0};
                 int index = 0;
                 // Read response unless termination symbol or timeout
-                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 50) {
+                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - started_millis < timeout_ms) {
                     this->read_byte(&response_buffer[++index]);
-                }
-                this->receiving_response_ = false;
-                // Request next feature from features sequence or reset to none if done
-                if (this->requested_feature_ + 1 < features_size && millis() - requested_update_ms < 50) {
-                    this->requested_feature_++;
-                } else {
-                    this->requested_feature_ = -1;
                 }
             }
         }
