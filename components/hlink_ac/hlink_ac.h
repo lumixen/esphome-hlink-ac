@@ -10,7 +10,8 @@ namespace esphome
     enum FeatureType : uint16_t {
       POWER_STATE = 0x0000,
       MODE = 0x0001,
-      TARGET_TEMP = 0x0003
+      TARGET_TEMP = 0x0003,
+      DEVICE_SN = 0x0900
     };
 
     class HlinkAc : public Component, public uart::UARTDevice
