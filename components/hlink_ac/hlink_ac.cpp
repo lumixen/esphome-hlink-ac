@@ -20,7 +20,7 @@ namespace esphome
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
             ESP_LOGCONFIG(TAG, "  Requested update: %s", this->requested_update_ ? "true" : "false");
-            ESP_LOGCONFIG(TAG, "  Requested address: %d", this->requested_sequence_number_);
+            ESP_LOGCONFIG(TAG, "  Requested sequence: %d", this->requested_sequence_number_);
         }
 
         void HlinkAc::request_status_update_()
@@ -41,9 +41,21 @@ namespace esphome
             }
             
             if (this->requested_sequence_number_ != -1 && this->available() > 0) {
-                uint8_t response_buffer[20];
-                int length = this->read_array(response_buffer, sizeof(response_buffer));
-                ESP_LOGD(TAG, "Response: %s", response_buffer);
+                const int MAX_BUFFER_SIZE = 30;  // Define max buffer size
+                uint8_t response_buffer[MAX_BUFFER_SIZE] = {0};  // Fixed-size buffer
+                int index = 0;
+            
+                while (this->available() > 0 && index < MAX_BUFFER_SIZE - 1) {  
+                    uint8_t byte = this->read();  // Read one byte
+                    response_buffer[index++] = byte;
+            
+                    if (byte == 0x0D) {  // Stop reading when stop byte (0x0D) is encountered
+                        break;
+                    }
+                }
+
+                response_buffer[index] = '\0';  // Null-terminate for logging
+                ESP_LOGD(TAG, "Response: %s", reinterpret_cast<char*>(response_buffer));
                 this->requested_sequence_number_ = -1;
                 this->requested_update_ = false;
             }
