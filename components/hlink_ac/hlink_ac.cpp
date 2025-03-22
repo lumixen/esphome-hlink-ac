@@ -59,6 +59,7 @@ namespace esphome
             
             if (this->status_.state != PENDING && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT) {
                 this->status_.state = PENDING;
+                ESP_LOGW(TAG, "Reached timeout while updating H-link AC status.");
             }
         }
         
