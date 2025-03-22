@@ -81,7 +81,7 @@ namespace esphome
                 uint32_t started_millis = millis();
                 std::string response(30, '\0');
                 int read_index = 0;
-                // Read response unless termination symbol or timeout
+                // Read response unless carriage return symbol or timeout
                 while (millis() - started_millis < timeout_ms || read_index < 30) {
                     this->read_byte((uint8_t*)&response[read_index]);
                     if (response[read_index] == CMD_TERMINATION_SYMBOL) {
@@ -90,7 +90,7 @@ namespace esphome
                     read_index++;
                 }
                 std::vector<std::string> response_tokens;
-                for (int i = 0, last_space_i = 0; i < read_index; i++) {
+                for (int i = 0, last_space_i = 0; i <= read_index; i++) {
                     if (response[i] == ' ' || response[i] == '\r') {
                         uint8_t pos_shift = last_space_i > 0 ? 2 : 0; // Shift ahead to remove 'X=' from the tokens after initial OK/NG
                         response_tokens.push_back(response.substr(last_space_i + pos_shift, i - last_space_i - pos_shift));
