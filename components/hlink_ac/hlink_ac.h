@@ -15,6 +15,19 @@ namespace esphome
       FAN_MODE = 0x0002
     };
 
+    enum State : uint8_t {
+      PENDING,
+      REQUEST_NEXT_FEATURE,
+      READ_NEXT_FEATURE,
+    };
+
+    struct HlinkAcStatus {
+      State state = PENDING;
+      uint16_t status_changed_at_ms = 0;
+      int8_t requested_feature = 0;
+    };
+    
+
     class HlinkAc : public Component, public uart::UARTDevice
     {
     public:
@@ -23,12 +36,10 @@ namespace esphome
       void dump_config() override;
 
     protected:
-      bool receiving_response_ = false;
-      int8_t requested_feature_ = -1;
-      uint32_t started_status_update_ms_ = 0;
+      HlinkAcStatus status_ = HlinkAcStatus();
       void request_status_update_();
       void write_cmd_request_(FeatureType feature_type);
-      void read_status_(uint16_t timeout_ms);
+      bool read_status_(uint16_t timeout_ms);
     };
   }
 }

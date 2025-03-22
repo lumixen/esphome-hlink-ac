@@ -9,7 +9,7 @@ namespace esphome
     {
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
-        static const uint8_t STATUS_UPDATE_TIMEOUT = 100;
+        static const uint16_t STATUS_UPDATE_TIMEOUT = 1000;
     
         // Status update AC features
         FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
@@ -25,40 +25,41 @@ namespace esphome
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
-            ESP_LOGCONFIG(TAG, "  Requested feature: %d", this->requested_feature_);
+            ESP_LOGCONFIG(TAG, "  Requested feature: %d", this->requested_feature);
         }
 
         void HlinkAc::request_status_update_()
         {
-            if (this->requested_feature_ == -1) {
-                this->requested_feature_ = 0;
-                this->started_status_update_ms_ = millis();
+            if (this->status_.state == PENDING) {
+                // Begin update sequence
+                this->status_.state = REQUEST_NEXT_FEATURE;
+                this->status_.requested_feature = 0;
+                this->status_.status_changed_at_ms = millis();
             }
         }
 
         void HlinkAc::loop()
         {
-            if (this->requested_feature_ != -1 && !this->receiving_response_) {
-                this->write_cmd_request_(features[this->requested_feature_]);
-                this->receiving_response_ = true;
-            }
-            
-            if (this->receiving_response_) {
-                this->read_status_(10);
-                this->receiving_response_ = false;
-                // Request next feature from features sequence or reset to none if done
-                if (this->requested_feature_ + 1 < features_size) {
-                    this->requested_feature_++;
-                } else {
-                    this->requested_feature_ = -1;
-                }
+            if (this->status_.state != PENDING && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT) {
+                this->status_.state = PENDING;
+                return;
             }
 
-            if (this->requested_feature_ != -1 && millis() - this->started_status_update_ms_ > 2000) {
-                this->requested_feature_ = -1;
-                this->receiving_response_ = false;
+            if (this->status_.state = REQUEST_NEXT_FEATURE) {
+                this->write_cmd_request_(features[this->status_.requested_feature]);
+                this->status_.state = READ_NEXT_FEATURE;
             }
             
+            if (this->status_.state == READ_NEXT_FEATURE) {
+                bool success = this->read_status_(10);
+                if (success) {
+                    if (this->status_.requested_feature + 1 < features_size) {
+                        this->status_.requested_feature++;
+                    } else {
+                        this->status_.state = PENDING;
+                    }
+                }
+            }       
         }
         
         void HlinkAc::write_cmd_request_(FeatureType feature_type) {
@@ -73,16 +74,21 @@ namespace esphome
             this->write_str(buf);
         }
 
-        void HlinkAc::read_status_(uint16_t timeout_ms) {
+        bool HlinkAc::read_status_(uint16_t timeout_ms) {
             if (this->available() > 2) {
                 uint32_t started_millis = millis();
                 uint8_t response_buffer[30] = {0};
                 int index = 0;
                 // Read response unless termination symbol or timeout
-                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - started_millis < timeout_ms) {
+                while (response_buffer[index] != CMD_TERMINATION_SYMBOL) {
+                    if (millis() - started_millis > timeout_ms) {
+                        return false;
+                    }
                     this->read_byte(&response_buffer[++index]);
                 }
+                return true;
             }
+            return false;
         }
     }
 }
