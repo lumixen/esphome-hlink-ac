@@ -36,12 +36,10 @@ namespace esphome
                 char buf[20] = {0};
                 int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
                 this->write_str(buf);
-                // ESP_LOGD(TAG, "Wrote: %.*s", size, buf);
                 this->requested_sequence_number_ = 1;
-                return;
             }
             
-            if (this->requested_sequence_number_ != -1 && this->available() > 0) {
+            if (this->requested_sequence_number_ != -1 && this->available() > 2) {
                 const int MAX_BUFFER_SIZE = 30;  // Define max buffer size
                 uint8_t response_buffer[MAX_BUFFER_SIZE] = {0};  // Fixed-size buffer
                 int index = 0;
@@ -53,10 +51,6 @@ namespace esphome
                     }
                     index++;
                 }
-
-                response_buffer[++index] = '\0';  // Null-terminate for logging
-                // ESP_LOGD(TAG, "Read %d bytes", index);
-                // ESP_LOGD(TAG, "Response: %s", response_buffer);
                 this->requested_sequence_number_ = -1;
                 this->requested_update_ = false;
             }
