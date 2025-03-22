@@ -93,8 +93,8 @@ namespace esphome
                 std::vector<std::string> response_tokens;
                 for (int i, last_space_i = 0; i < read_index - 1; i++) {
                     if (response[i] == ' ') {
-                        response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
-                        last_space_i = i + 1;
+                        response_tokens.push_back(response.substr(last_space_i + 1, i - last_space_i));
+                        last_space_i = i;
                     }
                 }
                 // if (response_tokens.size() < 2) {
@@ -102,6 +102,7 @@ namespace esphome
                 //     return false;
                 // }
                 // Iterate and print tokens
+                ESP_LOGD(TAG, "Response tokens size: %d", response_tokens.size());
                 for (int i = 0; i < response_tokens.size(); i++) {
                     ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
                 }
