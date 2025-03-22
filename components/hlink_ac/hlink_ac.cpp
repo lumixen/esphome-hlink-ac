@@ -84,6 +84,7 @@ namespace esphome
                 // Read response unless termination symbol or timeout
                 while (millis() - started_millis < timeout_ms || index < 30) {
                     this->read_byte((uint8_t*)&response[index]);
+                    ESP_LOGD(TAG, "Response char: %c", response[index]);
                     if (response[index] == CMD_TERMINATION_SYMBOL) {
                         break;
                     }
@@ -91,7 +92,6 @@ namespace esphome
                 }
                 std::vector<std::string> response_tokens;
                 for (int i, last_space_i = 0; i < response.size(); i++) {
-                    ESP_LOGD(TAG, "Response char: %c", response[i]);
                     if (response[i] == ' ') {
                         response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
                         last_space_i = i + 1;
