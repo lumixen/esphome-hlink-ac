@@ -40,11 +40,6 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            if (this->status_.state != PENDING && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT) {
-                this->status_.state = PENDING;
-                return;
-            }
-
             if (this->status_.state = REQUEST_NEXT_FEATURE) {
                 this->write_cmd_request_(features[this->status_.requested_feature]);
                 this->status_.state = READ_NEXT_FEATURE;
@@ -60,7 +55,11 @@ namespace esphome
                         this->status_.state = PENDING;
                     }
                 }
-            }       
+            }
+            
+            if (this->status_.state != PENDING && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT) {
+                this->status_.state = PENDING;
+            }
         }
         
         void HlinkAc::write_cmd_request_(FeatureType feature_type) {
