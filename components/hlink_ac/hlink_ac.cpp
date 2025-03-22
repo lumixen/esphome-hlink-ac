@@ -34,10 +34,9 @@ namespace esphome
                 uint16_t p_value = 1;
                 uint16_t c_value = p_value ^ 0xFFFF;
                 char buf[20] = {0};
-                char test[] = "ASDASSDASD";
                 int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
                 this->write_str(buf);
-                ESP_LOGD(TAG, "Wrote: %.*s", 14, buf);
+                ESP_LOGD(TAG, "Wrote: %.*s", size, buf);
                 this->requested_sequence_number_ = 1;
                 return;
             }
