@@ -10,6 +10,7 @@ namespace esphome
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
     
+        // Requested AC features for status update
         FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
@@ -52,7 +53,7 @@ namespace esphome
             char buf[18] = {0};
             int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
             this->write_str(buf);
-            // ESP_LOGD(TAG, "Requested address %04X", p_value);
+            this->receiving_response_ = true;
         }
 
         void HlinkAc::read_status_update_() {
@@ -62,11 +63,12 @@ namespace esphome
                 while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 4000) {
                     this->read_byte(&response_buffer[++index]);
                 }
+                this->receiving_response_ = false;
                 // Request next feature from features sequence or reset to none if done
-                if (this->requested_feature_ + 1 >= features_size) {
-                    this->requested_feature_ = -1;
-                } else {
+                if (this->requested_feature_ + 1 < features_size) {
                     this->requested_feature_++;
+                } else {
+                    this->requested_feature_ = -1;
                 }
             }
         }
