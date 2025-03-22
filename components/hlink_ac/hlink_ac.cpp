@@ -40,13 +40,13 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            if (this->status_.state = REQUEST_NEXT_FEATURE) {
+            if (this->status_.state == REQUEST_NEXT_FEATURE) {
                 this->write_cmd_request_(features[this->status_.requested_feature]);
                 this->status_.state = READ_NEXT_FEATURE;
             }
             
             if (this->status_.state == READ_NEXT_FEATURE) {
-                bool success = this->read_status_(50);
+                bool success = this->read_cmd_response_(50);
                 if (success) {
                     if (this->status_.requested_feature + 1 < features_size) {
                         this->status_.state = REQUEST_NEXT_FEATURE;
@@ -74,7 +74,7 @@ namespace esphome
             this->write_str(buf);
         }
 
-        bool HlinkAc::read_status_(uint32_t timeout_ms) {
+        bool HlinkAc::read_cmd_response_(uint32_t timeout_ms) {
             if (this->available() > 2) {
                 uint32_t started_millis = millis();
                 uint8_t response_buffer[30] = {0};
