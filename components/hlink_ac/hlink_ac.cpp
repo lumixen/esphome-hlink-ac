@@ -38,7 +38,7 @@ namespace esphome
         void HlinkAc::loop()
         {
             if (this->requested_feature_ != -1 && !this->receiving_response_) {
-                this->send_status_update_request_(features[this->requested_feature_]);
+                this->write_status_update_request_(features[this->requested_feature_]);
             }
             
             if (this->requested_feature_ != -1) {
@@ -47,7 +47,11 @@ namespace esphome
             
         }
         
-        void HlinkAc::send_status_update_request_(FeatureType feature_type) {
+        void HlinkAc::write_status_update_request_(FeatureType feature_type) {
+            while (this->available()) {
+                // Reset uart buffer before requesting
+                this->read();
+            }
             uint16_t p_value = feature_type;
             uint16_t c_value = p_value ^ 0xFFFF; // Calculate checksum
             char buf[18] = {0};
@@ -60,12 +64,13 @@ namespace esphome
             if (this->available() > 2) {
                 uint8_t response_buffer[30] = {0};
                 int index = 0;
-                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 30) {
+                // Read response unless termination symbol or timeout
+                while (response_buffer[index] != CMD_TERMINATION_SYMBOL && millis() - requested_update_ms < 50) {
                     this->read_byte(&response_buffer[++index]);
                 }
                 this->receiving_response_ = false;
                 // Request next feature from features sequence or reset to none if done
-                if (this->requested_feature_ + 1 < features_size) {
+                if (this->requested_feature_ + 1 < features_size && millis() - requested_update_ms < 50) {
                     this->requested_feature_++;
                 } else {
                     this->requested_feature_ = -1;

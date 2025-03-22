@@ -27,7 +27,7 @@ namespace esphome
       int8_t requested_feature_ = -1;
       uint32_t requested_update_ms = 0;
       void request_status_update_();
-      void send_status_update_request_(FeatureType feature_type);
+      void write_status_update_request_(FeatureType feature_type);
       void read_status_update_();
     };
   }
