@@ -91,7 +91,7 @@ namespace esphome
                 }
                 // ESP_LOGD(TAG, "Response: %s", response.substr(0, 12).c_str());
                 std::vector<std::string> response_tokens;
-                for (int i = 0, last_space_i = 0; i < read_index - 1; i++) {
+                for (int i = 0, last_space_i = 0; i < response.size(); i++) {
                     if (response[i] == ' ' || response[i] == '\r') {
                         response_tokens.push_back(response.substr(last_space_i, i - last_space_i));
                         last_space_i = i + 1;
