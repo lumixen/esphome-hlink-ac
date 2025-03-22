@@ -9,7 +9,8 @@ namespace esphome
     {
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
-        static const uint16_t STATUS_UPDATE_TIMEOUT = 1000;
+        static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
+        static const uint32_t STATUS_UPDATE_TIMEOUT = 1000;
     
         // Status update AC features
         FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
@@ -17,7 +18,7 @@ namespace esphome
 
         void HlinkAc::setup()
         {
-            this->set_interval(6500, [this] { this->request_status_update_(); });
+            this->set_interval(STATUS_UPDATE_INTERVAL, [this] { this->request_status_update_(); });
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
