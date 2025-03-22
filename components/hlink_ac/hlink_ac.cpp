@@ -37,7 +37,7 @@ namespace esphome
                 char test[] = "ASDASSDASD";
                 int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
                 this->write_str(buf);
-                ESP_LOGD(TAG, "Wrote: %s", test);
+                ESP_LOGD(TAG, "Wrote: %.*s", 14, buf);
                 this->requested_sequence_number_ = 1;
                 return;
             }
