@@ -36,7 +36,7 @@ namespace esphome
                 char buffer[20];
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                ESP_LOGD(TAG, "Wrote", buffer);
+                ESP_LOGD(TAG, "Wrote: %s", buffer);
                 // ESP_LOGD(TAG, "Wrote: %s", buffer);
                 this->requested_sequence_number_ = 1;
                 return;
