@@ -10,7 +10,7 @@ namespace esphome
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
         static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
-        static const uint32_t STATUS_UPDATE_TIMEOUT = 1000;
+        static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
     
         // Status update AC features
         FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
@@ -51,7 +51,7 @@ namespace esphome
             }
             
             if (this->status_.state == READ_NEXT_FEATURE) {
-                bool success = this->read_status_(10);
+                bool success = this->read_status_(50);
                 if (success) {
                     if (this->status_.requested_feature + 1 < features_size) {
                         this->status_.state = REQUEST_NEXT_FEATURE;
@@ -75,7 +75,7 @@ namespace esphome
             this->write_str(buf);
         }
 
-        bool HlinkAc::read_status_(uint16_t timeout_ms) {
+        bool HlinkAc::read_status_(uint32_t timeout_ms) {
             if (this->available() > 2) {
                 uint32_t started_millis = millis();
                 uint8_t response_buffer[30] = {0};

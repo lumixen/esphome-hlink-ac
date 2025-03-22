@@ -39,7 +39,7 @@ namespace esphome
       HlinkAcStatus status_ = HlinkAcStatus();
       void request_status_update_();
       void write_cmd_request_(FeatureType feature_type);
-      bool read_status_(uint16_t timeout_ms);
+      bool read_status_(uint32_t timeout_ms);
     };
   }
 }
