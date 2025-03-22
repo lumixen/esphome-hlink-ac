@@ -96,13 +96,17 @@ namespace esphome
                         last_space_i = i + 1;
                     }
                 }
-                if (response_tokens.size() < 2) {
-                    ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
-                    return false;
+                // if (response_tokens.size() < 2) {
+                //     ESP_LOGW(TAG, "Invalid H-link response: %s", response.c_str());
+                //     return false;
+                // }
+                // Iterate and print tokens
+                for (int i = 0; i < response_tokens.size(); i++) {
+                    ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
                 }
-                ESP_LOGD(TAG, "Status: %s", response_tokens[0].c_str());
-                ESP_LOGD(TAG, "P: %s", response_tokens[1].c_str());
-                ESP_LOGD(TAG, "C: %s", response_tokens[2].c_str());
+                // ESP_LOGD(TAG, "Status: %s", response_tokens[0].c_str());
+                // ESP_LOGD(TAG, "P: %s", response_tokens[1].c_str());
+                // ESP_LOGD(TAG, "C: %s", response_tokens[2].c_str());
                 return true;
             }
             return false;
