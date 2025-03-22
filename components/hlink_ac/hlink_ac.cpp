@@ -36,7 +36,7 @@ namespace esphome
                 char buffer[20];
                 sprintf(buffer, "MT P=%04X C=%04X\x0D\x00", p_value, c_value);
                 this->write_str(buffer);
-                ESP_LOGD(TAG, "Wrote: %s", reinterpret_cast<char*>(buffer));
+                ESP_LOGD(TAG, "Wrote: %s", 20, buffer);
                 this->requested_sequence_number_ = 1;
                 return;
             }
@@ -56,7 +56,7 @@ namespace esphome
                 }
 
                 response_buffer[index] = '\0';  // Null-terminate for logging
-                ESP_LOGD(TAG, "Response: %s", reinterpret_cast<char*>(response_buffer));
+                ESP_LOGD(TAG, "Response: %s", MAX_BUFFER_SIZE, response_buffer);
                 this->requested_sequence_number_ = -1;
                 this->requested_update_ = false;
             }
