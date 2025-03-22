@@ -11,7 +11,8 @@ namespace esphome
       POWER_STATE = 0x0000,
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
-      DEVICE_SN = 0x0900
+      SWING_MODE = 0x0014,
+      FAN_MODE = 0x0002
     };
 
     class HlinkAc : public Component, public uart::UARTDevice

@@ -10,8 +10,8 @@ namespace esphome
         static const char *const TAG = "hlink_ac";
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
     
-        // Requested AC features for status update
-        FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, DEVICE_SN };
+        // Status update AC features
+        FeatureType features[] = { POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
