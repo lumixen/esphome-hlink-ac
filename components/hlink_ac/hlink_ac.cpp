@@ -131,10 +131,12 @@ namespace esphome
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
-                if (response.p_value == 0x0010) {
+                if (response.p_value == 0x0010 || response.p_value == 0x8010) {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
-                } else if (response.p_value == 0x0040) {
+                } else if (response.p_value == 0x0040 || response.p_value == 0x8040) {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
+                } else if (response.p_value == 0x0050) {
+                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
