@@ -114,7 +114,12 @@ namespace esphome
                 this->hvac_status_.power_state = response.p_value;
                 break;
             case FeatureType::MODE:
-                if (!this->hvac_status_.power_state) {
+                if (!this->hvac_status_.power_state.has_value()) {
+                    ESP_LOGW(TAG, "Can't handle climate mode response without power state data");
+                    break;
+                }
+                if (!this->hvac_status_.power_state.value()) {
+                    // Climate mode should be off when device is turned off
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
@@ -180,7 +185,6 @@ namespace esphome
                 }
                 if (should_publish) {
                     this->publish_state();
-                    ESP_LOGD(TAG, "Published climate updates. Target temp: %f, Mode: %d, Fan mode: %d, Swing mode: %d", this->target_temperature, this->mode, this->fan_mode, this->swing_mode);
                 }
             }
         }
