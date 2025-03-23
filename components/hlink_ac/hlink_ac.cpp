@@ -1,5 +1,3 @@
-#include <sstream>
-#include <iomanip>
 #include "esphome/core/log.h"
 #include "hlink_ac.h"
 
@@ -13,8 +11,8 @@ namespace esphome
         static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
         static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 
-        const HlinkResponse HLINK_RESPONSE_NOTHING = {HlinkResponse::Status::PROCESSING};
-        const HlinkResponse HLINK_RESPONSE_INVALID = {HlinkResponse::Status::INVALID};
+        const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::PROCESSING};
+        const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
 
         static const std::string OK_TOKEN = "OK";
         static const std::string NG_TOKEN = "NG";
@@ -22,7 +20,7 @@ namespace esphome
         // static const std::map<uint32_t,
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, DEVICE_SN};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
@@ -58,10 +56,10 @@ namespace esphome
 
             if (this->status_.state == READ_NEXT_FEATURE)
             {
-                HlinkResponse response = this->read_cmd_response_(50);
+                HlinkResponseFrame response = this->read_cmd_response_(50);
                 switch (response.status)
                 {
-                case HlinkResponse::Status::OK:
+                case HlinkResponseFrame::Status::OK:
                     if (this->status_.requested_feature + 1 < features_size)
                     {
                         this->status_.state = REQUEST_NEXT_FEATURE;
@@ -72,23 +70,13 @@ namespace esphome
                         this->status_.state = IDLE;
                     }
                     break;
-                case HlinkResponse::Status::NG:
+                case HlinkResponseFrame::Status::INVALID:
+                case HlinkResponseFrame::Status::NG:
                     this->status_.state = IDLE;
                 }
-
-                // if (response.status == HlinkResponse::Status::OK) {
-                //     if (this->status_.requested_feature + 1 < features_size) {
-                //         this->status_.state = REQUEST_NEXT_FEATURE;
-                //         this->status_.requested_feature++;
-                //     } else {
-                //         this->status_.state = IDLE;
-                //     }
-                // } else if (response.status == HlinkResponse::Status::NG) {
-                //     this->status_.state = IDLE;
-                // }
             }
 
-            // Reset update status if we reached timeout
+            // Reset status to IDLE if we reached timeout deadline
             if (this->status_.state != IDLE && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT)
             {
                 this->status_.state = IDLE;
@@ -103,14 +91,71 @@ namespace esphome
                 // Reset uart buffer before requesting next cmd
                 this->read();
             }
-            uint16_t p_value = feature_type;
-            uint16_t c_value = p_value ^ 0xFFFF; // Calculate checksum
-            char buf[18] = {0};
-            int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
-            this->write_str(buf);
+            write_hlink_frame_({
+                HlinkRequestFrame::Type::MT, 
+                { feature_type }
+            });
+
+            // uint16_t p_value = feature_type;
+            // uint16_t c_value = p_value ^ 0xFFFF; // Calculate checksum
+            // char buf[18] = {0};
+            // int size = sprintf(buf, "MT P=%04X C=%04X\x0D", p_value, c_value);
+            // this->write_str(buf);
         }
 
-        HlinkResponse HlinkAc::read_cmd_response_(uint32_t timeout_ms)
+        void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
+        {
+            const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
+            uint8_t message_size = 17;
+            if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS) {
+                message_size = 20;
+            } else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS) {
+                message_size = 22;
+            }
+            char message_buf[message_size] = {0};
+            uint16_t checksum = frame.p.first + frame.p.secondary.value_or(0) ^ 0xFFFF;
+            if (message_size == 17) {
+                sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
+            } else if (message_size == 20) {
+                sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
+            } else if (message_size == 22){
+                sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
+            }
+
+            // std::string request = frame.type == HlinkRequestFrame::Type::MT ? "MT P=" : "ST P=";
+            // char program_first[4]; 
+            // sprintf(program_first, "%04X", frame.p.first);
+            // request.append(program_first);
+            // if (frame.p.secondary.has_value()) {
+            //     if (frame.p.secondary_format.value() == HlinkRequestFrame::SecondaryProgramAttributeFormat::TWO_DIGITS) {
+            //         char program_second[2];
+            //         sprintf(program_second, ",%02X", frame.p.secondary.value());
+            //         request.append(program_second);
+            //     } else {
+            //         char program_second[4];
+            //         sprintf(program_second, ",%04X", frame.p.secondary.value());
+            //         request.append(program_second);
+            //     }
+            //     request.append(program_first);
+            // }
+            // uint16_t checksum = frame.p.first^ 0xFFFF
+
+
+            // char program
+            // if (frame.p.secondary.has_value())
+            // // char buf[30] = {0};
+
+            // request.append(std::to_string(frame.p.first));
+            // int size = sprintf(buf, "ST P=%04X,%04X C=%04X\x0D", 
+            //                    frame.p.first, frame.p.secondary.value_or(0), 
+            //                    frame.p.first ^ 0xFFFF);
+            this->write_str(message_buf);
+            // char buf[18] = {0};
+            // int size = sprintf(buf, "MT P=%04X C=%04X\x0D", frame.p_value, frame.p_value ^ 0xFFFF);
+            // this->write_str(buf);
+        }
+
+        HlinkResponseFrame HlinkAc::read_cmd_response_(uint32_t timeout_ms)
         {
             if (this->available() > 2)
             {
@@ -147,14 +192,14 @@ namespace esphome
                     return HLINK_RESPONSE_INVALID;
                 }
 
-                HlinkResponse::Status status;
+                HlinkResponseFrame::Status status;
                 if (response_tokens[0] == OK_TOKEN)
                 {
-                    status = HlinkResponse::Status::OK;
+                    status = HlinkResponseFrame::Status::OK;
                 }
                 else if (response_tokens[0] == NG_TOKEN)
                 {
-                    status = HlinkResponse::Status::NG;
+                    status = HlinkResponseFrame::Status::NG;
                 }
                 else
                 {
@@ -162,7 +207,7 @@ namespace esphome
                 }
                 uint32_t p_value = std::stoi(response_tokens[1], nullptr, 16);
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
-                ESP_LOGD(TAG, "Received H-link response. Status: %s, P: %04X, C: %04X", status == HlinkResponse::Status::OK ? "OK" : "NG", p_value, checksum);
+                ESP_LOGD(TAG, "Received H-link response. Status: %s, P: %04X, C: %04X", status == HlinkResponseFrame::Status::OK ? "OK" : "NG", p_value, checksum);
                 return {status, p_value, checksum};
             }
             return HLINK_RESPONSE_NOTHING;

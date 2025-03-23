@@ -11,8 +11,12 @@ namespace esphome
 
     struct DeviceStatus
     {
-      bool *power_state = nullptr;
-      uint16_t *target_temperature = nullptr;
+      esphome::optional<float> target_temperature;
+      // esphome::optional<esphome::climate::ClimateMode> mode;
+      // esphome::optional<esphome::climate::ClimateFanMode> fan_mode;
+      // esphome::optional<esphome::climate::ClimateSwingMode> swing_mode;
+      // bool *power_state = nullptr;
+      // uint16_t *target_temperature = nullptr;
       // climate::ClimateSwingMode swing_mode,
     };
 
@@ -22,8 +26,7 @@ namespace esphome
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002,
-      DEVICE_SN = 0x0900
+      FAN_MODE = 0x0002
     };
 
     enum HlinkComponentState : uint8_t
@@ -35,7 +38,29 @@ namespace esphome
       PUBLISH_CLIMATE_UPDATE
     };
 
-    struct HlinkResponse
+    struct HlinkRequestFrame
+    {
+      enum class Type
+      {
+        MT,
+        ST
+      };
+      enum class AttributeFormat
+      {
+        TWO_DIGITS,
+        FOUR_DIGITS
+      };
+      struct ProgramPayload
+      {
+        uint16_t first;
+        esphome::optional<uint16_t> secondary;
+        esphome::optional<AttributeFormat> secondary_format;
+
+      };
+      Type type;
+      ProgramPayload p;
+    };
+    struct HlinkResponseFrame
     {
       enum class Status
       {
@@ -68,7 +93,8 @@ namespace esphome
       DeviceStatus device_status_ = DeviceStatus();
       void request_status_update_();
       void write_cmd_request_(FeatureType feature_type);
-      HlinkResponse read_cmd_response_(uint32_t timeout_ms);
+      void write_hlink_frame_(HlinkRequestFrame frame);
+      HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
     };
   }
 }
