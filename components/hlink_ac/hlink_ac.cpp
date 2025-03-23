@@ -18,7 +18,7 @@ namespace esphome
         static const std::string NG_TOKEN = "NG";
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP, DEVICE_SN};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
@@ -34,12 +34,12 @@ namespace esphome
         {
             ESP_LOGCONFIG(TAG, "Hlink AC:");
             ESP_LOGCONFIG(TAG, "  Power state: %s", this->hvac_status_.power_state.has_value() ? this->hvac_status_.power_state.value() ? "ON" : "OFF" : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Mode: %s", this->hvac_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hvac_status_.mode.value())) : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hvac_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hvac_status_.fan_mode.value())) : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hvac_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hvac_status_.swing_mode.value())) : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Current temperature: '%s'", this->hvac_status_.current_temperature.has_value() ? std::to_string(this->hvac_status_.current_temperature.value()).c_str() : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Target temperature: '%s'", this->hvac_status_.target_temperature.has_value() ? std::to_string(this->hvac_status_.target_temperature.value()).c_str() : "N/A");
-            // ESP_LOGCONFIG(TAG, "  Device SN: '%s'", this->hvac_status_.device_sn.has_value() ? std::to_string(this->hvac_status_.device_sn.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Mode: %s", this->hvac_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hvac_status_.mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hvac_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hvac_status_.fan_mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hvac_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hvac_status_.swing_mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Current temperature: '%s'", this->hvac_status_.current_temperature.has_value() ? std::to_string(this->hvac_status_.current_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Target temperature: '%s'", this->hvac_status_.target_temperature.has_value() ? std::to_string(this->hvac_status_.target_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Device SN: '%s'", this->hvac_status_.device_sn.has_value() ? std::to_string(this->hvac_status_.device_sn.value()).c_str() : "N/A");
         }
 
         void HlinkAc::test_st_()
