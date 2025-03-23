@@ -18,7 +18,7 @@ namespace esphome
         static const std::string NG_TOKEN = "NG";
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP, DEVICE_SN};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
@@ -245,7 +245,6 @@ namespace esphome
             {
                 uint32_t started_millis = millis();
                 std::string response_buf(40, '\0');
-                // response_buf.reserve(40);
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or reasonable buffer size
                 while (millis() - started_millis < timeout_ms || read_index < 40)
