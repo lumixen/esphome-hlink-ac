@@ -245,10 +245,10 @@ namespace esphome
             {
                 uint32_t started_millis = millis();
                 std::string response_buf;
-                response_buf.reserve(30);
+                response_buf.reserve(40);
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or reasonable buffer size
-                while (millis() - started_millis < timeout_ms || read_index < 120)
+                while (millis() - started_millis < timeout_ms || read_index < 40)
                 {
                     this->read_byte((uint8_t *)&response_buf[read_index]);
                     if (response_buf[read_index] == CMD_TERMINATION_SYMBOL)
