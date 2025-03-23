@@ -39,7 +39,6 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hvac_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hvac_status_.swing_mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hvac_status_.current_temperature.has_value() ? std::to_string(this->hvac_status_.current_temperature.value()).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hvac_status_.target_temperature.has_value() ? std::to_string(this->hvac_status_.target_temperature.value()).c_str() : "N/A");
-            ESP_LOGCONFIG(TAG, "  Device SN: %s", this->hvac_status_.device_sn.has_value() ? std::to_string(this->hvac_status_.device_sn.value()).c_str() : "N/A");
         }
 
         void HlinkAc::test_st_()
@@ -243,11 +242,12 @@ namespace esphome
         {
             if (this->available())
             {
+                const uint8_t buffer_size = 35;
                 uint32_t started_millis = millis();
-                std::string response_buf(40, '\0');
+                std::string response_buf(buffer_size, '\0');
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or reasonable buffer size
-                while (millis() - started_millis < timeout_ms || read_index < 40)
+                while (millis() - started_millis < timeout_ms || read_index < buffer_size)
                 {
                     this->read_byte((uint8_t *)&response_buf[read_index]);
                     if (response_buf[read_index] == CMD_TERMINATION_SYMBOL)
