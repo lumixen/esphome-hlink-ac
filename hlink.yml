@@ -4,6 +4,9 @@ esphome:
 external_components:
   - source: components
 
+logger:
+  level: DEBUG
+
 esp32:
   board: lolin_d32
   framework:
