@@ -18,6 +18,7 @@ uart:
 
 climate:
   - platform: hlink_ac
-    id: test_hlink_ac
+    name: "Test H-Link AC"
+    # id: test_hlink_ac
 
 # hlink_ac:

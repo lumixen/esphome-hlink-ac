@@ -307,8 +307,7 @@ namespace esphome
             });
             traits.set_supported_swing_modes({
                 climate::CLIMATE_SWING_OFF,
-                climate::CLIMATE_SWING_VERTICAL,
-                climate::CLIMATE_SWING_HORIZONTAL});
+                climate::CLIMATE_SWING_VERTICAL});
             traits.set_supports_current_temperature(true);
             return traits;
         }
