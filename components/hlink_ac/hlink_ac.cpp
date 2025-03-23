@@ -18,7 +18,7 @@ namespace esphome
         static const std::string NG_TOKEN = "NG";
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP, DEVICE_SN};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
@@ -244,10 +244,10 @@ namespace esphome
             if (this->available())
             {
                 uint32_t started_millis = millis();
-                std::string response;
+                std::string response(60, '\0');
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or buffer overflow
-                while (millis() - started_millis < timeout_ms || read_index < 30)
+                while (millis() - started_millis < timeout_ms || read_index < 60)
                 {
                     this->read_byte((uint8_t *)&response[read_index]);
                     if (response[read_index] == CMD_TERMINATION_SYMBOL)
@@ -289,7 +289,10 @@ namespace esphome
                 {
                     return HLINK_RESPONSE_INVALID;
                 }
-                uint64_t p_value = std::stoi(response_tokens[1], nullptr, 16);
+                if (response_tokens[1].size() > 8) {
+                    ESP_LOGW(TAG, "Couldn't parse P= value, it's too large: %s", response_tokens[1].c_str());
+                }
+                uint32_t p_value = std::stoi(response_tokens[1], nullptr, 16);
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
             }
