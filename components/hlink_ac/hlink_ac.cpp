@@ -127,6 +127,9 @@ namespace esphome
             case FeatureType::TARGET_TEMP:
                 this->hvac_status_.target_temperature = response.p_value;
                 break;
+            case FeatureType::ROOM_TEMP:
+                this->hvac_status_.current_temperature = response.p_value;
+                break;
             case FeatureType::SWING_MODE:
                 if (response.p_value == 0x0000) {
                     this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
@@ -157,6 +160,10 @@ namespace esphome
                 bool should_publish = false;
                 if (this->target_temperature != this->hvac_status_.target_temperature.value()) {
                     this->target_temperature = this->hvac_status_.target_temperature.value();
+                    should_publish = true;
+                }
+                if (this->current_temperature != this->hvac_status_.current_temperature.value()) {
+                    this->current_temperature = this->hvac_status_.current_temperature.value();
                     should_publish = true;
                 }
                 if (this->mode != this->hvac_status_.mode) {

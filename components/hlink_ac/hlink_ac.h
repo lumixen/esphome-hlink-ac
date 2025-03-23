@@ -20,13 +20,14 @@ namespace esphome
     struct HvacStatus
     {
       optional<bool> power_state;
+      optional<float> current_temperature;
       optional<float> target_temperature;
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
       bool ready()
       {
-        return power_state.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
+        return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
       }
     };
 
@@ -35,9 +36,9 @@ namespace esphome
       POWER_STATE = 0x0000,
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
+      ROOM_TEMP = 0x0100,
       SWING_MODE = 0x0014,
       FAN_MODE = 0x0002,
-      ROOM_TEMP = 0x0100,
     };
 
     struct HlinkRequestFrame
