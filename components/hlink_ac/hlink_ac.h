@@ -36,7 +36,8 @@ namespace esphome
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002
+      FAN_MODE = 0x0002,
+      ROOM_TEMP = 0x0100,
     };
 
     struct HlinkRequestFrame
