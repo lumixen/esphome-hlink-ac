@@ -173,6 +173,7 @@ namespace esphome
                 }
                 if (should_publish) {
                     this->publish_state();
+                    ESP_LOGD(TAG, "Published climate updates. Target temp: %f, Mode: %d, Fan mode: %d, Swing mode: %d", this->target_temperature, this->mode, this->fan_mode, this->swing_mode);
                 }
             }
         }
