@@ -27,12 +27,24 @@ namespace esphome
         {
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
                                { this->request_status_update_(); });
+            this->set_timeout(10000, [this]
+                            { this->test_st_();});
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC component:");
+        }
+
+        void HlinkAc::test_st_()
+        {
+            this->write_hlink_frame_({
+                HlinkRequestFrame::Type::ST,
+                0x0000,
+                0x01,
+                HlinkRequestFrame::AttributeFormat::TWO_DIGITS
+            });
         }
 
         void HlinkAc::request_status_update_()

@@ -95,6 +95,7 @@ namespace esphome
       void write_cmd_request_(FeatureType feature_type);
       void write_hlink_frame_(HlinkRequestFrame frame);
       HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
+      void test_st_();
     };
   }
 }
