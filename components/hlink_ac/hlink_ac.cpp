@@ -11,7 +11,7 @@ namespace esphome
         static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
         static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 
-        const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::PROCESSING};
+        const HlinkResponseFrame HLINK_RESPONSE_PROCESSING = {HlinkResponseFrame::Status::PROCESSING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
 
         static const std::string OK_TOKEN = "OK";
@@ -244,8 +244,8 @@ namespace esphome
             if (this->available())
             {
                 uint32_t started_millis = millis();
-                std::string response_buf;
-                response_buf.reserve(40);
+                std::string response_buf(40, '\0');
+                // response_buf.reserve(40);
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or reasonable buffer size
                 while (millis() - started_millis < timeout_ms || read_index < 40)
@@ -298,7 +298,7 @@ namespace esphome
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
             }
-            return HLINK_RESPONSE_NOTHING;
+            return HLINK_RESPONSE_PROCESSING;
         }
 
         void HlinkAc::control(const esphome::climate::ClimateCall &call) {
