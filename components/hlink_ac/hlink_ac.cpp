@@ -135,8 +135,8 @@ namespace esphome
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
                 } else if (response.p_value == 0x0040 || response.p_value == 0x8040) {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
-                } else if (response.p_value == 0x0050) {
-                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
+                } else if (response.p_value == 0x0020) {
+                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
@@ -310,7 +310,7 @@ namespace esphome
                 climate::CLIMATE_MODE_OFF, 
                 climate::CLIMATE_MODE_COOL, 
                 climate::CLIMATE_MODE_HEAT,
-                climate::CLIMATE_MODE_FAN_ONLY});
+                climate::CLIMATE_MODE_DRY});
             traits.set_supported_fan_modes({
                 climate::CLIMATE_FAN_AUTO, 
                 climate::CLIMATE_FAN_LOW, 
