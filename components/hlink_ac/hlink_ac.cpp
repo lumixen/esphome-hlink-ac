@@ -11,6 +11,8 @@ namespace esphome
         static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
         static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 
+        static const uint8_t HLINK_MSG_READ_BUFFER_SIZE = 35;
+
         const HlinkResponseFrame HLINK_RESPONSE_PROCESSING = {HlinkResponseFrame::Status::PROCESSING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
 
@@ -18,7 +20,7 @@ namespace esphome
         static const std::string NG_TOKEN = "NG";
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP, DEVICE_SN};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, CURRENT_TEMP};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
@@ -138,7 +140,7 @@ namespace esphome
             case FeatureType::TARGET_TEMP:
                 this->hvac_status_.target_temperature = response.p_value;
                 break;
-            case FeatureType::ROOM_TEMP:
+            case FeatureType::CURRENT_TEMP:
                 this->hvac_status_.current_temperature = response.p_value;
                 break;
             case FeatureType::SWING_MODE:
@@ -160,9 +162,6 @@ namespace esphome
                 } else if (response.p_value == 0x0004) {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
-                break;
-            case FeatureType::DEVICE_SN:
-                this->hvac_status_.device_sn = response.p_value;
                 break;
             default:
                 break;
@@ -242,12 +241,11 @@ namespace esphome
         {
             if (this->available())
             {
-                const uint8_t buffer_size = 35;
                 uint32_t started_millis = millis();
-                std::string response_buf(buffer_size, '\0');
+                std::string response_buf(HLINK_MSG_READ_BUFFER_SIZE, '\0');
                 int read_index = 0;
                 // Read response unless carriage return symbol, timeout or reasonable buffer size
-                while (millis() - started_millis < timeout_ms || read_index < buffer_size)
+                while (millis() - started_millis < timeout_ms || read_index < HLINK_MSG_READ_BUFFER_SIZE)
                 {
                     this->read_byte((uint8_t *)&response_buf[read_index]);
                     if (response_buf[read_index] == CMD_TERMINATION_SYMBOL)

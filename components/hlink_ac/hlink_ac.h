@@ -25,7 +25,6 @@ namespace esphome
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
-      optional<uint32_t> device_sn;
       bool ready()
       {
         return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
@@ -37,10 +36,9 @@ namespace esphome
       POWER_STATE = 0x0000,
       MODE = 0x0001,
       TARGET_TEMP = 0x0003,
-      ROOM_TEMP = 0x0100,
+      CURRENT_TEMP = 0x0100,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002,
-      DEVICE_SN = 0x0900
+      FAN_MODE = 0x0002
     };
 
     struct HlinkRequestFrame
