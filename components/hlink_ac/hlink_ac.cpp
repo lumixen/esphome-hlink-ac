@@ -308,7 +308,11 @@ namespace esphome
             traits.set_supported_swing_modes({
                 climate::CLIMATE_SWING_OFF,
                 climate::CLIMATE_SWING_VERTICAL});
+            traits.set_visual_min_temperature(16.0f);
+            traits.set_visual_max_temperature(32.0f);
             traits.set_supports_current_temperature(true);
+            traits.set_visual_target_temperature_step(1.0f);
+            traits.set_visual_current_temperature_step(1.0f);
             return traits;
         }
     }
