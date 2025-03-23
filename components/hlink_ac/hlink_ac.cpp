@@ -18,7 +18,7 @@ namespace esphome
         static const std::string NG_TOKEN = "NG";
 
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP, DEVICE_SN};
+        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, ROOM_TEMP};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
