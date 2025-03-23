@@ -202,7 +202,7 @@ namespace esphome
                 message_size = 22;
             }
             char message_buf[message_size] = {0};
-            uint16_t checksum = frame.p.first + frame.p.secondary.value_or(0) ^ 0xFFFF;
+            uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) + (frame.p.secondary.value_or(0) & 0xFF)) ^ 0xFFFF;
             if (message_size == 17)
             {
                 sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
