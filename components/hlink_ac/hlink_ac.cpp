@@ -41,7 +41,7 @@ namespace esphome
         {
             write_hlink_frame_({HlinkRequestFrame::Type::ST,
                                 {0x0000,
-                                 0x0001,
+                                 esphome::make_optional(0x0001),
                                  HlinkRequestFrame::AttributeFormat::TWO_DIGITS}});
         }
 
