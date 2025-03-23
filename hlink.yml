@@ -16,4 +16,8 @@ uart:
   baud_rate: 9600
   parity: ODD
 
-hlink_ac:
+climate:
+  - platform: hlink_ac
+    id: test_hlink_ac
+
+# hlink_ac:
