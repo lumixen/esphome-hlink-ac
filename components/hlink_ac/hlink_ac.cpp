@@ -28,7 +28,7 @@ namespace esphome
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
                                { this->request_status_update_(); });
             this->set_timeout(10000, [this]
-                            { this->test_st_();});
+                              { this->test_st_(); });
             ESP_LOGD(TAG, "Hlink AC component initialized.");
         }
 
@@ -39,12 +39,10 @@ namespace esphome
 
         void HlinkAc::test_st_()
         {
-            this->write_hlink_frame_({
-                HlinkRequestFrame::Type::ST,
-                0x0000,
-                0x01,
-                HlinkRequestFrame::AttributeFormat::TWO_DIGITS
-            });
+            write_hlink_frame_({HlinkRequestFrame::Type::ST,
+                                {0x0000,
+                                 0x01,
+                                 HlinkRequestFrame::AttributeFormat::TWO_DIGITS}});
         }
 
         void HlinkAc::request_status_update_()
@@ -103,10 +101,8 @@ namespace esphome
                 // Reset uart buffer before requesting next cmd
                 this->read();
             }
-            write_hlink_frame_({
-                HlinkRequestFrame::Type::MT, 
-                { feature_type }
-            });
+            write_hlink_frame_({HlinkRequestFrame::Type::MT,
+                                {feature_type}});
 
             // uint16_t p_value = feature_type;
             // uint16_t c_value = p_value ^ 0xFFFF; // Calculate checksum
@@ -119,23 +115,31 @@ namespace esphome
         {
             const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
             uint8_t message_size = 17;
-            if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS) {
+            if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS)
+            {
                 message_size = 20;
-            } else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS) {
+            }
+            else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS)
+            {
                 message_size = 22;
             }
             char message_buf[message_size] = {0};
             uint16_t checksum = frame.p.first + frame.p.secondary.value_or(0) ^ 0xFFFF;
-            if (message_size == 17) {
+            if (message_size == 17)
+            {
                 sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
-            } else if (message_size == 20) {
+            }
+            else if (message_size == 20)
+            {
                 sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
-            } else if (message_size == 22){
+            }
+            else if (message_size == 22)
+            {
                 sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
             }
 
             // std::string request = frame.type == HlinkRequestFrame::Type::MT ? "MT P=" : "ST P=";
-            // char program_first[4]; 
+            // char program_first[4];
             // sprintf(program_first, "%04X", frame.p.first);
             // request.append(program_first);
             // if (frame.p.secondary.has_value()) {
@@ -152,14 +156,13 @@ namespace esphome
             // }
             // uint16_t checksum = frame.p.first^ 0xFFFF
 
-
             // char program
             // if (frame.p.secondary.has_value())
             // // char buf[30] = {0};
 
             // request.append(std::to_string(frame.p.first));
-            // int size = sprintf(buf, "ST P=%04X,%04X C=%04X\x0D", 
-            //                    frame.p.first, frame.p.secondary.value_or(0), 
+            // int size = sprintf(buf, "ST P=%04X,%04X C=%04X\x0D",
+            //                    frame.p.first, frame.p.secondary.value_or(0),
             //                    frame.p.first ^ 0xFFFF);
             this->write_str(message_buf);
             // char buf[18] = {0};
