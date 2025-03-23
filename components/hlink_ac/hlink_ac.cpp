@@ -289,9 +289,8 @@ namespace esphome
                 {
                     return HLINK_RESPONSE_INVALID;
                 }
-                uint32_t p_value = std::stoi(response_tokens[1], nullptr, 16);
+                uint64_t p_value = std::stoi(response_tokens[1], nullptr, 16);
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
-                // ESP_LOGD(TAG, "Received H-link response. Status: %s, P: %04X, C: %04X", status == HlinkResponseFrame::Status::OK ? "OK" : "NG", p_value, checksum);
                 return {status, p_value, checksum};
             }
             return HLINK_RESPONSE_NOTHING;

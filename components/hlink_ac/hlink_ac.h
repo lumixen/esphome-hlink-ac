@@ -25,7 +25,7 @@ namespace esphome
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
-      optional<uint32_t> device_sn;
+      optional<uint64_t> device_sn;
       bool ready()
       {
         return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
