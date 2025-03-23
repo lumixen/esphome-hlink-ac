@@ -11,7 +11,7 @@ namespace esphome
 
     struct DeviceStatus
     {
-      esphome::optional<float> target_temperature;
+      optional<float> target_temperature;
       // esphome::optional<esphome::climate::ClimateMode> mode;
       // esphome::optional<esphome::climate::ClimateFanMode> fan_mode;
       // esphome::optional<esphome::climate::ClimateSwingMode> swing_mode;
@@ -53,8 +53,8 @@ namespace esphome
       struct ProgramPayload
       {
         uint16_t first;
-        esphome::optional<uint16_t> secondary;
-        esphome::optional<AttributeFormat> secondary_format;
+        optional<uint16_t> secondary;
+        optional<AttributeFormat> secondary_format;
 
       };
       Type type;

@@ -41,7 +41,7 @@ namespace esphome
         {
             write_hlink_frame_({HlinkRequestFrame::Type::ST,
                                 {0x0000,
-                                 esphome::make_optional(0x0001),
+                                 0x0001,
                                  HlinkRequestFrame::AttributeFormat::TWO_DIGITS}});
         }
 
@@ -131,11 +131,11 @@ namespace esphome
             }
             else if (message_size == 20)
             {
-                sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
+                sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
             else if (message_size == 22)
             {
-                sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary_format.value(), checksum);
+                sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
 
             // std::string request = frame.type == HlinkRequestFrame::Type::MT ? "MT P=" : "ST P=";
