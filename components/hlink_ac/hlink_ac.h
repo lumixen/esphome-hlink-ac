@@ -74,7 +74,7 @@ namespace esphome
         INVALID
       };
       Status status;
-      uint32_t p_value;
+      uint64_t p_value;
       uint16_t checksum;
     };
 
