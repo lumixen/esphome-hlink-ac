@@ -111,8 +111,8 @@ namespace esphome
                 if (request_msg != nullptr)
                 {
                     this->write_hlink_frame_(*request_msg);
-                    this->status_.state = ACK_APPLIED_REQUEST;
                     this->status_.requests_left_to_apply--;
+                    this->status_.state = ACK_APPLIED_REQUEST;
                 } else {
                     this->status_.state = IDLE;
                 }
@@ -139,6 +139,9 @@ namespace esphome
                     {
                         this->status_.state = IDLE;
                     }
+                    break;
+                default:
+                    break;
                 }
                 // Update status right away after the applied batch
                 if (this->status_.state == IDLE)
@@ -154,10 +157,11 @@ namespace esphome
                 this->status_.reset_state();
             }
 
+            // If there any pending requests - apply them ASAP
             if (this->status_.state == IDLE && this->pending_action_requests.size() > 0)
             {
-                this->status_.state = APPLY_REQUEST;
                 this->status_.requests_left_to_apply = this->pending_action_requests.size();
+                this->status_.state = APPLY_REQUEST;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
@@ -316,6 +320,7 @@ namespace esphome
             this->write_str(message.c_str());
         }
 
+        // Returns PROCESSING state if nothing available on UART input
         HlinkResponseFrame HlinkAc::read_cmd_response_(uint32_t timeout_ms)
         {
             if (this->available())
