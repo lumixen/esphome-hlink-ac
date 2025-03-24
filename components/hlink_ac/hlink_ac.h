@@ -98,7 +98,7 @@ namespace esphome
       }
 
       bool can_send_next_frame() {
-        return millis() - last_frame_sent_at_ms > 20;
+        return millis() - last_frame_sent_at_ms > 50;
       }
 
       void reset_state() {
