@@ -52,18 +52,6 @@ namespace esphome
             }
         }
 
-        // Returns true if applied request
-        // bool HlinkAc::apply_requests_()
-        // {
-        //     std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
-        //     if (request_msg != nullptr)
-        //     {
-        //         this->write_hlink_frame_(*request_msg);
-        //         return true;
-        //     }
-        //     return false;
-        // }
-
         void HlinkAc::loop()
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE)
@@ -75,14 +63,9 @@ namespace esphome
             if (this->status_.state == READ_NEXT_FEATURE)
             {
                 HlinkResponseFrame response = this->read_cmd_response_(50);
-                ESP_LOGD(TAG, "Received response [%d] on feature request", response.status);
                 switch (response.status)
                 {
-                case HlinkResponseFrame::Status::PROCESSING:
-                    ESP_LOGD(TAG, "Received PROCESSING response on feature response; breaking cycle.");
-                    break;
                 case HlinkResponseFrame::Status::OK:
-                    ESP_LOGD(TAG, "Received OK response on feature response");
                     capture_feature_response_to_hvac_status_(
                         features[this->status_.requested_feature],
                         response);
@@ -149,9 +132,6 @@ namespace esphome
                     {
                         this->status_.state = IDLE;
                     }
-                    break;
-                default:
-                    break;
                 }
                 // Update status right away after the applied batch
                 if (this->status_.state == IDLE)
