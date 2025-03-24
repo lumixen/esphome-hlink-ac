@@ -338,10 +338,6 @@ namespace esphome
                         last_space_i = i + 1;
                     }
                 }
-                // ESP_LOGD(TAG, "Response tokens size: %d", response_tokens.size());
-                // for (int i = 0; i < response_tokens.size(); i++) {
-                //     ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
-                // }
                 if (response_tokens.size() == 1 && response_tokens[0] == OK_TOKEN) {
                     // Ack frame
                     return {HlinkResponseFrame::Status::ACK_OK, 0, 0};
@@ -403,10 +399,49 @@ namespace esphome
                     break;
                 }
             }
+            if (call.get_fan_mode().has_value())
+            {
+                climate::ClimateFanMode fan_mode = *call.get_fan_mode();
+                uint16_t h_link_fan_speed = 0x00;
+                switch (fan_mode)
+                {
+                case climate::ClimateFanMode::CLIMATE_FAN_AUTO:
+                    h_link_fan_speed = 0x00;
+                    break;
+                case climate::ClimateFanMode::CLIMATE_FAN_HIGH:
+                    h_link_fan_speed = 0x01;
+                    break;
+                case climate::ClimateFanMode::CLIMATE_FAN_MEDIUM:
+                    h_link_fan_speed = 0x02;
+                    break;
+                case climate::ClimateFanMode::CLIMATE_FAN_LOW:
+                    h_link_fan_speed = 0x03;
+                    break;
+                case climate::ClimateFanMode::CLIMATE_FAN_QUIET:
+                    h_link_fan_speed = 0x04;
+                    break;
+                }
+                this->pending_action_requests.enqueue(this->createRequestFrame_(0x0002, h_link_fan_speed));
+            }
             if (call.get_target_temperature().has_value())
             {
                 float target_temperature = *call.get_target_temperature();
                 this->pending_action_requests.enqueue(this->createRequestFrame_(0x0003, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+            }
+            if (call.get_swing_mode().has_value()) 
+            {
+                climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
+                uint16_t h_link_swing_mode = 0x00;
+                switch (swing_mode)
+                {
+                case climate::ClimateSwingMode::CLIMATE_SWING_OFF:
+                    h_link_swing_mode = 0x00;
+                    break;
+                case climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL:
+                    h_link_swing_mode = 0x01;
+                    break;
+                }
+                this->pending_action_requests.enqueue(this->createRequestFrame_(0x0014, h_link_swing_mode));
             }
         }
 
