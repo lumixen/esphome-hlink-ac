@@ -23,6 +23,9 @@ namespace esphome
         FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, CURRENT_TEMP};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
+        static const uint32_t MIN_TARGET_TEMPERATURE = 16;
+        static const uint32_t MAX_TARGET_TEMPERATURE = 32;
+
         void HlinkAc::setup()
         {
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
@@ -195,7 +198,7 @@ namespace esphome
                 }
                 break;
             case FeatureType::TARGET_TEMP:
-                this->hvac_status_.target_temperature = response.p_value;
+                this->hvac_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
                 break;
             case FeatureType::CURRENT_TEMP:
                 this->hvac_status_.current_temperature = response.p_value;
@@ -468,8 +471,8 @@ namespace esphome
                                             climate::CLIMATE_FAN_QUIET});
             traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF,
                                               climate::CLIMATE_SWING_VERTICAL});
-            traits.set_visual_min_temperature(16.0f);
-            traits.set_visual_max_temperature(32.0f);
+            traits.set_visual_min_temperature(MIN_TARGET_TEMPERATURE);
+            traits.set_visual_max_temperature(MAX_TARGET_TEMPERATURE);
             traits.set_supports_current_temperature(true);
             traits.set_visual_target_temperature_step(1.0f);
             traits.set_visual_current_temperature_step(1.0f);
