@@ -78,6 +78,7 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
+                    ESP_LOGD(TAG, "Received OK response on feature response");
                     capture_feature_response_to_hvac_status_(
                         features[this->status_.requested_feature],
                         response);
@@ -93,6 +94,7 @@ namespace esphome
                     break;
                 case HlinkResponseFrame::Status::INVALID:
                 case HlinkResponseFrame::Status::NG:
+                    ESP_LOGD(TAG, "Falling back to IDLE after reading next feature");
                     this->status_.state = IDLE;
                 }
             }
