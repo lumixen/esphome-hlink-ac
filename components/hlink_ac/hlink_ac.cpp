@@ -71,7 +71,7 @@ namespace esphome
                 HlinkResponseFrame response = this->read_cmd_response_(10);
                 if (response.status != HlinkResponseFrame::Status::OK)
                 {
-                    ESP_LOGW(TAG, "Failed to apply request [%s]", this->hlink_frame_request_to_string_(*request));
+                    ESP_LOGW(TAG, "Failed to apply request [%s]", this->hlink_frame_request_to_string_(*request).c_str());
                 }
             }
         }
