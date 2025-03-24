@@ -27,8 +27,6 @@ namespace esphome
         {
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
                                { this->request_status_update_(); });
-            this->set_timeout(10000, [this]
-                              { this->test_st_(); });
             ESP_LOGI(TAG, "Hlink AC component initialized.");
         }
 
@@ -43,14 +41,6 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hvac_status_.target_temperature.has_value() ? std::to_string(this->hvac_status_.target_temperature.value()).c_str() : "N/A");
         }
 
-        void HlinkAc::test_st_()
-        {
-            // write_hlink_frame_({HlinkRequestFrame::Type::ST,
-            //                     {0x0000,
-            //                      0x0001,
-            //                      HlinkRequestFrame::AttributeFormat::TWO_DIGITS}});
-        }
-
         void HlinkAc::request_status_update_()
         {
             if (this->status_.state == IDLE)
@@ -58,25 +48,21 @@ namespace esphome
                 // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
                 this->status_.requested_feature = 0;
-                this->status_.status_changed_at_ms = millis();
+                this->status_.refresh_non_idle_timeout(2000);
             }
         }
 
-        void HlinkAc::apply_requests_()
-        {
-            while (!this->pending_action_requests.is_empty())
-            {
-                std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
-                this->write_hlink_frame_(*request_msg);
-                HlinkResponseFrame response = this->read_cmd_response_(50);
-                if (response.status != HlinkResponseFrame::Status::OK)
-                {
-                    std::string request_string = this->hlink_frame_request_to_string_(*request_msg);
-                    request_string.erase(std::remove(request_string.begin(), request_string.end(), '\r'), request_string.end());
-                    ESP_LOGW(TAG, "Failed action request [%s]", request_string.c_str());
-                }
-            }
-        }
+        // Returns true if applied request
+        // bool HlinkAc::apply_requests_()
+        // {
+        //     std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
+        //     if (request_msg != nullptr)
+        //     {
+        //         this->write_hlink_frame_(*request_msg);
+        //         return true;
+        //     }
+        //     return false;
+        // }
 
         void HlinkAc::loop()
         {
@@ -102,7 +88,7 @@ namespace esphome
                     }
                     else
                     {
-                        this->status_.state = PUBLISH_CLIMATE_UPDATE;
+                        this->status_.state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
                     }
                     break;
                 case HlinkResponseFrame::Status::INVALID:
@@ -112,26 +98,67 @@ namespace esphome
                 return;
             }
 
-            if (this->status_.state == PUBLISH_CLIMATE_UPDATE)
+            if (this->status_.state == PUBLISH_CLIMATE_UPDATE_IF_ANY)
             {
-                this->publish_climate_update_if_needed_();
+                this->publish_climate_update_if_any_();
                 this->status_.state = IDLE;
                 return;
             }
 
-            if (this->status_.state == APPLY_CONTROLS)
+            if (this->status_.state == APPLY_REQUEST && this->status_.requests_left_to_apply > 0)
             {
-                this->apply_requests_();
+                std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
+                if (request_msg != nullptr)
+                {
+                    this->write_hlink_frame_(*request_msg);
+                    this->status_.state = ACK_APPLIED_REQUEST;
+                    this->status_.requests_left_to_apply--;
+                } else {
+                    this->status_.state = IDLE;
+                }
+            }
+            else
+            {
                 this->status_.state = IDLE;
-                this->request_status_update_();
-                return;
+            }
+
+            if (this->status_.state == ACK_APPLIED_REQUEST)
+            {
+                HlinkResponseFrame response = this->read_cmd_response_(50);
+                switch (response.status)
+                {
+                case HlinkResponseFrame::Status::INVALID:
+                case HlinkResponseFrame::Status::NG:
+                    ESP_LOGW(TAG, "Failed apply action request");
+                case HlinkResponseFrame::Status::OK:
+                    if (this->status_.requests_left_to_apply > 0)
+                    {
+                        this->status_.state = APPLY_REQUEST;
+                    }
+                    else
+                    {
+                        this->status_.state = IDLE;
+                    }
+                }
+                // Update status right away after the applied batch
+                if (this->status_.state == IDLE)
+                {
+                    this->request_status_update_();
+                }
             }
 
             // Reset status to IDLE if we reached timeout deadline
-            if (this->status_.state != IDLE && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT)
+            if (this->status_.state != IDLE && this->status_.reached_timeout_thereshold())
             {
-                this->status_.state = IDLE;
-                ESP_LOGW(TAG, "Reached timeout while updating H-link AC status.");
+                ESP_LOGW(TAG, "Reached timeout while performing [%d] state action. Reset state to IDLE.", this->status_.state);
+                this->status_.reset_state();
+            }
+
+            if (this->status_.state == IDLE && this->pending_action_requests.size() > 0)
+            {
+                this->status_.state = APPLY_REQUEST;
+                this->status_.requests_left_to_apply = this->pending_action_requests.size();
+                this->status_.refresh_non_idle_timeout(2000);
             }
         }
 
@@ -212,7 +239,7 @@ namespace esphome
             }
         }
 
-        void HlinkAc::publish_climate_update_if_needed_()
+        void HlinkAc::publish_climate_update_if_any_()
         {
             if (this->hvac_status_.ready())
             {
@@ -260,7 +287,7 @@ namespace esphome
                                 {feature_type}});
         }
 
-        std::string HlinkAc::hlink_frame_request_to_string_(HlinkRequestFrame frame)
+        void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
         {
             const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
             uint8_t message_size = 17;
@@ -286,12 +313,7 @@ namespace esphome
             {
                 sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
-            return message;
-        }
-
-        void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
-        {
-            this->write_str(this->hlink_frame_request_to_string_(frame).c_str());
+            this->write_str(message.c_str());
         }
 
         HlinkResponseFrame HlinkAc::read_cmd_response_(uint32_t timeout_ms)
@@ -376,7 +398,6 @@ namespace esphome
                     break;
                 }
             }
-            this->status_.state = APPLY_CONTROLS;
         }
 
         esphome::climate::ClimateTraits HlinkAc::traits()
@@ -405,7 +426,7 @@ namespace esphome
         {
             if (this->is_full())
             {
-                ESP_LOGE(TAG, "Control requests queue is full");
+                ESP_LOGE(TAG, "Action requests queue is full");
                 return -1;
             }
             else if (this->is_empty())
@@ -414,6 +435,7 @@ namespace esphome
             }
             rear_ = (rear_ + 1) % REQUESTS_QUEUE_SIZE;
             requests_[rear_] = std::move(request); // Transfer ownership using std::move
+            size_++;
             return 1;
         }
 
@@ -431,6 +453,7 @@ namespace esphome
             {
                 front_ = (front_ + 1) % REQUESTS_QUEUE_SIZE;
             }
+            size_--;
 
             return dequeued_request;
         }
@@ -439,10 +462,11 @@ namespace esphome
 
         bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE == front_; }
 
-        HlinkRequestFrame* HlinkAc::createPowerControlRequest_(bool is_on) {
-            return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000,
-                is_on ? 0x0001 : 0x0000,
-                HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
+        uint8_t CircularRequestsQueue::size(){ return size_; }
+
+        HlinkRequestFrame *HlinkAc::createPowerControlRequest_(bool is_on)
+        {
+            return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000, is_on ? 0x0001 : 0x0000, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
         }
     }
 }

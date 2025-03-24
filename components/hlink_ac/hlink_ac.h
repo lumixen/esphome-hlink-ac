@@ -14,8 +14,9 @@ namespace esphome
       IDLE,
       REQUEST_NEXT_FEATURE,
       READ_NEXT_FEATURE,
-      APPLY_CONTROLS,
-      PUBLISH_CLIMATE_UPDATE
+      PUBLISH_CLIMATE_UPDATE_IF_ANY,
+      APPLY_REQUEST,
+      ACK_APPLIED_REQUEST
     };
 
     struct HvacStatus
@@ -80,8 +81,27 @@ namespace esphome
     struct ComponentStatus
     {
       HlinkComponentState state = IDLE;
-      uint32_t status_changed_at_ms = 0;
-      int8_t requested_feature = 0;
+      uint32_t timeout_counter_started_at_ms = 0;
+      uint32_t non_idle_timeout_limit_ms = 0;
+      uint8_t requested_feature = 0;
+      uint8_t requests_left_to_apply = 0;
+
+      void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms) {
+        this->timeout_counter_started_at_ms = millis();
+        this->non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
+      }
+
+      bool reached_timeout_thereshold() {
+        return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms;
+      }
+
+      void reset_state() {
+        state = IDLE;
+        timeout_counter_started_at_ms = 0;
+        non_idle_timeout_limit_ms = 0;
+        requested_feature = 0;
+        requests_left_to_apply = 0;
+      }
     };
 
     static const uint8_t REQUESTS_QUEUE_SIZE = 16;
@@ -91,10 +111,12 @@ namespace esphome
        std::unique_ptr<HlinkRequestFrame> dequeue();
        bool is_empty();
        bool is_full();
+       uint8_t size();
      
       protected:
        int front_{-1};
        int rear_{-1};
+       uint8_t size_{0};
        std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
      };
 
@@ -114,15 +136,13 @@ namespace esphome
       HvacStatus hvac_status_ = HvacStatus();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
-      void apply_requests_();
+      // bool apply_requests_();
       void write_cmd_request_(FeatureType feature_type);
-      std::string hlink_frame_request_to_string_(HlinkRequestFrame frame);
       void write_hlink_frame_(HlinkRequestFrame frame);
       void capture_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
-      void publish_climate_update_if_needed_();
+      void publish_climate_update_if_any_();
       HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
       HlinkRequestFrame* createPowerControlRequest_(bool is_on);
-      void test_st_();
     };
   }
 }
