@@ -8,7 +8,7 @@ namespace esphome
         static const char *const TAG = "hlink_ac";
 
         static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
-        static const uint32_t STATUS_UPDATE_INTERVAL = 6500;
+        static const uint32_t STATUS_UPDATE_INTERVAL = 5000;
         static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 
         static const uint8_t HLINK_MSG_READ_BUFFER_SIZE = 35;
@@ -62,6 +62,20 @@ namespace esphome
             }
         }
 
+        void HlinkAc::apply_requests_()
+        {
+            while (!this->pending_action_requests.is_empty())
+            {
+                std::unique_ptr<HlinkRequestFrame> request = this->pending_action_requests.dequeue();
+                this->write_hlink_frame_(*request);
+                HlinkResponseFrame response = this->read_cmd_response_(10);
+                if (response.status != HlinkResponseFrame::Status::OK)
+                {
+                    ESP_LOGW(TAG, "Failed to apply request [%s]", this->hlink_frame_request_to_string_(*request));
+                }
+            }
+        }
+
         void HlinkAc::loop()
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE)
@@ -76,10 +90,9 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                capture_feature_response_to_hvac_status_(
-                    features[this->status_.requested_feature],
-                    response
-                );
+                    capture_feature_response_to_hvac_status_(
+                        features[this->status_.requested_feature],
+                        response);
                     if (this->status_.requested_feature + 1 < features_size)
                     {
                         this->status_.state = REQUEST_NEXT_FEATURE;
@@ -104,6 +117,13 @@ namespace esphome
                 return;
             }
 
+            if (this->status_.state == APPLY_CONTROLS)
+            {
+                this->apply_requests_();
+                this->status_.state = IDLE;
+                this->request_status_update_();
+            }
+
             // Reset status to IDLE if we reached timeout deadline
             if (this->status_.state != IDLE && millis() - this->status_.status_changed_at_ms > STATUS_UPDATE_TIMEOUT)
             {
@@ -114,28 +134,35 @@ namespace esphome
 
         void HlinkAc::capture_feature_response_to_hvac_status_(
             FeatureType requested_feature,
-            HlinkResponseFrame response
-        ) {
+            HlinkResponseFrame response)
+        {
             switch (requested_feature)
             {
             case FeatureType::POWER_STATE:
                 this->hvac_status_.power_state = response.p_value;
                 break;
             case FeatureType::MODE:
-                if (!this->hvac_status_.power_state.has_value()) {
+                if (!this->hvac_status_.power_state.has_value())
+                {
                     ESP_LOGW(TAG, "Can't handle climate mode response without power state data");
                     break;
                 }
-                if (!this->hvac_status_.power_state.value()) {
+                if (!this->hvac_status_.power_state.value())
+                {
                     // Climate mode should be off when device is turned off
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
-                if (response.p_value == 0x0010 || response.p_value == 0x8010) {
+                if (response.p_value == 0x0010 || response.p_value == 0x8010)
+                {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
-                } else if (response.p_value == 0x0040 || response.p_value == 0x8040) {
+                }
+                else if (response.p_value == 0x0040 || response.p_value == 0x8040)
+                {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
-                } else if (response.p_value == 0x0020) {
+                }
+                else if (response.p_value == 0x0020)
+                {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
                 break;
@@ -146,22 +173,34 @@ namespace esphome
                 this->hvac_status_.current_temperature = response.p_value;
                 break;
             case FeatureType::SWING_MODE:
-                if (response.p_value == 0x0000) {
+                if (response.p_value == 0x0000)
+                {
                     this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
-                } else if (response.p_value == 0x0001) {
+                }
+                else if (response.p_value == 0x0001)
+                {
                     this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
                 }
                 break;
             case FeatureType::FAN_MODE:
-                if (response.p_value == 0x0000) {
+                if (response.p_value == 0x0000)
+                {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
-                } else if (response.p_value == 0x0001) {
+                }
+                else if (response.p_value == 0x0001)
+                {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
-                } else if (response.p_value == 0x0002) {
+                }
+                else if (response.p_value == 0x0002)
+                {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
-                } else if (response.p_value == 0x0003) {
+                }
+                else if (response.p_value == 0x0003)
+                {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
-                } else if (response.p_value == 0x0004) {
+                }
+                else if (response.p_value == 0x0004)
+                {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
@@ -170,30 +209,38 @@ namespace esphome
             }
         }
 
-        void HlinkAc::publish_climate_update_if_needed_() {
-            if (this->hvac_status_.ready()) {
+        void HlinkAc::publish_climate_update_if_needed_()
+        {
+            if (this->hvac_status_.ready())
+            {
                 bool should_publish = false;
-                if (this->target_temperature != this->hvac_status_.target_temperature.value()) {
+                if (this->target_temperature != this->hvac_status_.target_temperature.value())
+                {
                     this->target_temperature = this->hvac_status_.target_temperature.value();
                     should_publish = true;
                 }
-                if (this->current_temperature != this->hvac_status_.current_temperature.value()) {
+                if (this->current_temperature != this->hvac_status_.current_temperature.value())
+                {
                     this->current_temperature = this->hvac_status_.current_temperature.value();
                     should_publish = true;
                 }
-                if (this->mode != this->hvac_status_.mode) {
+                if (this->mode != this->hvac_status_.mode)
+                {
                     this->mode = this->hvac_status_.mode.value();
                     should_publish = true;
                 }
-                if (this->fan_mode != this->hvac_status_.fan_mode.value()) {
+                if (this->fan_mode != this->hvac_status_.fan_mode.value())
+                {
                     this->fan_mode = this->hvac_status_.fan_mode.value();
                     should_publish = true;
                 }
-                if (this->swing_mode != this->hvac_status_.swing_mode.value()) {
+                if (this->swing_mode != this->hvac_status_.swing_mode.value())
+                {
                     this->swing_mode = this->hvac_status_.swing_mode.value();
                     should_publish = true;
                 }
-                if (should_publish) {
+                if (should_publish)
+                {
                     this->publish_state();
                 }
             }
@@ -210,7 +257,7 @@ namespace esphome
                                 {feature_type}});
         }
 
-        void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
+        std::string HlinkAc::hlink_frame_request_to_string_(HlinkRequestFrame frame)
         {
             const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
             uint8_t message_size = 17;
@@ -222,21 +269,50 @@ namespace esphome
             {
                 message_size = 22;
             }
-            char message_buf[message_size] = {0};
+            std::string message(message_size, 0x00);
             uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) + (frame.p.secondary.value_or(0) & 0xFF)) ^ 0xFFFF;
             if (message_size == 17)
             {
-                sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
+                sprintf(&message[0], "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
             }
             else if (message_size == 20)
             {
-                sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+                sprintf(&message[0], "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
             else if (message_size == 22)
             {
-                sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+                sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
-            this->write_str(message_buf);
+            return message;
+        }
+
+        void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
+        {
+            // const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
+            // uint8_t message_size = 17;
+            // if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS)
+            // {
+            //     message_size = 20;
+            // }
+            // else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS)
+            // {
+            //     message_size = 22;
+            // }
+            // char message_buf[message_size] = {0};
+            // uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) + (frame.p.secondary.value_or(0) & 0xFF)) ^ 0xFFFF;
+            // if (message_size == 17)
+            // {
+            //     sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
+            // }
+            // else if (message_size == 20)
+            // {
+            //     sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+            // }
+            // else if (message_size == 22)
+            // {
+            //     sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+            // }
+            this->write_str(this->hlink_frame_request_to_string_(frame).c_str());
         }
 
         HlinkResponseFrame HlinkAc::read_cmd_response_(uint32_t timeout_ms)
@@ -289,7 +365,8 @@ namespace esphome
                 {
                     return HLINK_RESPONSE_INVALID;
                 }
-                if (response_tokens[1].size() > 8) {
+                if (response_tokens[1].size() > 8)
+                {
                     ESP_LOGW(TAG, "Couldn't parse P= value, it's too large: %s", response_tokens[1].c_str());
                     return HLINK_RESPONSE_INVALID;
                 }
@@ -300,33 +377,93 @@ namespace esphome
             return HLINK_RESPONSE_PROCESSING;
         }
 
-        void HlinkAc::control(const esphome::climate::ClimateCall &call) {
-
+        void HlinkAc::control(const esphome::climate::ClimateCall &call)
+        {
+            if (call.get_mode().has_value())
+            {
+                climate::ClimateMode mode = *call.get_mode();
+                switch (mode)
+                {
+                case climate::ClimateMode::CLIMATE_MODE_OFF:
+                    this->pending_action_requests.enqueue(std::unique_ptr<HlinkRequestFrame>(this->createPowerControlRequest_(false)));
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_COOL:
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_HEAT:
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_DRY:
+                    break;
+                default:
+                    break;
+                }
+            }
+            this->status_.state = APPLY_CONTROLS;
         }
 
-        esphome::climate::ClimateTraits HlinkAc::traits() {
+        esphome::climate::ClimateTraits HlinkAc::traits()
+        {
             climate::ClimateTraits traits = climate::ClimateTraits();
-            traits.set_supported_modes({
-                climate::CLIMATE_MODE_OFF, 
-                climate::CLIMATE_MODE_COOL, 
-                climate::CLIMATE_MODE_HEAT,
-                climate::CLIMATE_MODE_DRY});
-            traits.set_supported_fan_modes({
-                climate::CLIMATE_FAN_AUTO, 
-                climate::CLIMATE_FAN_LOW, 
-                climate::CLIMATE_FAN_MEDIUM, 
-                climate::CLIMATE_FAN_HIGH,
-                climate::CLIMATE_FAN_QUIET
-            });
-            traits.set_supported_swing_modes({
-                climate::CLIMATE_SWING_OFF,
-                climate::CLIMATE_SWING_VERTICAL});
+            traits.set_supported_modes({climate::CLIMATE_MODE_OFF,
+                                        climate::CLIMATE_MODE_COOL,
+                                        climate::CLIMATE_MODE_HEAT,
+                                        climate::CLIMATE_MODE_DRY});
+            traits.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO,
+                                            climate::CLIMATE_FAN_LOW,
+                                            climate::CLIMATE_FAN_MEDIUM,
+                                            climate::CLIMATE_FAN_HIGH,
+                                            climate::CLIMATE_FAN_QUIET});
+            traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF,
+                                              climate::CLIMATE_SWING_VERTICAL});
             traits.set_visual_min_temperature(16.0f);
             traits.set_visual_max_temperature(32.0f);
             traits.set_supports_current_temperature(true);
             traits.set_visual_target_temperature_step(1.0f);
             traits.set_visual_current_temperature_step(1.0f);
             return traits;
+        }
+
+        int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequestFrame> request)
+        {
+            if (this->is_full())
+            {
+                ESP_LOGE(TAG, "Control requests queue is full");
+                return -1;
+            }
+            else if (this->is_empty())
+            {
+                front_++;
+            }
+            rear_ = (rear_ + 1) % REQUESTS_QUEUE_SIZE;
+            requests_[rear_] = std::move(request); // Transfer ownership using std::move
+            return 1;
+        }
+
+        std::unique_ptr<HlinkRequestFrame> CircularRequestsQueue::dequeue()
+        {
+            if (this->is_empty())
+                return nullptr;
+            std::unique_ptr<HlinkRequestFrame> dequeued_request = std::move(requests_[front_]);
+            if (front_ == rear_)
+            {
+                front_ = -1;
+                rear_ = -1;
+            }
+            else
+            {
+                front_ = (front_ + 1) % REQUESTS_QUEUE_SIZE;
+            }
+
+            return dequeued_request;
+        }
+
+        bool CircularRequestsQueue::is_empty() { return front_ == -1; }
+
+        bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE == front_; }
+
+        HlinkRequestFrame* HlinkAc::createPowerControlRequest_(bool is_on) {
+            return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000,
+                is_on ? 0x0001 : 0x0000,
+                HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
         }
     }
 }

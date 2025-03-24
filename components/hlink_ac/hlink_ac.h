@@ -1,4 +1,5 @@
 #pragma once
+#include <queue>
 
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
@@ -83,6 +84,20 @@ namespace esphome
       int8_t requested_feature = 0;
     };
 
+    static const uint8_t REQUESTS_QUEUE_SIZE = 16;
+    class CircularRequestsQueue {
+      public:
+       int8_t enqueue(std::unique_ptr<HlinkRequestFrame> request);
+       std::unique_ptr<HlinkRequestFrame> dequeue();
+       bool is_empty();
+       bool is_full();
+     
+      protected:
+       int front_{-1};
+       int rear_{-1};
+       std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
+     };
+
     class HlinkAc : public Component, public uart::UARTDevice, public climate::Climate
     {
     public:
@@ -97,12 +112,16 @@ namespace esphome
     protected:
       ComponentStatus status_ = ComponentStatus();
       HvacStatus hvac_status_ = HvacStatus();
+      CircularRequestsQueue pending_action_requests;
       void request_status_update_();
+      void apply_requests_();
       void write_cmd_request_(FeatureType feature_type);
+      std::string hlink_frame_request_to_string_(HlinkRequestFrame frame);
       void write_hlink_frame_(HlinkRequestFrame frame);
       void capture_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
       void publish_climate_update_if_needed_();
       HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
+      HlinkRequestFrame* createPowerControlRequest_(bool is_on);
       void test_st_();
     };
   }
