@@ -14,8 +14,8 @@ An example of wiring diagram that worked for me:
 
 ## Building component
 
-This project includes a test [dev configuration](hlink.yml) that can be used for compilation.
-Run this from the project root folder (docker is required):
+Project includes a test [dev configuration](hlink.yml) that can be used for compilation.
+Run from the project root folder (docker is required):
 ```bash
 docker run --rm -v "$(pwd)":/config -it esphome/esphome compile hlink.yml
 ```
