@@ -68,7 +68,7 @@ namespace esphome
             {
                 std::unique_ptr<HlinkRequestFrame> request = this->pending_action_requests.dequeue();
                 this->write_hlink_frame_(*request);
-                HlinkResponseFrame response = this->read_cmd_response_(10);
+                HlinkResponseFrame response = this->read_cmd_response_(50);
                 if (response.status != HlinkResponseFrame::Status::OK)
                 {
                     ESP_LOGW(TAG, "Failed to apply request [%s]", this->hlink_frame_request_to_string_(*request).c_str());
@@ -289,30 +289,6 @@ namespace esphome
 
         void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
         {
-            // const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
-            // uint8_t message_size = 17;
-            // if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS)
-            // {
-            //     message_size = 20;
-            // }
-            // else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS)
-            // {
-            //     message_size = 22;
-            // }
-            // char message_buf[message_size] = {0};
-            // uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) + (frame.p.secondary.value_or(0) & 0xFF)) ^ 0xFFFF;
-            // if (message_size == 17)
-            // {
-            //     sprintf(message_buf, "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
-            // }
-            // else if (message_size == 20)
-            // {
-            //     sprintf(message_buf, "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
-            // }
-            // else if (message_size == 22)
-            // {
-            //     sprintf(message_buf, "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
-            // }
             this->write_str(this->hlink_frame_request_to_string_(frame).c_str());
         }
 
@@ -464,7 +440,7 @@ namespace esphome
         HlinkRequestFrame* HlinkAc::createPowerControlRequest_(bool is_on) {
             return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000,
                 is_on ? 0x0001 : 0x0000,
-                HlinkRequestFrame::AttributeFormat::TWO_DIGITS}};
+                HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
         }
     }
 }
