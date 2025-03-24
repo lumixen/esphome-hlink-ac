@@ -359,6 +359,10 @@ namespace esphome
                 }
                 else
                 {
+                    ESP_LOGW(TAG, "Didn't understand first token falling back. Response tokens size: %d", response_tokens.size());
+                    for (int i = 0; i < response_tokens.size(); i++) {
+                        ESP_LOGW(TAG, "Token %d: %s", i, response_tokens[i].c_str());
+                    }
                     return HLINK_RESPONSE_INVALID;
                 }
                 if (response_tokens[1].size() > 8)
