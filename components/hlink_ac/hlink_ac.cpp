@@ -464,7 +464,7 @@ namespace esphome
         HlinkRequestFrame* HlinkAc::createPowerControlRequest_(bool is_on) {
             return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000,
                 is_on ? 0x0001 : 0x0000,
-                HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
+                HlinkRequestFrame::AttributeFormat::TWO_DIGITS}};
         }
     }
 }
