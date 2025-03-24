@@ -79,9 +79,11 @@ namespace esphome
                         this->status_.state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
                     }
                     break;
-                case HlinkResponseFrame::Status::INVALID:
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGW(TAG, "Error reading status update for feature [%d], falling back to IDLE state.", this->status_.requested_feature);
+                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature);
+                    this->status_.state = IDLE;
+                case HlinkResponseFrame::Status::INVALID:
+                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature);
                     this->status_.state = IDLE;
                 }
             }
@@ -359,7 +361,7 @@ namespace esphome
                 }
                 else
                 {
-                    ESP_LOGW(TAG, "Didn't understand first token falling back. Response tokens size: %d", response_tokens.size());
+                    ESP_LOGW(TAG, "Didn't understand first token. Response tokens array size: %d", response_tokens.size());
                     for (int i = 0; i < response_tokens.size(); i++) {
                         ESP_LOGW(TAG, "Token %d: %s", i, response_tokens[i].c_str());
                     }
