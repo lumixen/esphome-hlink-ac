@@ -72,7 +72,8 @@ namespace esphome
                 if (response.status != HlinkResponseFrame::Status::OK)
                 {
                     std::string request_string = this->hlink_frame_request_to_string_(*request_msg);
-                    ESP_LOGW(TAG, "Failed action request [%s]", request_string.substr(0, request_string.size() - 1).c_str());
+                    request_string.erase(std::remove(request_string.begin(), request_string.end(), '\r'), request_string.end());
+                    ESP_LOGW(TAG, "Failed action request [%s]", request_string.c_str());
                 }
             }
         }
