@@ -70,6 +70,7 @@ namespace esphome
       {
         PROCESSING,
         OK,
+        ACK_OK,
         NG,
         INVALID
       };

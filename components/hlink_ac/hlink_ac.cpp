@@ -123,7 +123,7 @@ namespace esphome
                 case HlinkResponseFrame::Status::INVALID:
                 case HlinkResponseFrame::Status::NG:
                     ESP_LOGW(TAG, "Failed apply action request");
-                case HlinkResponseFrame::Status::OK:
+                case HlinkResponseFrame::Status::ACK_OK:
                     if (this->status_.requests_left_to_apply > 0)
                     {
                         this->status_.state = APPLY_REQUEST;
@@ -342,6 +342,10 @@ namespace esphome
                 // for (int i = 0; i < response_tokens.size(); i++) {
                 //     ESP_LOGD(TAG, "Token %d: %s", i, response_tokens[i].c_str());
                 // }
+                if (response_tokens.size() == 1 && response_tokens[0] == OK_TOKEN) {
+                    // Ack frame
+                    return {HlinkResponseFrame::Status::ACK_OK, 0, 0};
+                }
                 if (response_tokens.size() != 3)
                 {
                     ESP_LOGW(TAG, "Invalid H-link response: %s", response_buf.c_str());
@@ -388,8 +392,12 @@ namespace esphome
                     this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0040, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_HEAT:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0010, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_DRY:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0020, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 default:
                     break;
