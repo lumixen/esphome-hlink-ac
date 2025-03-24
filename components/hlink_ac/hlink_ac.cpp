@@ -198,6 +198,7 @@ namespace esphome
                 }
                 break;
             case FeatureType::TARGET_TEMP:
+                // After power off/on cycle AC could return values beyond MIN/MAX range
                 this->hvac_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
                 break;
             case FeatureType::CURRENT_TEMP:
