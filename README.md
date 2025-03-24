@@ -6,7 +6,7 @@ This component is designed to control compatible Hitachi AC units using the seri
 
 For prototyping I used Lolin D32 EPS32 dev board. 
 
-H-Link devices use 5V logical levels and expose 12V power lane, thus we have convert a 12V power lane to 5V for ESP dev board and use a 3.3V<->5V logical level shifter for Tx/Rx lanes. 
+H-Link uses 5V logical levels and exposes 12V power lane, thus we have convert a 12V power lane to 5V for ESP dev board and use a 3.3V<->5V logical level shifter for Tx/Rx lanes. 
 
 <img width="350" alt="image" src="https://github.com/user-attachments/assets/fbedf5c1-f7b6-42a3-8e0d-7b35d1b10b6c" />
 
