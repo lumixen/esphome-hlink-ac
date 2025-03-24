@@ -85,6 +85,7 @@ namespace esphome
       uint32_t timeout_counter_started_at_ms = 0;
       uint32_t non_idle_timeout_limit_ms = 0;
       uint8_t requested_feature = 0;
+      uint32_t last_frame_sent_at_ms = 0;
       uint8_t requests_left_to_apply = 0;
 
       void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms) {
@@ -96,10 +97,15 @@ namespace esphome
         return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms;
       }
 
+      bool can_send_next_frame() {
+        return millis() - last_frame_sent_at_ms > 20;
+      }
+
       void reset_state() {
         state = IDLE;
         timeout_counter_started_at_ms = 0;
         non_idle_timeout_limit_ms = 0;
+        last_frame_sent_at_ms = 0;
         requested_feature = 0;
         requests_left_to_apply = 0;
       }

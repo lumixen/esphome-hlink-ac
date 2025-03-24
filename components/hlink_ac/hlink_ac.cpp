@@ -54,7 +54,7 @@ namespace esphome
 
         void HlinkAc::loop()
         {
-            if (this->status_.state == REQUEST_NEXT_FEATURE)
+            if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
                 this->write_cmd_request_(features[this->status_.requested_feature]);
                 this->status_.state = READ_NEXT_FEATURE;
@@ -82,9 +82,11 @@ namespace esphome
                 case HlinkResponseFrame::Status::NG:
                     ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature);
                     this->status_.state = IDLE;
+                    break;
                 case HlinkResponseFrame::Status::INVALID:
                     ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature);
                     this->status_.state = IDLE;
+                    break;
                 }
             }
 
@@ -95,7 +97,7 @@ namespace esphome
                 return;
             }
 
-            if (this->status_.state == APPLY_REQUEST)
+            if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame())
             {
                 if (this->status_.requests_left_to_apply > 0)
                 {
@@ -310,6 +312,7 @@ namespace esphome
                 sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
             this->write_str(message.c_str());
+            this->status_.last_frame_sent_at_ms = millis();
         }
 
         // Returns PROCESSING state if nothing available on UART input
