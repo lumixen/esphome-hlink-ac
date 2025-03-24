@@ -79,6 +79,7 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::PROCESSING:
+                    ESP_LOGD(TAG, "Received PROCESSING response on feature response; breaking cycle.");
                     break;
                 case HlinkResponseFrame::Status::OK:
                     ESP_LOGD(TAG, "Received OK response on feature response");
