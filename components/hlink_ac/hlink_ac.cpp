@@ -81,7 +81,7 @@ namespace esphome
                     break;
                 case HlinkResponseFrame::Status::INVALID:
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGW(TAG, "Error reading next status update, falling back to IDLE state.");
+                    ESP_LOGW(TAG, "Error reading status update for feature [%d], falling back to IDLE state.", this->status_.requested_feature);
                     this->status_.state = IDLE;
                 }
             }
