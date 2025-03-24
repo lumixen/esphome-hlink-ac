@@ -137,13 +137,11 @@ namespace esphome
       HvacStatus hvac_status_ = HvacStatus();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
-      // bool apply_requests_();
       void write_cmd_request_(FeatureType feature_type);
       void write_hlink_frame_(HlinkRequestFrame frame);
       void capture_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
       void publish_climate_update_if_any_();
       HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
-      // HlinkRequestFrame* createPowerControlRequest_(bool is_on);
       std::unique_ptr<HlinkRequestFrame> createRequestFrame_(uint16_t primary_control, uint16_t secondary_control, optional<HlinkRequestFrame::AttributeFormat> secondary_control_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
     };
   }

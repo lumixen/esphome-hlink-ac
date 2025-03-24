@@ -403,6 +403,11 @@ namespace esphome
                     break;
                 }
             }
+            if (call.get_target_temperature().has_value())
+            {
+                float target_temperature = *call.get_target_temperature();
+                this->pending_action_requests.enqueue(this->createRequestFrame_(0x0003, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+            }
         }
 
         esphome::climate::ClimateTraits HlinkAc::traits()
@@ -468,11 +473,6 @@ namespace esphome
         bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE == front_; }
 
         uint8_t CircularRequestsQueue::size() { return size_; }
-
-        // HlinkRequestFrame *HlinkAc::createPowerControlRequest_(bool is_on)
-        // {
-        //     return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000, is_on ? 0x0001 : 0x0000, HlinkRequestFrame::AttributeFormat::TWO_DIGITS}};
-        // }
 
         std::unique_ptr<HlinkRequestFrame> HlinkAc::createRequestFrame_(uint16_t primary_control, uint16_t secondary_control, optional<HlinkRequestFrame::AttributeFormat> secondary_control_format)
         {
