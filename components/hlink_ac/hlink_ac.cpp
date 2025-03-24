@@ -66,12 +66,13 @@ namespace esphome
         {
             while (!this->pending_action_requests.is_empty())
             {
-                std::unique_ptr<HlinkRequestFrame> request = this->pending_action_requests.dequeue();
-                this->write_hlink_frame_(*request);
+                std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
+                this->write_hlink_frame_(*request_msg);
                 HlinkResponseFrame response = this->read_cmd_response_(50);
                 if (response.status != HlinkResponseFrame::Status::OK)
                 {
-                    ESP_LOGW(TAG, "Failed to apply request [%s]", this->hlink_frame_request_to_string_(*request).c_str());
+                    std::string request_string = this->hlink_frame_request_to_string_(*request_msg);
+                    ESP_LOGW(TAG, "Failed action request [%s]", request_string.substr(0, request_string.size() - 1).c_str());
                 }
             }
         }
