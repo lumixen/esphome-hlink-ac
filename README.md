@@ -1,3 +1,7 @@
+## Overview
+
+This component is designed to control compatible Hitachi AC units using the serial H-Link protocol. It serves as a replacement for proprietary cloud-based SPX-WFGXX adapters, enabling native Home Assistant climate integration.
+
 ## Module hardware
 
 For prototyping I used Lolin D32 EPS32 dev board. 
