@@ -95,7 +95,6 @@ namespace esphome
                 case HlinkResponseFrame::Status::NG:
                     this->status_.state = IDLE;
                 }
-                return;
             }
 
             if (this->status_.state == PUBLISH_CLIMATE_UPDATE_IF_ANY)
