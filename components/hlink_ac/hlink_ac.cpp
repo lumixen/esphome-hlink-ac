@@ -122,6 +122,7 @@ namespace esphome
                 this->apply_requests_();
                 this->status_.state = IDLE;
                 this->request_status_update_();
+                return;
             }
 
             // Reset status to IDLE if we reached timeout deadline
