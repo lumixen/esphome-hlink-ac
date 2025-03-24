@@ -98,7 +98,8 @@ namespace esphome
       }
 
       bool can_send_next_frame() {
-        return millis() - last_frame_sent_at_ms > 100;
+        // Min interval between frames shouldn't be less than 60 ms
+        return millis() - last_frame_sent_at_ms > 60;
       }
 
       void reset_state() {
