@@ -78,6 +78,8 @@ namespace esphome
                 ESP_LOGD(TAG, "Received response [%d] on feature request", response.status);
                 switch (response.status)
                 {
+                case HlinkResponseFrame::Status::PROCESSING:
+                    break;
                 case HlinkResponseFrame::Status::OK:
                     ESP_LOGD(TAG, "Received OK response on feature response");
                     capture_feature_response_to_hvac_status_(
@@ -115,7 +117,9 @@ namespace esphome
                     this->write_hlink_frame_(*request_msg);
                     this->status_.requests_left_to_apply--;
                     this->status_.state = ACK_APPLIED_REQUEST;
-                } else {
+                }
+                else
+                {
                     this->status_.state = IDLE;
                 }
             }
@@ -469,7 +473,7 @@ namespace esphome
 
         bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE == front_; }
 
-        uint8_t CircularRequestsQueue::size(){ return size_; }
+        uint8_t CircularRequestsQueue::size() { return size_; }
 
         HlinkRequestFrame *HlinkAc::createPowerControlRequest_(bool is_on)
         {
