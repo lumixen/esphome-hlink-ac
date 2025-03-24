@@ -75,6 +75,7 @@ namespace esphome
             if (this->status_.state == READ_NEXT_FEATURE)
             {
                 HlinkResponseFrame response = this->read_cmd_response_(50);
+                ESP_LOGD(TAG, "Received response [%d] on feature request", response.status);
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
