@@ -1,0 +1,27 @@
+esphome:
+  name: hlink-dev
+
+external_components:
+  - source: components
+
+logger:
+  level: DEBUG
+
+esp32:
+  board: lolin_d32
+  framework:
+    type: arduino
+
+uart:
+  id: hitachi_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+  parity: ODD
+
+climate:
+  - platform: hlink_ac
+    name: "Test H-Link AC"
+    # id: test_hlink_ac
+
+# hlink_ac:
