@@ -381,9 +381,11 @@ namespace esphome
                 switch (mode)
                 {
                 case climate::ClimateMode::CLIMATE_MODE_OFF:
-                    this->pending_action_requests.enqueue(std::unique_ptr<HlinkRequestFrame>(this->createPowerControlRequest_(false)));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0000));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_COOL:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0040, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_HEAT:
                     break;
@@ -459,9 +461,14 @@ namespace esphome
 
         uint8_t CircularRequestsQueue::size() { return size_; }
 
-        HlinkRequestFrame *HlinkAc::createPowerControlRequest_(bool is_on)
+        // HlinkRequestFrame *HlinkAc::createPowerControlRequest_(bool is_on)
+        // {
+        //     return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000, is_on ? 0x0001 : 0x0000, HlinkRequestFrame::AttributeFormat::TWO_DIGITS}};
+        // }
+
+        std::unique_ptr<HlinkRequestFrame> HlinkAc::createRequestFrame_(uint16_t primary_control, uint16_t secondary_control, optional<HlinkRequestFrame::AttributeFormat> secondary_control_format)
         {
-            return new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {0x0000, is_on ? 0x0001 : 0x0000, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS}};
+            return std::unique_ptr<HlinkRequestFrame>(new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {primary_control, secondary_control, secondary_control_format}});
         }
     }
 }
