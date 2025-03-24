@@ -98,7 +98,7 @@ namespace esphome
                     break;
                 case HlinkResponseFrame::Status::INVALID:
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGD(TAG, "Falling back to IDLE after reading next feature");
+                    ESP_LOGW(TAG, "Error readon next status update, falling back to IDLE state.");
                     this->status_.state = IDLE;
                 }
             }
@@ -110,23 +110,26 @@ namespace esphome
                 return;
             }
 
-            if (this->status_.state == APPLY_REQUEST && this->status_.requests_left_to_apply > 0)
+            if (this->status_.state == APPLY_REQUEST)
             {
-                std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
-                if (request_msg != nullptr)
+                if (this->status_.requests_left_to_apply > 0)
                 {
-                    this->write_hlink_frame_(*request_msg);
-                    this->status_.requests_left_to_apply--;
-                    this->status_.state = ACK_APPLIED_REQUEST;
+                    std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
+                    if (request_msg != nullptr)
+                    {
+                        this->write_hlink_frame_(*request_msg);
+                        this->status_.requests_left_to_apply--;
+                        this->status_.state = ACK_APPLIED_REQUEST;
+                    }
+                    else
+                    {
+                        this->status_.state = IDLE;
+                    }
                 }
                 else
                 {
                     this->status_.state = IDLE;
                 }
-            }
-            else
-            {
-                this->status_.state = IDLE;
             }
 
             if (this->status_.state == ACK_APPLIED_REQUEST)
