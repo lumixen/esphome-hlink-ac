@@ -103,6 +103,24 @@ Run from the project root folder (docker is required):
 docker run --rm -v "$(pwd)":/config -it esphome/esphome compile hlink.yml
 ```
 
+## Debugging serial communication
+
+```yaml
+uart:
+  id: hitachi_bus
+  tx_pin: GPIOXX
+  rx_pin: GPIOXX
+  baud_rate: 9600
+  parity: ODD
+  debug:
+    direction: BOTH
+    dummy_receiver: false
+    after:
+      delimiter: "\n"
+    sequence:
+      - lambda: UARTDebug::log_string(direction, bytes);
+```
+
 ## Credits
 
 - Florian did a fantastic detective investigation to reverse engineer H-Link connection in his [Let me control you: Hitachi air conditioner](https://hackaday.io/project/168959-let-me-control-you-hitachi-air-conditioner) hackerday project.
