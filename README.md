@@ -43,7 +43,7 @@ If you're struggling to find a female connector in your local shop (like I did),
 
 My AC unit had more than enough space to fit the dev board inside.
 
-<img width="300" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
+<img width="250" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
 
 ## ESPHome configuration
