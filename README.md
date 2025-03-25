@@ -4,7 +4,7 @@ This component is designed to control compatible Hitachi AC units using the seri
 
 ## Hardware
 
-For PoC project I used Lolin D32 ESP32 dev board. 
+For PoC project I used the Lolin D32 ESP32 dev board. 
 
 H-Link operates at 5V logic levels and provides a 12V power lane. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
 
@@ -22,7 +22,7 @@ If you're struggling to find a female connector in your local shop (like I did),
 
 <img width="360" alt="image" src="https://github.com/user-attachments/assets/c3a940ff-2fc4-4db0-8c6e-d144ddded614" />
 
-My AC unit had more than enough space to fit the dev board inside:
+My AC unit had more than enough space to fit the dev board inside.
 
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
