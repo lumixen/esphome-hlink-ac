@@ -14,11 +14,11 @@ An example of wiring diagram with cheapo aliexpress building blocks that worked 
 
 <img width="500" alt="wiring_diagram" src="https://github.com/user-attachments/assets/f42c1574-32fe-48b3-9542-019c560d525f" />
 
-H-link connector is 6-pin JST PA with 2.0 mm pitch. 
+H-link connector is a 6-pin JST PA with 2.0 mm pitch. 
 
 <img width="135" alt="image" src="https://github.com/user-attachments/assets/7b9b47dd-26e3-4733-a2ff-2601d4fdb389" />
 
-If you're struggling to find a female connector in your local shop (like I did), you can find a similar 6-pin connector with 2.0mm pitch and do some shaping with a needle file. I managed to adapt widely available HY2.0 plug:
+If you're struggling to find a female connector in your local shop (like I did), you can find a similar 6-pin connector with 2.0mm pitch and do some shaping with a needle file. I managed to adapt a HY2.0 plug:
 
 <img width="360" alt="image" src="https://github.com/user-attachments/assets/c3a940ff-2fc4-4db0-8c6e-d144ddded614" />
  
