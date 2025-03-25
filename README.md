@@ -77,7 +77,7 @@ climate:
     name: "SNXXXXXX"
 ```
 
-Supported climate features:
+Supported climate traits:
 1. Climate mode:
  - `OFF`
  - `HEAT`
@@ -95,8 +95,7 @@ Supported climate features:
 
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/2d6c29c3-ea18-4a45-8814-2f24d88ea3e2" />
 
-
-## Building component
+## Building locally
 
 Project includes a test [dev configuration](hlink.yml) that can be used for compilation.
 Run from the project root folder (docker is required):
