@@ -4,13 +4,44 @@ This component is designed to control compatible Hitachi AC units using the seri
 
 ## Module hardware
 
-For prototyping I used Lolin D32 EPS32 dev board. 
+For prototyping I used Lolin D32 ESP32 dev board. 
 
 H-Link uses 5V logical levels and exposes 12V power lane, thus we have convert a 12V power lane to 5V for ESP dev board and use a 3.3V<->5V logical level shifter for Tx/Rx lanes. 
 
 <img width="350" alt="image" src="https://github.com/user-attachments/assets/fbedf5c1-f7b6-42a3-8e0d-7b35d1b10b6c" />
 
-An example of wiring diagram that worked for me:
+An example of wiring diagram with cheapo aliexpress components that worked for me:
+
+## ESPHome configuration example
+
+```yml
+esphome:
+  name: "hitachi-ac"
+
+esp32:
+  board: XXXX
+  framework:
+    type: arduino
+
+uart:
+  id: hitachi_bus
+  tx_pin: GPIOXX
+  rx_pin: GPIOXX
+  baud_rate: 9600
+  parity: ODD
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/lumixen/esphome-hlink-ac.git
+      ref: main
+    components: [hlink_ac]
+    refresh: 0s
+
+climate:
+  - platform: hlink_ac
+    name: "SNXXXXXX"
+```
 
 ## Building component
 
