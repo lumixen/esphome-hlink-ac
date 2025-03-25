@@ -2,6 +2,25 @@
 
 This component is designed to control compatible Hitachi AC units using the serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. Tested with Hitachi RAK-25PEC AC unit.
 
+## H-link protocol
+
+H-link is a serial protocol designed to enable communication between climate units and external adapters, such as a central station managing multiple climate devices in commercial buildings or SPX-WFGXX cloud adapters. It allows to read the status of a climate unit and send commands to control it.
+
+The protocol supports two types of communication frames:
+1. Status inquiry from adapter, initiated with the `MT` prefix:
+```
+>> MT P=XXXX C=YYYY
+<< OK P=XXXX C=YYYY
+```
+where `MT P=XXXX` is 16-bit numerical command and `C=YYYY` is a 16-bit XOR checksum. AC unit returns `OK P=XXXX`, where `XXXX` is the dynamic-length value of the requested "feature" (e.g. power state, climate mode, swing mode etc). 
+
+2. Status change request, initiated with the `ST` prefix:
+```
+>> ST P=XXXX,XX(XX) C=YYYY
+<< OK
+``` 
+where `P=XXXX,XX(XX)` specifies the function to modify and the new value, `C=YYYY` - 16-bit XOR checksum. The response `OK` confirms successful execution.
+
 ## Hardware
 
 For PoC project I used the Lolin D32 ESP32 dev board. 
