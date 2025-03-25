@@ -21,6 +21,12 @@ H-link connector is a 6-pin JST PA with 2.0 mm pitch.
 If you're struggling to find a female connector in your local shop (like I did), you can find a similar 6-pin connector with 2.0mm pitch and do some shaping with a needle file. I managed to adapt a HY2.0 plug:
 
 <img width="360" alt="image" src="https://github.com/user-attachments/assets/c3a940ff-2fc4-4db0-8c6e-d144ddded614" />
+
+My AC unit had more than enough space to fit the dev board inside:
+
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
+
  
 
 
