@@ -46,9 +46,6 @@ My AC unit had more than enough space to fit the dev board inside.
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
 <img width="300" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
 
- 
-
-
 ## ESPHome configuration
 
 ```yml
@@ -79,6 +76,25 @@ climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
 ```
+
+Supported climate features:
+1. Climate mode:
+ - `OFF`
+ - `HEAT`
+ - `COOL`
+ - `DRY`
+2. Fan mode:
+ - `QUIET`
+ - `LOW`
+ - `MEDIUM`
+ - `HIGH`
+ - `AUTO`
+3. Swing mode:
+ - `OFF`
+ - `VERTICAL`
+
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/2d6c29c3-ea18-4a45-8814-2f24d88ea3e2" />
+
 
 ## Building component
 
