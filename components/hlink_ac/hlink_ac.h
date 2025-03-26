@@ -1,5 +1,4 @@
 #pragma once
-#include <queue>
 
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
@@ -9,6 +8,20 @@ namespace esphome
 {
   namespace hlink_ac
   {
+  
+    constexpr uint32_t STATUS_UPDATE_INTERVAL = 5000;
+    constexpr uint32_t STATUS_UPDATE_TIMEOUT = 2000;
+    constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
+
+    constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 35;
+    constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
+
+    static const std::string HLINK_MSG_OK_TOKEN = "OK";
+    static const std::string HLINK_MSG_NG_TOKEN = "NG";
+
+    constexpr uint32_t MIN_TARGET_TEMPERATURE = 16;
+    constexpr uint32_t MAX_TARGET_TEMPERATURE = 32;
+
     enum HlinkComponentState : uint8_t
     {
       IDLE,
@@ -68,7 +81,7 @@ namespace esphome
     {
       enum class Status
       {
-        PROCESSING,
+        NOTHING,
         OK,
         ACK_OK,
         NG,
@@ -98,8 +111,8 @@ namespace esphome
       }
 
       bool can_send_next_frame() {
-        // Min interval between frames shouldn't be less than 60 ms
-        return millis() - last_frame_sent_at_ms > 60;
+        // Min interval between frames shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC will return NG
+        return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
       void reset_state() {
@@ -144,11 +157,11 @@ namespace esphome
       HvacStatus hvac_status_ = HvacStatus();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
-      void write_cmd_request_(FeatureType feature_type);
-      void write_hlink_frame_(HlinkRequestFrame frame);
-      void capture_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
+      void write_feature_status_request_(FeatureType feature_type);
+      void apply_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
       void publish_climate_update_if_any_();
-      HlinkResponseFrame read_cmd_response_(uint32_t timeout_ms);
+      HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
+      void write_hlink_frame_(HlinkRequestFrame frame);
       std::unique_ptr<HlinkRequestFrame> createRequestFrame_(uint16_t primary_control, uint16_t secondary_control, optional<HlinkRequestFrame::AttributeFormat> secondary_control_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
     };
   }
