@@ -6,12 +6,18 @@ namespace esphome
     namespace hlink_ac
     {
         static const char *const TAG = "hlink_ac";
-        
+
         const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::NOTHING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
 
         // AC status features
-        constexpr FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, CURRENT_TEMP};
+        constexpr FeatureType features[] = {
+            POWER_STATE, 
+            MODE, TARGET_TEMP, 
+            SWING_MODE, 
+            FAN_MODE, 
+            CURRENT_TEMP
+        };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
         void HlinkAc::setup()
