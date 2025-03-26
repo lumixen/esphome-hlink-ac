@@ -1,6 +1,6 @@
 ## Overview
 
-This component is designed to control compatible Hitachi AC units using the serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. Tested with Hitachi RAK-25PEC AC unit.
+This component is designed to control compatible Hitachi air conditioners using the serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. Tested with Hitachi RAK-25PEC AC.
 
 ## H-link protocol
 
@@ -70,7 +70,6 @@ external_components:
       url: https://github.com/lumixen/esphome-hlink-ac.git
       ref: main
     components: [hlink_ac]
-    refresh: 0s
 
 climate:
   - platform: hlink_ac

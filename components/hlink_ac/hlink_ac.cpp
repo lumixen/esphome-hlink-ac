@@ -6,25 +6,13 @@ namespace esphome
     namespace hlink_ac
     {
         static const char *const TAG = "hlink_ac";
-
-        static const uint8_t CMD_TERMINATION_SYMBOL = 0x0D;
-        static const uint32_t STATUS_UPDATE_INTERVAL = 5000;
-        static const uint32_t STATUS_UPDATE_TIMEOUT = 2000;
-
-        static const uint8_t HLINK_MSG_READ_BUFFER_SIZE = 35;
-
-        const HlinkResponseFrame HLINK_RESPONSE_PROCESSING = {HlinkResponseFrame::Status::PROCESSING};
+        
+        const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::NOTHING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
 
-        static const std::string OK_TOKEN = "OK";
-        static const std::string NG_TOKEN = "NG";
-
         // AC status features
-        FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, CURRENT_TEMP};
+        constexpr FeatureType features[] = {POWER_STATE, MODE, TARGET_TEMP, SWING_MODE, FAN_MODE, CURRENT_TEMP};
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
-
-        static const uint32_t MIN_TARGET_TEMPERATURE = 16;
-        static const uint32_t MAX_TARGET_TEMPERATURE = 32;
 
         void HlinkAc::setup()
         {
@@ -55,21 +43,31 @@ namespace esphome
             }
         }
 
+        
+        /*
+        * Main loop implements a state machine with the following states:
+        * 1. IDLE - does nothing
+        * 2. REQUEST_NEXT_FEATURE - sends a request for the next feature, the list of requested features is stored in the [features] array
+        * 3. READ_NEXT_FEATURE - reads a response for the requested feature
+        * 4. PUBLISH_CLIMATE_UPDATE_IF_ANY - once all features are read, updates climate component if there are any changes
+        * 5. APPLY_REQUEST - applies the reqeusted climate controls from the queue
+        * 6. ACK_APPLIED_REQUEST - confirms successful applied control reqeuest
+        */
         void HlinkAc::loop()
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
-                this->write_cmd_request_(features[this->status_.requested_feature]);
+                this->write_feature_status_request_(features[this->status_.requested_feature]);
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
             if (this->status_.state == READ_NEXT_FEATURE)
             {
-                HlinkResponseFrame response = this->read_cmd_response_(50);
+                HlinkResponseFrame response = this->read_hlink_frame_(50);
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    capture_feature_response_to_hvac_status_(
+                    apply_feature_response_to_hvac_status_(
                         features[this->status_.requested_feature],
                         response);
                     if (this->status_.requested_feature + 1 < features_size)
@@ -124,7 +122,7 @@ namespace esphome
 
             if (this->status_.state == ACK_APPLIED_REQUEST)
             {
-                HlinkResponseFrame response = this->read_cmd_response_(50);
+                HlinkResponseFrame response = this->read_hlink_frame_(50);
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::INVALID:
@@ -163,7 +161,7 @@ namespace esphome
             }
         }
 
-        void HlinkAc::capture_feature_response_to_hvac_status_(
+        void HlinkAc::apply_feature_response_to_hvac_status_(
             FeatureType requested_feature,
             HlinkResponseFrame response)
         {
@@ -278,19 +276,19 @@ namespace esphome
             }
         }
 
-        void HlinkAc::write_cmd_request_(FeatureType feature_type)
+        void HlinkAc::write_feature_status_request_(FeatureType feature_type)
         {
-            while (this->available())
-            {
-                // Reset uart buffer before requesting next cmd
-                this->read();
-            }
             write_hlink_frame_({HlinkRequestFrame::Type::MT,
                                 {feature_type}});
         }
 
         void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
         {
+            // Reset uart buffer before sending new frame
+            while (this->available())
+            {
+                this->read();
+            }
             const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
             uint8_t message_size = 17;
             if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS)
@@ -319,8 +317,8 @@ namespace esphome
             this->status_.last_frame_sent_at_ms = millis();
         }
 
-        // Returns PROCESSING state if nothing available on UART input
-        HlinkResponseFrame HlinkAc::read_cmd_response_(uint32_t timeout_ms)
+        // Returns NOTHING state if nothing available on UART input yet
+        HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms)
         {
             if (this->available())
             {
@@ -331,7 +329,7 @@ namespace esphome
                 while (millis() - started_millis < timeout_ms || read_index < HLINK_MSG_READ_BUFFER_SIZE)
                 {
                     this->read_byte((uint8_t *)&response_buf[read_index]);
-                    if (response_buf[read_index] == CMD_TERMINATION_SYMBOL)
+                    if (response_buf[read_index] == HLINK_MSG_TERMINATION_SYMBOL)
                     {
                         break;
                     }
@@ -347,7 +345,7 @@ namespace esphome
                         last_space_i = i + 1;
                     }
                 }
-                if (response_tokens.size() == 1 && response_tokens[0] == OK_TOKEN) {
+                if (response_tokens.size() == 1 && response_tokens[0] == HLINK_MSG_OK_TOKEN) {
                     // Ack frame
                     return {HlinkResponseFrame::Status::ACK_OK, 0, 0};
                 }
@@ -358,11 +356,11 @@ namespace esphome
                 }
 
                 HlinkResponseFrame::Status status;
-                if (response_tokens[0] == OK_TOKEN)
+                if (response_tokens[0] == HLINK_MSG_OK_TOKEN)
                 {
                     status = HlinkResponseFrame::Status::OK;
                 }
-                else if (response_tokens[0] == NG_TOKEN)
+                else if (response_tokens[0] == HLINK_MSG_NG_TOKEN)
                 {
                     status = HlinkResponseFrame::Status::NG;
                 }
@@ -383,7 +381,7 @@ namespace esphome
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
             }
-            return HLINK_RESPONSE_PROCESSING;
+            return HLINK_RESPONSE_NOTHING;
         }
 
         void HlinkAc::control(const esphome::climate::ClimateCall &call)
