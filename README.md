@@ -55,7 +55,7 @@ esphome:
 esp32:
   board: XXXX
   framework:
-    type: arduino
+    type: esp-idf
 
 uart:
   id: hitachi_bus
