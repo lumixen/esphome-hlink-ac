@@ -56,6 +56,21 @@ namespace esphome
       FAN_MODE = 0x0002
     };
 
+    constexpr uint16_t HLINK_MODE_HEAT = 0x0010;
+    constexpr uint16_t HLINK_MODE_HEAT_AUTO = 0x8010;
+    constexpr uint16_t HLINK_MODE_COOL = 0x0040;
+    constexpr uint16_t HLINK_MODE_COOL_AUTO = 0x8040;
+    constexpr uint16_t HLINK_MODE_DRY = 0x0020;
+
+    constexpr uint16_t HLINK_SWING_OFF = 0x0000;
+    constexpr uint16_t HLINK_SWING_VERTICAL = 0x0001;
+
+    constexpr uint16_t HLINK_FAN_AUTO = 0x0000;
+    constexpr uint16_t HLINK_FAN_HIGH = 0x0001;
+    constexpr uint16_t HLINK_FAN_MEDIUM = 0x0002;
+    constexpr uint16_t HLINK_FAN_LOW = 0x0003;
+    constexpr uint16_t HLINK_FAN_QUIET = 0x0004;
+
     struct HlinkRequestFrame
     {
       enum class Type

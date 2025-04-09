@@ -188,15 +188,15 @@ namespace esphome
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
-                if (response.p_value == 0x0010 || response.p_value == 0x8010)
+                if (response.p_value == HLINK_MODE_HEAT || response.p_value == HLINK_MODE_HEAT_AUTO)
                 {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
                 }
-                else if (response.p_value == 0x0040 || response.p_value == 0x8040)
+                else if (response.p_value == HLINK_MODE_COOL || response.p_value == HLINK_MODE_COOL_AUTO)
                 {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
                 }
-                else if (response.p_value == 0x0020)
+                else if (response.p_value == HLINK_MODE_DRY)
                 {
                     this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
@@ -209,33 +209,33 @@ namespace esphome
                 this->hvac_status_.current_temperature = response.p_value;
                 break;
             case FeatureType::SWING_MODE:
-                if (response.p_value == 0x0000)
+                if (response.p_value == HLINK_SWING_OFF)
                 {
                     this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
                 }
-                else if (response.p_value == 0x0001)
+                else if (response.p_value == HLINK_SWING_VERTICAL)
                 {
                     this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
                 }
                 break;
             case FeatureType::FAN_MODE:
-                if (response.p_value == 0x0000)
+                if (response.p_value == HLINK_FAN_AUTO)
                 {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
                 }
-                else if (response.p_value == 0x0001)
+                else if (response.p_value == HLINK_FAN_HIGH)
                 {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
                 }
-                else if (response.p_value == 0x0002)
+                else if (response.p_value == HLINK_FAN_MEDIUM)
                 {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
                 }
-                else if (response.p_value == 0x0003)
+                else if (response.p_value == HLINK_FAN_LOW)
                 {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
                 }
-                else if (response.p_value == 0x0004)
+                else if (response.p_value == HLINK_FAN_QUIET)
                 {
                     this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
@@ -296,14 +296,14 @@ namespace esphome
                 this->read();
             }
             const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
-            uint8_t message_size = 17;
+            uint8_t message_size = 17; // Default message, e.g. "MT P=1234 C=1234\r"
             if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS)
             {
-                message_size = 20;
+                message_size = 20; // "ST P=1234,12 C=1234\r"
             }
             else if (frame.p.secondary.has_value() && frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS)
             {
-                message_size = 22;
+                message_size = 22; // "ST P=1234,1234 C=1234\r"
             }
             std::string message(message_size, 0x00);
             uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) + (frame.p.secondary.value_or(0) & 0xFF)) ^ 0xFFFF;
@@ -319,7 +319,9 @@ namespace esphome
             {
                 sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
             }
+            // Send the message to uart
             this->write_str(message.c_str());
+            // Update the timestamp of the last frame sent
             this->status_.last_frame_sent_at_ms = millis();
         }
 
@@ -402,15 +404,15 @@ namespace esphome
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_COOL:
                     this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0040, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_HEAT:
                     this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0010, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_DRY:
                     this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, 0x0020, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 default:
                     break;
@@ -419,23 +421,23 @@ namespace esphome
             if (call.get_fan_mode().has_value())
             {
                 climate::ClimateFanMode fan_mode = *call.get_fan_mode();
-                uint16_t h_link_fan_speed = 0x00;
+                uint16_t h_link_fan_speed = HLINK_FAN_AUTO;
                 switch (fan_mode)
                 {
                 case climate::ClimateFanMode::CLIMATE_FAN_AUTO:
-                    h_link_fan_speed = 0x00;
+                    h_link_fan_speed = HLINK_FAN_AUTO;
                     break;
                 case climate::ClimateFanMode::CLIMATE_FAN_HIGH:
-                    h_link_fan_speed = 0x01;
+                    h_link_fan_speed = HLINK_FAN_HIGH;
                     break;
                 case climate::ClimateFanMode::CLIMATE_FAN_MEDIUM:
-                    h_link_fan_speed = 0x02;
+                    h_link_fan_speed = HLINK_FAN_MEDIUM;
                     break;
                 case climate::ClimateFanMode::CLIMATE_FAN_LOW:
-                    h_link_fan_speed = 0x03;
+                    h_link_fan_speed = HLINK_FAN_LOW;
                     break;
                 case climate::ClimateFanMode::CLIMATE_FAN_QUIET:
-                    h_link_fan_speed = 0x04;
+                    h_link_fan_speed = HLINK_FAN_QUIET;
                     break;
                 }
                 this->pending_action_requests.enqueue(this->createRequestFrame_(0x0002, h_link_fan_speed));
@@ -448,14 +450,14 @@ namespace esphome
             if (call.get_swing_mode().has_value()) 
             {
                 climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
-                uint16_t h_link_swing_mode = 0x00;
+                uint16_t h_link_swing_mode = HLINK_SWING_OFF;
                 switch (swing_mode)
                 {
                 case climate::ClimateSwingMode::CLIMATE_SWING_OFF:
-                    h_link_swing_mode = 0x00;
+                    h_link_swing_mode = HLINK_SWING_OFF;
                     break;
                 case climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL:
-                    h_link_swing_mode = 0x01;
+                    h_link_swing_mode = HLINK_SWING_VERTICAL;
                     break;
                 }
                 this->pending_action_requests.enqueue(this->createRequestFrame_(0x0014, h_link_swing_mode));

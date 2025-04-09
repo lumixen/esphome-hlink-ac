@@ -10,7 +10,7 @@ logger:
 esp32:
   board: lolin_d32
   framework:
-    type: arduino
+    type: esp-idf
 
 uart:
   id: hitachi_bus
@@ -21,7 +21,4 @@ uart:
 
 climate:
   - platform: hlink_ac
-    name: "Test H-Link AC"
-    # id: test_hlink_ac
-
-# hlink_ac:
+    name: "H-Link Test Climate Device"
