@@ -12,11 +12,13 @@ namespace esphome
 
         // AC status features
         constexpr FeatureType features[] = {
-            POWER_STATE, 
-            MODE, TARGET_TEMP, 
-            SWING_MODE, 
-            FAN_MODE, 
-            CURRENT_TEMP
+            POWER_STATE,
+            MODE,
+            TARGET_TEMP,
+            CURRENT_TEMP,
+            FAN_MODE,
+            SWING_MODE,
+            REMOTE_CONTROL_LOCK
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 

@@ -50,10 +50,11 @@ namespace esphome
     {
       POWER_STATE = 0x0000,
       MODE = 0x0001,
+      FAN_MODE = 0x0002,
       TARGET_TEMP = 0x0003,
-      CURRENT_TEMP = 0x0100,
+      REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002
+      CURRENT_TEMP = 0x0100,
     };
 
     constexpr uint16_t HLINK_MODE_HEAT = 0x0010;
