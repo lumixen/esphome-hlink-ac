@@ -17,8 +17,11 @@ namespace esphome
             TARGET_TEMP,
             CURRENT_TEMP,
             FAN_MODE,
-            SWING_MODE,
+            SWING_MODE
+            #ifdef USE_SWITCH
+            ,
             REMOTE_CONTROL_LOCK
+            #endif
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
@@ -39,7 +42,7 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
             #ifdef USE_SWITCH
-            ESP_LOGCONFIG(TAG, "  Remote lock switch: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
+            ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
             #endif
         }
 
@@ -245,9 +248,11 @@ namespace esphome
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
+            #ifdef USE_SWITCH
             case FeatureType::REMOTE_CONTROL_LOCK:
                 this->hlink_entity_status_.remote_control_lock = response.p_value;
                 break;
+            #endif
             default:
                 break;
             }
@@ -255,7 +260,7 @@ namespace esphome
 
         void HlinkAc::publish_updates_if_any_()
         {
-            if (this->hlink_entity_status_.ready())
+            if (this->hlink_entity_status_.has_hvac_status())
             {
                 bool should_publish_climate_state = false;
                 if (this->target_temperature != this->hlink_entity_status_.target_temperature.value())
