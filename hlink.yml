@@ -1,5 +1,5 @@
 esphome:
-  name: hlink-dev
+  name: hlink-dev-espidf
 
 external_components:
   - source: components
