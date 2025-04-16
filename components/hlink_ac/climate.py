@@ -9,6 +9,8 @@ DEPENDENCIES = ["climate", "uart"]
 hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
 
+CONF_HLINK_AC_ID = "hlink_ac_id"
+
 CONFIG_SCHEMA = cv.All(
     climate.CLIMATE_SCHEMA.extend(
         {

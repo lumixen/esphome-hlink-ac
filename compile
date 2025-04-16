@@ -1,1 +1,1 @@
-docker run --rm -v "$(pwd)":/config -it esphome/esphome compile hlink.yml
+docker run --rm -v "$(pwd)":/config -it esphome/esphome compile hlink.yml hlink_switch.yml

@@ -12,11 +12,16 @@ namespace esphome
 
         // AC status features
         constexpr FeatureType features[] = {
-            POWER_STATE, 
-            MODE, TARGET_TEMP, 
-            SWING_MODE, 
-            FAN_MODE, 
-            CURRENT_TEMP
+            POWER_STATE,
+            MODE,
+            TARGET_TEMP,
+            CURRENT_TEMP,
+            FAN_MODE,
+            SWING_MODE
+            #ifdef USE_SWITCH
+            ,
+            REMOTE_CONTROL_LOCK
+            #endif
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
@@ -30,12 +35,15 @@ namespace esphome
         void HlinkAc::dump_config()
         {
             ESP_LOGCONFIG(TAG, "Hlink AC:");
-            ESP_LOGCONFIG(TAG, "  Power state: %s", this->hvac_status_.power_state.has_value() ? this->hvac_status_.power_state.value() ? "ON" : "OFF" : "N/A");
-            ESP_LOGCONFIG(TAG, "  Mode: %s", this->hvac_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hvac_status_.mode.value())) : "N/A");
-            ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hvac_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hvac_status_.fan_mode.value())) : "N/A");
-            ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hvac_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hvac_status_.swing_mode.value())) : "N/A");
-            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hvac_status_.current_temperature.has_value() ? std::to_string(this->hvac_status_.current_temperature.value()).c_str() : "N/A");
-            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hvac_status_.target_temperature.has_value() ? std::to_string(this->hvac_status_.target_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Power state: %s", this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF" : "N/A");
+            ESP_LOGCONFIG(TAG, "  Mode: %s", this->hlink_entity_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hlink_entity_status_.mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hlink_entity_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hlink_entity_status_.fan_mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hlink_entity_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value())) : "N/A");
+            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
+            #ifdef USE_SWITCH
+            ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
+            #endif
         }
 
         void HlinkAc::request_status_update_()
@@ -73,7 +81,7 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    apply_feature_response_to_hvac_status_(
+                    apply_feature_response_to_hlink_entity_(
                         features[this->status_.requested_feature],
                         response);
                     if (this->status_.requested_feature + 1 < features_size)
@@ -99,7 +107,7 @@ namespace esphome
 
             if (this->status_.state == PUBLISH_CLIMATE_UPDATE_IF_ANY)
             {
-                this->publish_climate_update_if_any_();
+                this->publish_updates_if_any_();
                 this->status_.state = IDLE;
                 return;
             }
@@ -167,118 +175,132 @@ namespace esphome
             }
         }
 
-        void HlinkAc::apply_feature_response_to_hvac_status_(
+        void HlinkAc::apply_feature_response_to_hlink_entity_(
             FeatureType requested_feature,
             HlinkResponseFrame response)
         {
             switch (requested_feature)
             {
             case FeatureType::POWER_STATE:
-                this->hvac_status_.power_state = response.p_value;
+                this->hlink_entity_status_.power_state = response.p_value;
                 break;
             case FeatureType::MODE:
-                if (!this->hvac_status_.power_state.has_value())
+                if (!this->hlink_entity_status_.power_state.has_value())
                 {
                     ESP_LOGW(TAG, "Can't handle climate mode response without power state data");
                     break;
                 }
-                if (!this->hvac_status_.power_state.value())
+                if (!this->hlink_entity_status_.power_state.value())
                 {
                     // Climate mode should be off when device is turned off
-                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
                 if (response.p_value == HLINK_MODE_HEAT || response.p_value == HLINK_MODE_HEAT_AUTO)
                 {
-                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
                 }
                 else if (response.p_value == HLINK_MODE_COOL || response.p_value == HLINK_MODE_COOL_AUTO)
                 {
-                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
                 }
                 else if (response.p_value == HLINK_MODE_DRY)
                 {
-                    this->hvac_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
-                this->hvac_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
+                this->hlink_entity_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
                 break;
             case FeatureType::CURRENT_TEMP:
-                this->hvac_status_.current_temperature = response.p_value;
+                this->hlink_entity_status_.current_temperature = response.p_value;
                 break;
             case FeatureType::SWING_MODE:
                 if (response.p_value == HLINK_SWING_OFF)
                 {
-                    this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
+                    this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
                 }
                 else if (response.p_value == HLINK_SWING_VERTICAL)
                 {
-                    this->hvac_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
+                    this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
                 }
                 break;
             case FeatureType::FAN_MODE:
                 if (response.p_value == HLINK_FAN_AUTO)
                 {
-                    this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
+                    this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
                 }
                 else if (response.p_value == HLINK_FAN_HIGH)
                 {
-                    this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
+                    this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
                 }
                 else if (response.p_value == HLINK_FAN_MEDIUM)
                 {
-                    this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
+                    this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
                 }
                 else if (response.p_value == HLINK_FAN_LOW)
                 {
-                    this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
+                    this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
                 }
                 else if (response.p_value == HLINK_FAN_QUIET)
                 {
-                    this->hvac_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
+                    this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
+            #ifdef USE_SWITCH
+            case FeatureType::REMOTE_CONTROL_LOCK:
+                this->hlink_entity_status_.remote_control_lock = response.p_value;
+                break;
+            #endif
             default:
                 break;
             }
         }
 
-        void HlinkAc::publish_climate_update_if_any_()
+        void HlinkAc::publish_updates_if_any_()
         {
-            if (this->hvac_status_.ready())
+            if (this->hlink_entity_status_.has_hvac_status())
             {
-                bool should_publish = false;
-                if (this->target_temperature != this->hvac_status_.target_temperature.value())
+                bool should_publish_climate_state = false;
+                if (this->target_temperature != this->hlink_entity_status_.target_temperature.value())
                 {
-                    this->target_temperature = this->hvac_status_.target_temperature.value();
-                    should_publish = true;
+                    this->target_temperature = this->hlink_entity_status_.target_temperature.value();
+                    should_publish_climate_state = true;
                 }
-                if (this->current_temperature != this->hvac_status_.current_temperature.value())
+                if (this->current_temperature != this->hlink_entity_status_.current_temperature.value())
                 {
-                    this->current_temperature = this->hvac_status_.current_temperature.value();
-                    should_publish = true;
+                    this->current_temperature = this->hlink_entity_status_.current_temperature.value();
+                    should_publish_climate_state = true;
                 }
-                if (this->mode != this->hvac_status_.mode)
+                if (this->mode != this->hlink_entity_status_.mode)
                 {
-                    this->mode = this->hvac_status_.mode.value();
-                    should_publish = true;
+                    this->mode = this->hlink_entity_status_.mode.value();
+                    should_publish_climate_state = true;
                 }
-                if (this->fan_mode != this->hvac_status_.fan_mode.value())
+                if (this->fan_mode != this->hlink_entity_status_.fan_mode.value())
                 {
-                    this->fan_mode = this->hvac_status_.fan_mode.value();
-                    should_publish = true;
+                    this->fan_mode = this->hlink_entity_status_.fan_mode.value();
+                    should_publish_climate_state = true;
                 }
-                if (this->swing_mode != this->hvac_status_.swing_mode.value())
+                if (this->swing_mode != this->hlink_entity_status_.swing_mode.value())
                 {
-                    this->swing_mode = this->hvac_status_.swing_mode.value();
-                    should_publish = true;
+                    this->swing_mode = this->hlink_entity_status_.swing_mode.value();
+                    should_publish_climate_state = true;
                 }
-                if (should_publish)
+                if (should_publish_climate_state)
                 {
                     this->publish_state();
                 }
+
+                #ifdef USE_SWITCH
+                if (this->remote_lock_switch_ != nullptr
+                    && this->hlink_entity_status_.remote_control_lock.has_value()
+                    && this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value())
+                {
+                    this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+                }
+                #endif
             }
         }
 
@@ -485,6 +507,22 @@ namespace esphome
             traits.set_visual_current_temperature_step(1.0f);
             return traits;
         }
+
+        #ifdef USE_SWITCH
+        void HlinkAc::set_remote_lock_switch(switch_::Switch *sw)
+        {
+            this->remote_lock_switch_ = sw;
+            if (this->hlink_entity_status_.remote_control_lock.has_value())
+            {
+                this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+            }
+        }
+
+        void HlinkAc::enqueue_remote_lock_action(bool state)
+        {
+            this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+        }
+        #endif
 
         int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequestFrame> request)
         {

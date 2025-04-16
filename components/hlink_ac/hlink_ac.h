@@ -4,6 +4,10 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
 
+#ifdef USE_SWITCH
+#include "esphome/components/switch/switch.h"
+#endif
+
 namespace esphome
 {
   namespace hlink_ac
@@ -32,7 +36,7 @@ namespace esphome
       ACK_APPLIED_REQUEST
     };
 
-    struct HvacStatus
+    struct HlinkEntityStatus
     {
       optional<bool> power_state;
       optional<float> current_temperature;
@@ -40,9 +44,17 @@ namespace esphome
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
-      bool ready()
+      #ifdef USE_SWITCH
+      optional<bool> remote_control_lock;
+      #endif
+      bool has_hvac_status()
       {
-        return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
+        return power_state.has_value()
+          && current_temperature.has_value()
+          && target_temperature.has_value()
+          && mode.has_value()
+          && fan_mode.has_value()
+          && swing_mode.has_value();
       }
     };
 
@@ -50,10 +62,11 @@ namespace esphome
     {
       POWER_STATE = 0x0000,
       MODE = 0x0001,
+      FAN_MODE = 0x0002,
       TARGET_TEMP = 0x0003,
-      CURRENT_TEMP = 0x0100,
+      REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
-      FAN_MODE = 0x0002
+      CURRENT_TEMP = 0x0100,
     };
 
     constexpr uint16_t HLINK_MODE_HEAT = 0x0010;
@@ -70,6 +83,9 @@ namespace esphome
     constexpr uint16_t HLINK_FAN_MEDIUM = 0x0002;
     constexpr uint16_t HLINK_FAN_LOW = 0x0003;
     constexpr uint16_t HLINK_FAN_QUIET = 0x0004;
+
+    constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
+    constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
     struct HlinkRequestFrame
     {
@@ -158,6 +174,13 @@ namespace esphome
 
     class HlinkAc : public Component, public uart::UARTDevice, public climate::Climate
     {
+      #ifdef USE_SWITCH
+      public:
+        void set_remote_lock_switch(switch_::Switch *sw);
+        void enqueue_remote_lock_action(bool state);
+      protected:
+        switch_::Switch *remote_lock_switch_{nullptr};
+      #endif
     public:
       // Component overrides
       void setup() override;
@@ -169,12 +192,12 @@ namespace esphome
 
     protected:
       ComponentStatus status_ = ComponentStatus();
-      HvacStatus hvac_status_ = HvacStatus();
+      HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
       void write_feature_status_request_(FeatureType feature_type);
-      void apply_feature_response_to_hvac_status_(FeatureType requested_feature, HlinkResponseFrame feature_response);
-      void publish_climate_update_if_any_();
+      void apply_feature_response_to_hlink_entity_(FeatureType requested_feature, HlinkResponseFrame feature_response);
+      void publish_updates_if_any_();
       HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
       void write_hlink_frame_(HlinkRequestFrame frame);
       std::unique_ptr<HlinkRequestFrame> createRequestFrame_(uint16_t primary_control, uint16_t secondary_control, optional<HlinkRequestFrame::AttributeFormat> secondary_control_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
