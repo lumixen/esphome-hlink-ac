@@ -44,7 +44,8 @@ If you're struggling to find a female connector in your local shop (like I did),
 My AC unit had more than enough space to fit the dev board inside.
 
 <img width="250" alt="image" src="https://github.com/user-attachments/assets/55a9ab5a-a88e-4778-b0ce-15a5f2e5225c" />
-<img width="300" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
+<img width="299" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
+<img width="236" alt="image" src="https://github.com/user-attachments/assets/af76570f-3b65-477b-97b3-73b63646a645" />
 
 ## ESPHome configuration
 
@@ -74,25 +75,34 @@ external_components:
 climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
+
+switch:
+  - platform: hlink_ac
+    remote_lock:
+      name: Remote lock
 ```
 
-Supported climate traits:
-1. Climate mode:
- - `OFF`
- - `HEAT`
- - `COOL`
- - `DRY`
-2. Fan mode:
- - `QUIET`
- - `LOW`
- - `MEDIUM`
- - `HIGH`
- - `AUTO`
-3. Swing mode:
- - `OFF`
- - `VERTICAL`
+### Supported features:
+1. Climate
+    - HVAC mode:
+      - `OFF`
+      - `HEAT`
+      - `COOL`
+      - `DRY`
+    - Fan mode:
+      - `QUIET`
+      - `LOW`
+      - `MEDIUM`
+      - `HIGH`
+      - `AUTO`
+    - Swing mode:
+      - `OFF`
+      - `VERTICAL`
+2. Switch
+    - Remote control lock
 
-<img width="300" alt="image" src="https://github.com/user-attachments/assets/2d6c29c3-ea18-4a45-8814-2f24d88ea3e2" />
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/9f3408b9-2769-4e70-8f8c-ee427524083a" />
+
 
 ## Building locally
 
