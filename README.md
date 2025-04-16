@@ -99,7 +99,7 @@ switch:
       - `OFF`
       - `VERTICAL`
 2. Switch
-    - Remote control lock
+    - Remote IR control lock
 
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/9f3408b9-2769-4e70-8f8c-ee427524083a" />
 
