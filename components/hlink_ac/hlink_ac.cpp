@@ -559,10 +559,12 @@ namespace esphome
         void HlinkAc::update_sensor_state_(SensorType type, float value)
         {
             size_t index = (size_t) type;
-            if ((this->sensors_[index] != nullptr)
-            && ((!this->sensors_[index]->has_state())
-                || (this->sensors_[index]->raw_state != value))
-            ) {
+            if (this->sensors_[index] != nullptr)
+            {
+                float current_state = this->sensors_[index]->raw_state;
+                if (current_state == value || (std::isnan(current_state) && std::isnan(value))) {
+                    return;
+                }
                 this->sensors_[index]->publish_state(value);
             }
         }
