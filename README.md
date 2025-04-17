@@ -69,7 +69,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.4.1
+      ref: 2025.4.2
     components: [hlink_ac]
 
 climate:
@@ -80,6 +80,13 @@ switch:
   - platform: hlink_ac
     remote_lock:
       name: Remote lock
+    beeper:
+      name: Beeper
+
+sensor:
+  - platform: hlink_ac
+    outdoor_temperature:
+      name: Outdoor temperature
 ```
 
 ### Supported features:
@@ -100,6 +107,9 @@ switch:
       - `VERTICAL`
 2. Switch
     - Remote IR control lock
+    - Beeper
+3. Sensor
+    - Outdoor temperature
 
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/9f3408b9-2769-4e70-8f8c-ee427524083a" />
 

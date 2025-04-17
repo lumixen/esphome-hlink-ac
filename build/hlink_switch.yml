@@ -28,4 +28,4 @@ switch:
     remote_lock:
       name: Remote lock
     beeper:
-      name: Beeper Sound
+      name: Beeper
