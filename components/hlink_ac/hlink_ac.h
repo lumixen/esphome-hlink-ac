@@ -44,6 +44,7 @@ namespace esphome
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
+      optional<std::string> model;
       #ifdef USE_SWITCH
       optional<bool> remote_control_lock;
       #endif
@@ -68,6 +69,7 @@ namespace esphome
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP_101 = 0x0101,
+      CURRENT_OUTDOOR_TEMP_103 = 0x0103,
       CURRENT_OUTDOOR_TEMP = 0x0102,
       MODEL = 0x0900,
     };
