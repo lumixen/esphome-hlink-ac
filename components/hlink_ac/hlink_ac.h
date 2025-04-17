@@ -69,9 +69,9 @@ namespace esphome
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP_101 = 0x0101,
-      CURRENT_OUTDOOR_TEMP_103 = 0x0103,
       CURRENT_OUTDOOR_TEMP = 0x0102,
       MODEL = 0x0900,
+      BEEPER = 0x0800,
     };
 
     constexpr uint16_t HLINK_MODE_HEAT = 0x0010;

@@ -25,9 +25,9 @@ namespace esphome
             #endif
             ,
             CURRENT_OUTDOOR_TEMP_101,
-            CURRENT_OUTDOOR_TEMP_103,
             CURRENT_OUTDOOR_TEMP,
-            MODEL
+            MODEL,
+            BEEPER
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
