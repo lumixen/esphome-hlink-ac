@@ -68,6 +68,7 @@ namespace esphome
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise might return 7E value
       ACTIVITY_STATUS = 0x0301,      // 0000=Stand-by FFFF=Active
+      BEEPER = 0x0800, // Write-only
       MODEL_NAME = 0x0900,
     };
 
@@ -88,6 +89,9 @@ namespace esphome
 
     constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
     constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
+
+    constexpr uint16_t HLINK_BEEPER_ON = 0x0007;
+    constexpr uint16_t HLINK_BEEPER_OFF = 0x0000;
 
     struct HlinkRequestFrame
     {
@@ -172,9 +176,10 @@ namespace esphome
       HlinkComponentState state = IDLE;
       uint32_t timeout_counter_started_at_ms = 0;
       uint32_t non_idle_timeout_limit_ms = 0;
-      uint8_t requested_feature_index = 0;
+      uint8_t requested_read_feature_index = 0;
       uint32_t last_frame_sent_at_ms = 0;
       uint8_t requests_left_to_apply = 0;
+      std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
 
       void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms)
       {
@@ -193,17 +198,17 @@ namespace esphome
         return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
-      FeatureType get_requested_feature()
+      FeatureType get_requested_read_feature()
       {
-        return features[requested_feature_index];
+        return features[requested_read_feature_index];
       }
 
-      void move_to_next_feature_if_any()
+      void read_next_feature_if_any()
       {
-        if (requested_feature_index + 1 < features_size)
+        if (requested_read_feature_index + 1 < features_size)
         {
           state = REQUEST_NEXT_FEATURE;
-          requested_feature_index++;
+          requested_read_feature_index++;
         }
         else
         {
@@ -217,8 +222,9 @@ namespace esphome
         timeout_counter_started_at_ms = 0;
         non_idle_timeout_limit_ms = 0;
         last_frame_sent_at_ms = 0;
-        requested_feature_index = 0;
+        requested_read_feature_index = 0;
         requests_left_to_apply = 0;
+        currently_applying_message = nullptr;
       }
     };
 
@@ -253,10 +259,13 @@ namespace esphome
 #ifdef USE_SWITCH
     public:
       void set_remote_lock_switch(switch_::Switch *sw);
+      void set_beeper_switch(switch_::Switch *sw);
       void enqueue_remote_lock_action(bool state);
+      void enqueue_beeper_state_action(bool state);
 
     protected:
       switch_::Switch *remote_lock_switch_{nullptr};
+      switch_::Switch *beeper_switch_{nullptr};
 #endif
 #ifdef USE_SENSOR
     public:
@@ -281,7 +290,8 @@ namespace esphome
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
       void write_feature_status_request_(FeatureType feature_type);
-      void handle_feature_response_(FeatureType requested_feature, HlinkResponseFrame feature_response);
+      void handle_feature_read_response_(FeatureType requested_feature, HlinkResponseFrame response);
+      void handle_feature_write_response_ack_(HlinkRequestFrame applied_request);
       void publish_updates_if_any_();
       HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
       void write_hlink_frame_(HlinkRequestFrame frame);

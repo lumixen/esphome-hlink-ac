@@ -39,7 +39,7 @@ namespace esphome
             {
                 // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
-                this->status_.requested_feature_index = 0;
+                this->status_.requested_read_feature_index = 0;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
@@ -58,7 +58,7 @@ namespace esphome
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
-                this->write_feature_status_request_(this->status_.get_requested_feature());
+                this->write_feature_status_request_(this->status_.get_requested_read_feature());
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
@@ -68,15 +68,15 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    handle_feature_response_(this->status_.get_requested_feature(), response);
-                    this->status_.move_to_next_feature_if_any();
+                    handle_feature_read_response_(this->status_.get_requested_read_feature(), response);
+                    this->status_.read_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature_index);
-                    this->status_.move_to_next_feature_if_any();
+                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_read_feature_index);
+                    this->status_.read_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::INVALID:
-                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature_index);
+                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_read_feature_index);
                     this->status_.state = IDLE;
                     break;
                 }
@@ -97,6 +97,7 @@ namespace esphome
                     if (request_msg != nullptr)
                     {
                         this->write_hlink_frame_(*request_msg);
+                        this->status_.currently_applying_message = std::move(request_msg);
                         this->status_.requests_left_to_apply--;
                         this->status_.state = ACK_APPLIED_REQUEST;
                     }
@@ -120,6 +121,10 @@ namespace esphome
                 case HlinkResponseFrame::Status::NG:
                     ESP_LOGW(TAG, "Failed apply action request");
                 case HlinkResponseFrame::Status::ACK_OK:
+                    if (this->status_.currently_applying_message != nullptr)
+                    {
+                        this->handle_feature_write_response_ack_(*this->status_.currently_applying_message);
+                    }
                     if (this->status_.requests_left_to_apply > 0)
                     {
                         this->status_.state = APPLY_REQUEST;
@@ -128,6 +133,7 @@ namespace esphome
                     {
                         this->status_.state = IDLE;
                     }
+                    this->status_.currently_applying_message = {};
                 }
                 // Update status right away after the applied batch
                 if (this->status_.state == IDLE)
@@ -152,7 +158,7 @@ namespace esphome
             }
         }
 
-        void HlinkAc::handle_feature_response_(
+        void HlinkAc::handle_feature_read_response_(
             FeatureType requested_feature,
             HlinkResponseFrame response)
         {
@@ -242,6 +248,25 @@ namespace esphome
                 optional<int8_t> raw_sensor_value = response.p_value_as_int8();
                 float sensor_value = (raw_sensor_value.has_value() && raw_sensor_value != 0x7E) ? raw_sensor_value.value() : NAN;
                 this->update_sensor_state_(SensorType::OUTDOOR_TEMPERATURE, sensor_value);
+                break;
+            }
+            #endif
+            default:
+                break;
+            }
+        }
+
+        /**
+         * Handles the ACK_OK response for the ST write request.
+         */
+        void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_request)
+        {
+            switch (applied_request.p.first)
+            {
+            #ifdef USE_SWITCH
+            case FeatureType::BEEPER: {
+                bool state = applied_request.p.secondary.value() == HLINK_BEEPER_ON;
+                this->beeper_switch_->publish_state(state);
                 break;
             }
             #endif
@@ -512,9 +537,22 @@ namespace esphome
             }
         }
 
+        void HlinkAc::set_beeper_switch(switch_::Switch *sw)
+        {
+            // Beeper state is not polled from the AC unit
+            // and should be managed exclusively by the esphome device
+            this->beeper_switch_ = sw;
+        }
+
         void HlinkAc::enqueue_remote_lock_action(bool state)
         {
             this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+        }
+
+        void HlinkAc::enqueue_beeper_state_action(bool state)
+        {
+            uint16_t h_link_value = state ? HLINK_BEEPER_ON : HLINK_BEEPER_OFF;
+            this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, h_link_value));
         }
         #endif
 

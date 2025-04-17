@@ -27,3 +27,5 @@ switch:
   - platform: hlink_ac
     remote_lock:
       name: Remote lock
+    beeper:
+      name: Beeper Sound

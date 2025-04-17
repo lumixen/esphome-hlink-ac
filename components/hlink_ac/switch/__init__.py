@@ -1,6 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import switch
+from esphome.const import (
+    CONF_BEEPER,
+    ENTITY_CATEGORY_CONFIG,
+)
 from ..climate import (
     CONF_HLINK_AC_ID,
     HlinkAc,
@@ -9,10 +13,12 @@ from ..climate import (
 
 CODEOWNERS = ["@lumixen"]
 RemoteLockSwitch = hlink_ac_ns.class_("RemoteLockSwitch", switch.Switch)
+BeeperSwitch = hlink_ac_ns.class_("BeeperSwitch", switch.Switch)
 
 CONF_REMOTE_LOCK = "remote_lock"
 
 ICON_REMOTE = "mdi:remote"
+ICON_MUTE = "mdi:volume-mute"
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -21,6 +27,12 @@ CONFIG_SCHEMA = cv.Schema(
             RemoteLockSwitch,
             icon=ICON_REMOTE,
             default_restore_mode="DISABLED",
+        ),
+        cv.Optional(CONF_BEEPER): switch.switch_schema(
+            BeeperSwitch,
+            icon=ICON_MUTE,
+            entity_category=ENTITY_CATEGORY_CONFIG,
+            default_restore_mode="RESTORE_DEFAULT_ON",
         ),
     }
 )
