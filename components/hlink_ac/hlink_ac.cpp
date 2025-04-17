@@ -9,6 +9,7 @@ namespace esphome
 
         const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::NOTHING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
+        const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
         // AC status features
         constexpr FeatureType features[] = {
@@ -23,6 +24,7 @@ namespace esphome
             REMOTE_CONTROL_LOCK
             #endif
             ,
+            CURRENT_OUTDOOR_TEMP_101,
             CURRENT_OUTDOOR_TEMP,
             MODEL
         };
@@ -185,7 +187,7 @@ namespace esphome
             switch (requested_feature)
             {
             case FeatureType::POWER_STATE:
-                this->hlink_entity_status_.power_state = response.p_value;
+                this->hlink_entity_status_.power_state = response.p_value_as_uint16();
                 break;
             case FeatureType::MODE:
                 if (!this->hlink_entity_status_.power_state.has_value())
@@ -199,61 +201,63 @@ namespace esphome
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
-                if (response.p_value == HLINK_MODE_HEAT || response.p_value == HLINK_MODE_HEAT_AUTO)
+                if (response.p_value_as_uint16() == HLINK_MODE_HEAT || response.p_value_as_uint16() == HLINK_MODE_HEAT_AUTO)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
                 }
-                else if (response.p_value == HLINK_MODE_COOL || response.p_value == HLINK_MODE_COOL_AUTO)
+                else if (response.p_value_as_uint16() == HLINK_MODE_COOL || response.p_value_as_uint16() == HLINK_MODE_COOL_AUTO)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
                 }
-                else if (response.p_value == HLINK_MODE_DRY)
+                else if (response.p_value_as_uint16() == HLINK_MODE_DRY)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
-                this->hlink_entity_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
+                if (response.p_value_as_uint16().has_value()) {
+                    this->hlink_entity_status_.target_temperature = (response.p_value_as_uint16() < MIN_TARGET_TEMPERATURE || response.p_value_as_uint16() > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value_as_uint16();
+                }
                 break;
             case FeatureType::CURRENT_INDOOR_TEMP:
-                this->hlink_entity_status_.current_temperature = response.p_value;
+                this->hlink_entity_status_.current_temperature = response.p_value_as_uint16();
                 break;
             case FeatureType::SWING_MODE:
-                if (response.p_value == HLINK_SWING_OFF)
+                if (response.p_value_as_uint16() == HLINK_SWING_OFF)
                 {
                     this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
                 }
-                else if (response.p_value == HLINK_SWING_VERTICAL)
+                else if (response.p_value_as_uint16() == HLINK_SWING_VERTICAL)
                 {
                     this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
                 }
                 break;
             case FeatureType::FAN_MODE:
-                if (response.p_value == HLINK_FAN_AUTO)
+                if (response.p_value_as_uint16() == HLINK_FAN_AUTO)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
                 }
-                else if (response.p_value == HLINK_FAN_HIGH)
+                else if (response.p_value_as_uint16() == HLINK_FAN_HIGH)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
                 }
-                else if (response.p_value == HLINK_FAN_MEDIUM)
+                else if (response.p_value_as_uint16() == HLINK_FAN_MEDIUM)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
                 }
-                else if (response.p_value == HLINK_FAN_LOW)
+                else if (response.p_value_as_uint16() == HLINK_FAN_LOW)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
                 }
-                else if (response.p_value == HLINK_FAN_QUIET)
+                else if (response.p_value_as_uint16() == HLINK_FAN_QUIET)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
             #ifdef USE_SWITCH
             case FeatureType::REMOTE_CONTROL_LOCK:
-                this->hlink_entity_status_.remote_control_lock = response.p_value;
+                this->hlink_entity_status_.remote_control_lock = response.p_value_as_uint16();
                 break;
             #endif
             default:
@@ -380,7 +384,7 @@ namespace esphome
                 }
                 if (response_tokens.size() == 1 && response_tokens[0] == HLINK_MSG_OK_TOKEN) {
                     // Ack frame
-                    return {HlinkResponseFrame::Status::ACK_OK, 0, 0};
+                    return HLINK_RESPONSE_ACK_OK;
                 }
                 if (response_tokens.size() != 3)
                 {
@@ -405,12 +409,14 @@ namespace esphome
                     }
                     return HLINK_RESPONSE_INVALID;
                 }
-                if (response_tokens[1].size() > 8)
-                {
-                    ESP_LOGW(TAG, "Couldn't parse P= value, it's too large: %s", response_tokens[1].c_str());
+                std::vector<uint8_t> p_value;
+                for (size_t i = 0; i < response_tokens[1].size(); i += 2) {
+                    p_value.push_back(static_cast<uint8_t>(std::stoi(response_tokens[1].substr(i, 2), nullptr, 16)));
+                }
+                if (p_value.size() == 0) {
+                    ESP_LOGW(TAG, "Couldn't parse P=%s", response_tokens[1].c_str());
                     return HLINK_RESPONSE_INVALID;
                 }
-                uint32_t p_value = std::stoi(response_tokens[1], nullptr, 16);
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
             }

@@ -67,6 +67,7 @@ namespace esphome
       REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
+      CURRENT_OUTDOOR_TEMP_101 = 0x0101,
       CURRENT_OUTDOOR_TEMP = 0x0102,
       MODEL = 0x0900,
     };
@@ -121,8 +122,18 @@ namespace esphome
         INVALID
       };
       Status status;
-      uint32_t p_value;
+      optional<std::vector<uint8_t>> p_value;
       uint16_t checksum;
+
+      optional<uint16_t> p_value_as_uint16() const {
+        if (!p_value.has_value() || p_value->empty()) {
+          return {};
+        }
+        if (p_value->size() == 1) {
+          return static_cast<uint16_t>((*p_value)[0]);
+        }
+        return (static_cast<uint16_t>((*p_value)[0]) << 8) | static_cast<uint16_t>((*p_value)[1]);
+      }
     };
 
     struct ComponentStatus
