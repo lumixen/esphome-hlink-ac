@@ -68,7 +68,7 @@ namespace esphome
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise might return 7E value
       ACTIVITY_STATUS = 0x0301,      // 0000=Stand-by FFFF=Active
-      BEEPER = 0x0800, // Write-only
+      BEEPER = 0x0800,               // Triggers beeper sound
       MODEL_NAME = 0x0900,
     };
 
@@ -90,8 +90,7 @@ namespace esphome
     constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
     constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
-    constexpr uint16_t HLINK_BEEPER_ON = 0x0007;
-    constexpr uint16_t HLINK_BEEPER_OFF = 0x0008;
+    constexpr uint16_t HLINK_BEEP_ACTION = 0x0007;
 
     struct HlinkRequestFrame
     {
@@ -261,7 +260,6 @@ namespace esphome
       void set_remote_lock_switch(switch_::Switch *sw);
       void set_beeper_switch(switch_::Switch *sw);
       void enqueue_remote_lock_action(bool state);
-      void enqueue_beeper_state_action(bool state);
 
     protected:
       switch_::Switch *remote_lock_switch_{nullptr};

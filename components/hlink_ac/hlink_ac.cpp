@@ -152,6 +152,13 @@ namespace esphome
             // If there any pending requests - apply them ASAP
             if (this->status_.state == IDLE && this->pending_action_requests.size() > 0)
             {
+                #ifdef USE_SWITCH
+                // Makes sound if beeper switch is on
+                if (this->beeper_switch_ != nullptr && this->beeper_switch_->state)
+                {
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+                }
+                #endif
                 this->status_.requests_left_to_apply = this->pending_action_requests.size();
                 this->status_.state = APPLY_REQUEST;
                 this->status_.refresh_non_idle_timeout(2000);
@@ -263,13 +270,6 @@ namespace esphome
         {
             switch (applied_request.p.first)
             {
-            #ifdef USE_SWITCH
-            case FeatureType::BEEPER: {
-                bool state = applied_request.p.secondary.value() == HLINK_BEEPER_ON;
-                this->beeper_switch_->publish_state(state);
-                break;
-            }
-            #endif
             default:
                 break;
             }
@@ -539,20 +539,12 @@ namespace esphome
 
         void HlinkAc::set_beeper_switch(switch_::Switch *sw)
         {
-            // Beeper state is not polled from the AC unit
-            // and should be managed exclusively by the esphome device
             this->beeper_switch_ = sw;
         }
 
         void HlinkAc::enqueue_remote_lock_action(bool state)
         {
             this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
-        }
-
-        void HlinkAc::enqueue_beeper_state_action(bool state)
-        {
-            uint16_t h_link_value = state ? HLINK_BEEPER_ON : HLINK_BEEPER_OFF;
-            this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, h_link_value));
         }
         #endif
 
