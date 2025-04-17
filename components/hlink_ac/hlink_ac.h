@@ -258,8 +258,9 @@ namespace esphome
 #ifdef USE_SWITCH
     public:
       void set_remote_lock_switch(switch_::Switch *sw);
-      void set_beeper_switch(switch_::Switch *sw);
       void enqueue_remote_lock_action(bool state);
+      void set_beeper_switch(switch_::Switch *sw);
+      void handle_beep_state_change(bool state);
 
     protected:
       switch_::Switch *remote_lock_switch_{nullptr};

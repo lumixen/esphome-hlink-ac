@@ -149,11 +149,11 @@ namespace esphome
                 this->status_.reset_state();
             }
 
-            // If there any pending requests - apply them ASAP
+            // If there are any pending requests - apply them ASAP
             if (this->status_.state == IDLE && this->pending_action_requests.size() > 0)
             {
                 #ifdef USE_SWITCH
-                // Makes sound if beeper switch is on
+                // Makes beep sound if beeper switch is available and turned on
                 if (this->beeper_switch_ != nullptr && this->beeper_switch_->state)
                 {
                     this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
@@ -537,14 +537,22 @@ namespace esphome
             }
         }
 
+        void HlinkAc::enqueue_remote_lock_action(bool state)
+        {
+            this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+        }
+
         void HlinkAc::set_beeper_switch(switch_::Switch *sw)
         {
             this->beeper_switch_ = sw;
         }
 
-        void HlinkAc::enqueue_remote_lock_action(bool state)
+        void HlinkAc::handle_beep_state_change(bool state)
         {
-            this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+            if (state)
+            {
+                this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+            }
         }
         #endif
 
