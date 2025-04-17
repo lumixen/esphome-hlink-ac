@@ -47,7 +47,7 @@ namespace esphome
       optional<esphome::climate::ClimateMode> mode;
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
-      optional<std::string> model;
+      optional<std::string> model_name;
       #ifdef USE_SWITCH
       optional<bool> remote_control_lock;
       #endif
@@ -71,9 +71,9 @@ namespace esphome
       REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
-      CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise returns 7E value
+      CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise might return 7E value
       ACTIVITY_STATUS = 0x0301, // 0000=Stand-by FFFF=Active
-      MODEL = 0x0900,
+      MODEL_NAME = 0x0900,
     };
 
     constexpr uint16_t HLINK_MODE_HEAT = 0x0010;
@@ -182,7 +182,7 @@ namespace esphome
 
     #ifdef USE_SENSOR
     enum class SensorType {
-      OUTDOOR_TEMPERATURE,
+      OUTDOOR_TEMPERATURE = 0,
       // Used to count the number of sensors in the enum
       COUNT,
     };

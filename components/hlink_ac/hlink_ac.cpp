@@ -19,7 +19,7 @@ namespace esphome
             CURRENT_INDOOR_TEMP,
             FAN_MODE,
             SWING_MODE,
-            MODEL,
+            MODEL_NAME
             #ifdef USE_SWITCH
             ,
             REMOTE_CONTROL_LOCK
@@ -47,7 +47,7 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hlink_entity_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
-            ESP_LOGCONFIG(TAG, "  Model: %s", this->hlink_entity_status_.model.has_value() ? this->hlink_entity_status_.model.value().c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Model: %s", this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str() : "N/A");
             #ifdef USE_SWITCH
             ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
             #endif
@@ -257,9 +257,9 @@ namespace esphome
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
-            case FeatureType::MODEL:
+            case FeatureType::MODEL_NAME:
                 if (response.p_value.has_value()) {
-                    this->hlink_entity_status_.model = std::string(response.p_value->begin(), response.p_value->end());
+                    this->hlink_entity_status_.model_name = std::string(response.p_value->begin(), response.p_value->end());
                 }
                 break;
             #ifdef USE_SWITCH
