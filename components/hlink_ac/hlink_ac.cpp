@@ -409,13 +409,13 @@ namespace esphome
                     }
                     return HLINK_RESPONSE_INVALID;
                 }
+                if (response_tokens[1].size() < 2 || response_tokens[1].size() % 2 != 0) {
+                    ESP_LOGW(TAG, "Invalid length for P= value: %s", response_tokens[1].c_str());
+                    return HLINK_RESPONSE_INVALID;
+                }
                 std::vector<uint8_t> p_value;
                 for (size_t i = 0; i < response_tokens[1].size(); i += 2) {
                     p_value.push_back(static_cast<uint8_t>(std::stoi(response_tokens[1].substr(i, 2), nullptr, 16)));
-                }
-                if (p_value.size() == 0) {
-                    ESP_LOGW(TAG, "Couldn't parse P=%s", response_tokens[1].c_str());
-                    return HLINK_RESPONSE_INVALID;
                 }
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
