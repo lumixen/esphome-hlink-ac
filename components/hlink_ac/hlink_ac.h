@@ -71,8 +71,8 @@ namespace esphome
       REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
-      CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise has 7E value
-      ACTIVITY_STATUS = 0x0301,
+      CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise returns 7E value
+      ACTIVITY_STATUS = 0x0301, // 0000=Stand-by FFFF=Active
       MODEL = 0x0900,
     };
 

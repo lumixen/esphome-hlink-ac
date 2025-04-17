@@ -11,7 +11,7 @@ namespace esphome
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
         const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
-        // AC status features
+        // Polled AC status features
         constexpr FeatureType features[] = {
             POWER_STATE,
             MODE,
@@ -20,7 +20,6 @@ namespace esphome
             FAN_MODE,
             SWING_MODE,
             MODEL,
-            ACTIVITY_STATUS
             #ifdef USE_SWITCH
             ,
             REMOTE_CONTROL_LOCK
