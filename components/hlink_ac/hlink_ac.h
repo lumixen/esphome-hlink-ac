@@ -15,7 +15,7 @@ namespace esphome
 {
   namespace hlink_ac
   {
-  
+
     constexpr uint32_t STATUS_UPDATE_INTERVAL = 5000;
     constexpr uint32_t STATUS_UPDATE_TIMEOUT = 2000;
     constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
@@ -48,17 +48,12 @@ namespace esphome
       optional<esphome::climate::ClimateFanMode> fan_mode;
       optional<esphome::climate::ClimateSwingMode> swing_mode;
       optional<std::string> model_name;
-      #ifdef USE_SWITCH
+#ifdef USE_SWITCH
       optional<bool> remote_control_lock;
-      #endif
+#endif
       bool has_hvac_status()
       {
-        return power_state.has_value()
-          && current_temperature.has_value()
-          && target_temperature.has_value()
-          && mode.has_value()
-          && fan_mode.has_value()
-          && swing_mode.has_value();
+        return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
       }
     };
 
@@ -72,7 +67,7 @@ namespace esphome
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise might return 7E value
-      ACTIVITY_STATUS = 0x0301, // 0000=Stand-by FFFF=Active
+      ACTIVITY_STATUS = 0x0301,      // 0000=Stand-by FFFF=Active
       MODEL_NAME = 0x0900,
     };
 
@@ -129,97 +124,148 @@ namespace esphome
       optional<std::vector<uint8_t>> p_value;
       uint16_t checksum;
 
-      optional<uint16_t> p_value_as_uint16() const {
-        if (!p_value.has_value() || p_value->empty()) {
+      optional<uint16_t> p_value_as_uint16() const
+      {
+        if (!p_value.has_value() || p_value->empty())
+        {
           return {};
         }
-        if (p_value->size() == 1) {
+        if (p_value->size() == 1)
+        {
           return static_cast<uint16_t>((*p_value)[0]);
         }
         return (static_cast<uint16_t>((*p_value)[0]) << 8) | static_cast<uint16_t>((*p_value)[1]);
       }
 
-      optional<int8_t> p_value_as_int8() const {
-        if (!p_value.has_value() || p_value->size() != 1) {
+      optional<int8_t> p_value_as_int8() const
+      {
+        if (!p_value.has_value() || p_value->size() != 1)
+        {
           return {};
         }
         return static_cast<int8_t>((*p_value)[0]);
       }
     };
 
+    // Polled AC status features
+    constexpr FeatureType features[] = {
+        POWER_STATE,
+        MODE,
+        TARGET_TEMP,
+        CURRENT_INDOOR_TEMP,
+        FAN_MODE,
+        SWING_MODE,
+        MODEL_NAME
+#ifdef USE_SWITCH
+        ,
+        REMOTE_CONTROL_LOCK
+#endif
+#ifdef USE_SENSOR
+        ,
+        CURRENT_OUTDOOR_TEMP
+#endif
+    };
+    constexpr int features_size = sizeof(features) / sizeof(features[0]);
+
     struct ComponentStatus
     {
       HlinkComponentState state = IDLE;
       uint32_t timeout_counter_started_at_ms = 0;
       uint32_t non_idle_timeout_limit_ms = 0;
-      uint8_t requested_feature = 0;
+      uint8_t requested_feature_index = 0;
       uint32_t last_frame_sent_at_ms = 0;
       uint8_t requests_left_to_apply = 0;
 
-      void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms) {
+      void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms)
+      {
         this->timeout_counter_started_at_ms = millis();
         this->non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
       }
 
-      bool reached_timeout_thereshold() {
+      bool reached_timeout_thereshold()
+      {
         return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms;
       }
 
-      bool can_send_next_frame() {
+      bool can_send_next_frame()
+      {
         // Min interval between frames shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC will return NG
         return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
-      void reset_state() {
+      FeatureType get_requested_feature()
+      {
+        return features[requested_feature_index];
+      }
+
+      void move_to_next_feature_if_any()
+      {
+        if (requested_feature_index + 1 < features_size)
+        {
+          state = REQUEST_NEXT_FEATURE;
+          requested_feature_index++;
+        }
+        else
+        {
+          state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
+        }
+      }
+
+      void reset_state()
+      {
         state = IDLE;
         timeout_counter_started_at_ms = 0;
         non_idle_timeout_limit_ms = 0;
         last_frame_sent_at_ms = 0;
-        requested_feature = 0;
+        requested_feature_index = 0;
         requests_left_to_apply = 0;
       }
     };
 
-    #ifdef USE_SENSOR
-    enum class SensorType {
+#ifdef USE_SENSOR
+    enum class SensorType
+    {
       OUTDOOR_TEMPERATURE = 0,
       // Used to count the number of sensors in the enum
       COUNT,
     };
-    #endif
+#endif
 
     static const uint8_t REQUESTS_QUEUE_SIZE = 16;
-    class CircularRequestsQueue {
-      public:
-       int8_t enqueue(std::unique_ptr<HlinkRequestFrame> request);
-       std::unique_ptr<HlinkRequestFrame> dequeue();
-       bool is_empty();
-       bool is_full();
-       uint8_t size();
-     
-      protected:
-       int front_{-1};
-       int rear_{-1};
-       uint8_t size_{0};
-       std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
-     };
+    class CircularRequestsQueue
+    {
+    public:
+      int8_t enqueue(std::unique_ptr<HlinkRequestFrame> request);
+      std::unique_ptr<HlinkRequestFrame> dequeue();
+      bool is_empty();
+      bool is_full();
+      uint8_t size();
+
+    protected:
+      int front_{-1};
+      int rear_{-1};
+      uint8_t size_{0};
+      std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
+    };
 
     class HlinkAc : public Component, public uart::UARTDevice, public climate::Climate
     {
-      #ifdef USE_SWITCH
-      public:
-        void set_remote_lock_switch(switch_::Switch *sw);
-        void enqueue_remote_lock_action(bool state);
-      protected:
-        switch_::Switch *remote_lock_switch_{nullptr};
-      #endif
-      #ifdef USE_SENSOR
-      public:
-        void set_sensor(SensorType type, sensor::Sensor *s);
-      protected:
-        void update_sensor_state_(SensorType type, float value);
-        sensor::Sensor *sensors_[(size_t) SensorType::COUNT]{nullptr};
-      #endif
+#ifdef USE_SWITCH
+    public:
+      void set_remote_lock_switch(switch_::Switch *sw);
+      void enqueue_remote_lock_action(bool state);
+
+    protected:
+      switch_::Switch *remote_lock_switch_{nullptr};
+#endif
+#ifdef USE_SENSOR
+    public:
+      void set_sensor(SensorType type, sensor::Sensor *s);
+
+    protected:
+      void update_sensor_state_(SensorType type, float value);
+      sensor::Sensor *sensors_[(size_t)SensorType::COUNT]{nullptr};
+#endif
     public:
       // Component overrides
       void setup() override;

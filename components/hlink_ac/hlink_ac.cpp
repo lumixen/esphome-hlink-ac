@@ -11,26 +11,6 @@ namespace esphome
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
         const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
-        // Polled AC status features
-        constexpr FeatureType features[] = {
-            POWER_STATE,
-            MODE,
-            TARGET_TEMP,
-            CURRENT_INDOOR_TEMP,
-            FAN_MODE,
-            SWING_MODE,
-            MODEL_NAME
-            #ifdef USE_SWITCH
-            ,
-            REMOTE_CONTROL_LOCK
-            #endif
-            #ifdef USE_SENSOR
-            ,
-            CURRENT_OUTDOOR_TEMP
-            #endif
-        };
-        constexpr int features_size = sizeof(features) / sizeof(features[0]);
-
         void HlinkAc::setup()
         {
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
@@ -59,7 +39,7 @@ namespace esphome
             {
                 // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
-                this->status_.requested_feature = 0;
+                this->status_.requested_feature_index = 0;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
@@ -78,7 +58,7 @@ namespace esphome
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
-                this->write_feature_status_request_(features[this->status_.requested_feature]);
+                this->write_feature_status_request_(this->status_.get_requested_feature());
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
@@ -88,25 +68,15 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    handle_feature_response_(
-                        features[this->status_.requested_feature],
-                        response);
-                    if (this->status_.requested_feature + 1 < features_size)
-                    {
-                        this->status_.state = REQUEST_NEXT_FEATURE;
-                        this->status_.requested_feature++;
-                    }
-                    else
-                    {
-                        this->status_.state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
-                    }
+                    handle_feature_response_(this->status_.get_requested_feature(), response);
+                    this->status_.move_to_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature);
-                    this->status_.state = IDLE;
+                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature_index);
+                    this->status_.move_to_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::INVALID:
-                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature);
+                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature_index);
                     this->status_.state = IDLE;
                     break;
                 }
