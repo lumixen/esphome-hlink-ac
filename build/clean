@@ -1,0 +1,8 @@
+docker run --rm \
+  -v "$(pwd)":/config \
+  -v "$(pwd)/../components":/components \
+  -it esphome/esphome \
+  clean \
+  hlink.yml \
+  hlink_switch.yml \
+  hlink_sensor.yml

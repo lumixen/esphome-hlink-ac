@@ -9,26 +9,22 @@ namespace esphome
 
         const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::NOTHING};
         const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
-
-        // AC status features
-        constexpr FeatureType features[] = {
-            POWER_STATE,
-            MODE,
-            TARGET_TEMP,
-            CURRENT_TEMP,
-            FAN_MODE,
-            SWING_MODE
-            #ifdef USE_SWITCH
-            ,
-            REMOTE_CONTROL_LOCK
-            #endif
-        };
-        constexpr int features_size = sizeof(features) / sizeof(features[0]);
+        const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
         void HlinkAc::setup()
         {
             this->set_interval(STATUS_UPDATE_INTERVAL, [this]
                                { this->request_status_update_(); });
+            #ifdef USE_SWITCH
+            // Restore beeper switch state from memory if available
+            if (this->beeper_switch_ != nullptr) {
+                auto beeper_switch_restored_state = this->beeper_switch_->get_initial_state_with_restore_mode();
+                if (beeper_switch_restored_state.has_value()
+                        && beeper_switch_restored_state.value() != this->beeper_switch_->state) {
+                    this->beeper_switch_->publish_state(beeper_switch_restored_state.value());
+                }
+            }
+            #endif
             ESP_LOGI(TAG, "Hlink AC component initialized.");
         }
 
@@ -41,6 +37,7 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hlink_entity_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Model: %s", this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str() : "N/A");
             #ifdef USE_SWITCH
             ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
             #endif
@@ -52,7 +49,7 @@ namespace esphome
             {
                 // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
-                this->status_.requested_feature = 0;
+                this->status_.requested_read_feature_index = 0;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
@@ -71,7 +68,7 @@ namespace esphome
         {
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
-                this->write_feature_status_request_(features[this->status_.requested_feature]);
+                this->write_feature_status_request_(this->status_.get_requested_read_feature());
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
@@ -81,25 +78,15 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    apply_feature_response_to_hlink_entity_(
-                        features[this->status_.requested_feature],
-                        response);
-                    if (this->status_.requested_feature + 1 < features_size)
-                    {
-                        this->status_.state = REQUEST_NEXT_FEATURE;
-                        this->status_.requested_feature++;
-                    }
-                    else
-                    {
-                        this->status_.state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
-                    }
+                    handle_feature_read_response_(this->status_.get_requested_read_feature(), response);
+                    this->status_.read_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::NG:
-                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_feature);
-                    this->status_.state = IDLE;
+                    ESP_LOGW(TAG, "Received NG response for status update request [%d]", this->status_.requested_read_feature_index);
+                    this->status_.read_next_feature_if_any();
                     break;
                 case HlinkResponseFrame::Status::INVALID:
-                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_feature);
+                    ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", this->status_.requested_read_feature_index);
                     this->status_.state = IDLE;
                     break;
                 }
@@ -120,6 +107,7 @@ namespace esphome
                     if (request_msg != nullptr)
                     {
                         this->write_hlink_frame_(*request_msg);
+                        this->status_.currently_applying_message = std::move(request_msg);
                         this->status_.requests_left_to_apply--;
                         this->status_.state = ACK_APPLIED_REQUEST;
                     }
@@ -143,6 +131,10 @@ namespace esphome
                 case HlinkResponseFrame::Status::NG:
                     ESP_LOGW(TAG, "Failed apply action request");
                 case HlinkResponseFrame::Status::ACK_OK:
+                    if (this->status_.currently_applying_message != nullptr)
+                    {
+                        this->handle_feature_write_response_ack_(*this->status_.currently_applying_message);
+                    }
                     if (this->status_.requests_left_to_apply > 0)
                     {
                         this->status_.state = APPLY_REQUEST;
@@ -151,6 +143,7 @@ namespace esphome
                     {
                         this->status_.state = IDLE;
                     }
+                    this->status_.currently_applying_message = {};
                 }
                 // Update status right away after the applied batch
                 if (this->status_.state == IDLE)
@@ -166,23 +159,30 @@ namespace esphome
                 this->status_.reset_state();
             }
 
-            // If there any pending requests - apply them ASAP
+            // If there are any pending requests - apply them ASAP
             if (this->status_.state == IDLE && this->pending_action_requests.size() > 0)
             {
+                #ifdef USE_SWITCH
+                // Makes beep sound if beeper switch is available and turned on
+                if (this->beeper_switch_ != nullptr && this->beeper_switch_->state)
+                {
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+                }
+                #endif
                 this->status_.requests_left_to_apply = this->pending_action_requests.size();
                 this->status_.state = APPLY_REQUEST;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
 
-        void HlinkAc::apply_feature_response_to_hlink_entity_(
+        void HlinkAc::handle_feature_read_response_(
             FeatureType requested_feature,
             HlinkResponseFrame response)
         {
             switch (requested_feature)
             {
             case FeatureType::POWER_STATE:
-                this->hlink_entity_status_.power_state = response.p_value;
+                this->hlink_entity_status_.power_state = response.p_value_as_uint16();
                 break;
             case FeatureType::MODE:
                 if (!this->hlink_entity_status_.power_state.has_value())
@@ -196,63 +196,90 @@ namespace esphome
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
                     break;
                 }
-                if (response.p_value == HLINK_MODE_HEAT || response.p_value == HLINK_MODE_HEAT_AUTO)
+                if (response.p_value_as_uint16() == HLINK_MODE_HEAT || response.p_value_as_uint16() == HLINK_MODE_HEAT_AUTO)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
                 }
-                else if (response.p_value == HLINK_MODE_COOL || response.p_value == HLINK_MODE_COOL_AUTO)
+                else if (response.p_value_as_uint16() == HLINK_MODE_COOL || response.p_value_as_uint16() == HLINK_MODE_COOL_AUTO)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
                 }
-                else if (response.p_value == HLINK_MODE_DRY)
+                else if (response.p_value_as_uint16() == HLINK_MODE_DRY)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
-                this->hlink_entity_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
+                if (response.p_value_as_uint16().has_value()) {
+                    this->hlink_entity_status_.target_temperature = (response.p_value_as_uint16() < MIN_TARGET_TEMPERATURE || response.p_value_as_uint16() > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value_as_uint16();
+                }
                 break;
-            case FeatureType::CURRENT_TEMP:
-                this->hlink_entity_status_.current_temperature = response.p_value;
+            case FeatureType::CURRENT_INDOOR_TEMP:
+                this->hlink_entity_status_.current_temperature = response.p_value_as_uint16();
                 break;
             case FeatureType::SWING_MODE:
-                if (response.p_value == HLINK_SWING_OFF)
+                if (response.p_value_as_uint16() == HLINK_SWING_OFF)
                 {
                     this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
                 }
-                else if (response.p_value == HLINK_SWING_VERTICAL)
+                else if (response.p_value_as_uint16() == HLINK_SWING_VERTICAL)
                 {
                     this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
                 }
                 break;
             case FeatureType::FAN_MODE:
-                if (response.p_value == HLINK_FAN_AUTO)
+                if (response.p_value_as_uint16() == HLINK_FAN_AUTO)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
                 }
-                else if (response.p_value == HLINK_FAN_HIGH)
+                else if (response.p_value_as_uint16() == HLINK_FAN_HIGH)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_HIGH;
                 }
-                else if (response.p_value == HLINK_FAN_MEDIUM)
+                else if (response.p_value_as_uint16() == HLINK_FAN_MEDIUM)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_MEDIUM;
                 }
-                else if (response.p_value == HLINK_FAN_LOW)
+                else if (response.p_value_as_uint16() == HLINK_FAN_LOW)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_LOW;
                 }
-                else if (response.p_value == HLINK_FAN_QUIET)
+                else if (response.p_value_as_uint16() == HLINK_FAN_QUIET)
                 {
                     this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_QUIET;
                 }
                 break;
+            case FeatureType::MODEL_NAME:
+                if (response.p_value.has_value()) {
+                    this->hlink_entity_status_.model_name = std::string(response.p_value->begin(), response.p_value->end());
+                }
+                break;
             #ifdef USE_SWITCH
             case FeatureType::REMOTE_CONTROL_LOCK:
-                this->hlink_entity_status_.remote_control_lock = response.p_value;
+                this->hlink_entity_status_.remote_control_lock = response.p_value_as_uint16();
                 break;
             #endif
+            #ifdef USE_SENSOR
+            case FeatureType::CURRENT_OUTDOOR_TEMP: {
+                optional<int8_t> raw_sensor_value = response.p_value_as_int8();
+                float sensor_value = (raw_sensor_value.has_value() && raw_sensor_value != 0x7E) ? raw_sensor_value.value() : NAN;
+                this->update_sensor_state_(SensorType::OUTDOOR_TEMPERATURE, sensor_value);
+                break;
+            }
+            #endif
+            default:
+                break;
+            }
+        }
+
+        /**
+         * Handles the ACK_OK response for the ST write request.
+         */
+        void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_request)
+        {
+            switch (applied_request.p.first)
+            {
             default:
                 break;
             }
@@ -377,7 +404,7 @@ namespace esphome
                 }
                 if (response_tokens.size() == 1 && response_tokens[0] == HLINK_MSG_OK_TOKEN) {
                     // Ack frame
-                    return {HlinkResponseFrame::Status::ACK_OK, 0, 0};
+                    return HLINK_RESPONSE_ACK_OK;
                 }
                 if (response_tokens.size() != 3)
                 {
@@ -402,12 +429,14 @@ namespace esphome
                     }
                     return HLINK_RESPONSE_INVALID;
                 }
-                if (response_tokens[1].size() > 8)
-                {
-                    ESP_LOGW(TAG, "Couldn't parse P= value, it's too large: %s", response_tokens[1].c_str());
+                if (response_tokens[1].size() < 2 || response_tokens[1].size() % 2 != 0) {
+                    ESP_LOGW(TAG, "Invalid length for P= value: %s", response_tokens[1].c_str());
                     return HLINK_RESPONSE_INVALID;
                 }
-                uint32_t p_value = std::stoi(response_tokens[1], nullptr, 16);
+                std::vector<uint8_t> p_value;
+                for (size_t i = 0; i < response_tokens[1].size(); i += 2) {
+                    p_value.push_back(static_cast<uint8_t>(std::stoi(response_tokens[1].substr(i, 2), nullptr, 16)));
+                }
                 uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
                 return {status, p_value, checksum};
             }
@@ -521,6 +550,41 @@ namespace esphome
         void HlinkAc::enqueue_remote_lock_action(bool state)
         {
             this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+        }
+
+        void HlinkAc::set_beeper_switch(switch_::Switch *sw)
+        {
+            this->beeper_switch_ = sw;
+        }
+
+        void HlinkAc::handle_beep_state_change(bool state)
+        {
+            if (state)
+            {
+                this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+            }
+        }
+        #endif
+
+        #ifdef USE_SENSOR
+        void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s)
+        {
+            if (type < SensorType::COUNT) {
+                this->sensors_[(size_t) type] = s;
+            }
+        }
+
+        void HlinkAc::update_sensor_state_(SensorType type, float value)
+        {
+            size_t index = (size_t) type;
+            if (this->sensors_[index] != nullptr)
+            {
+                float current_state = this->sensors_[index]->raw_state;
+                if (current_state == value || (std::isnan(current_state) && std::isnan(value))) {
+                    return;
+                }
+                this->sensors_[index]->publish_state(value);
+            }
         }
         #endif
 

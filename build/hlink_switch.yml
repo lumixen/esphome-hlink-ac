@@ -1,8 +1,8 @@
 esphome:
-  name: hlink-dev-espidf
+  name: hlink-dev-espidf-switch
 
 external_components:
-  - source: components
+  - source: /components
 
 logger:
   level: DEBUG
@@ -22,3 +22,10 @@ uart:
 climate:
   - platform: hlink_ac
     name: "H-Link Test Climate Device"
+
+switch:
+  - platform: hlink_ac
+    remote_lock:
+      name: Remote lock
+    beeper:
+      name: Beeper
