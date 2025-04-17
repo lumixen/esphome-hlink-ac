@@ -15,13 +15,16 @@ namespace esphome
             POWER_STATE,
             MODE,
             TARGET_TEMP,
-            CURRENT_TEMP,
+            CURRENT_INDOOR_TEMP,
             FAN_MODE,
             SWING_MODE
             #ifdef USE_SWITCH
             ,
             REMOTE_CONTROL_LOCK
             #endif
+            ,
+            CURRENT_OUTDOOR_TEMP,
+            MODEL
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
@@ -213,7 +216,7 @@ namespace esphome
                 // After power off/on cycle AC could return values beyond MIN/MAX range
                 this->hlink_entity_status_.target_temperature = (response.p_value < MIN_TARGET_TEMPERATURE || response.p_value > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value;
                 break;
-            case FeatureType::CURRENT_TEMP:
+            case FeatureType::CURRENT_INDOOR_TEMP:
                 this->hlink_entity_status_.current_temperature = response.p_value;
                 break;
             case FeatureType::SWING_MODE:

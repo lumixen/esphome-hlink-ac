@@ -66,7 +66,9 @@ namespace esphome
       TARGET_TEMP = 0x0003,
       REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
-      CURRENT_TEMP = 0x0100,
+      CURRENT_INDOOR_TEMP = 0x0100,
+      CURRENT_OUTDOOR_TEMP = 0x0102,
+      MODEL = 0x0900,
     };
 
     constexpr uint16_t HLINK_MODE_HEAT = 0x0010;
