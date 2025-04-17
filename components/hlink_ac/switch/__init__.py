@@ -18,7 +18,7 @@ BeeperSwitch = hlink_ac_ns.class_("BeeperSwitch", switch.Switch)
 CONF_REMOTE_LOCK = "remote_lock"
 
 ICON_REMOTE = "mdi:remote"
-ICON_MUTE = "mdi:volume-mute"
+ICON_MUTE = "mdi:volume-medium"
 
 CONFIG_SCHEMA = cv.Schema(
     {
