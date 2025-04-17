@@ -91,7 +91,7 @@ namespace esphome
     constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
     constexpr uint16_t HLINK_BEEPER_ON = 0x0007;
-    constexpr uint16_t HLINK_BEEPER_OFF = 0x0000;
+    constexpr uint16_t HLINK_BEEPER_OFF = 0x0001;
 
     struct HlinkRequestFrame
     {
