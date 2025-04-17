@@ -18,15 +18,16 @@ namespace esphome
             TARGET_TEMP,
             CURRENT_INDOOR_TEMP,
             FAN_MODE,
-            SWING_MODE
+            SWING_MODE,
+            MODEL
             #ifdef USE_SWITCH
             ,
             REMOTE_CONTROL_LOCK
             #endif
+            #ifdef USE_SENSOR
             ,
-            CURRENT_OUTDOOR_TEMP_101,
-            CURRENT_OUTDOOR_TEMP,
-            MODEL
+            CURRENT_OUTDOOR_TEMP
+            #endif
         };
         constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
@@ -87,7 +88,7 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    apply_feature_response_to_hlink_entity_(
+                    handle_feature_response_(
                         features[this->status_.requested_feature],
                         response);
                     if (this->status_.requested_feature + 1 < features_size)
@@ -181,7 +182,7 @@ namespace esphome
             }
         }
 
-        void HlinkAc::apply_feature_response_to_hlink_entity_(
+        void HlinkAc::handle_feature_response_(
             FeatureType requested_feature,
             HlinkResponseFrame response)
         {
@@ -265,6 +266,14 @@ namespace esphome
             case FeatureType::REMOTE_CONTROL_LOCK:
                 this->hlink_entity_status_.remote_control_lock = response.p_value_as_uint16();
                 break;
+            #endif
+            #ifdef USE_SENSOR
+            case FeatureType::CURRENT_OUTDOOR_TEMP: {
+                optional<int8_t> raw_sensor_value = response.p_value_as_int8();
+                float sensor_value = (raw_sensor_value.has_value() && raw_sensor_value != 0x7E) ? raw_sensor_value.value() : NAN;
+                this->update_sensor_state_(SensorType::OUTDOOR_TEMPERATURE, sensor_value);
+                break;
+            }
             #endif
             default:
                 break;
@@ -536,6 +545,26 @@ namespace esphome
         void HlinkAc::enqueue_remote_lock_action(bool state)
         {
             this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+        }
+        #endif
+
+        #ifdef USE_SENSOR
+        void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s)
+        {
+            if (type < SensorType::COUNT) {
+                this->sensors_[(size_t) type] = s;
+            }
+        }
+
+        void HlinkAc::update_sensor_state_(SensorType type, float value)
+        {
+            size_t index = (size_t) type;
+            if ((this->sensors_[index] != nullptr)
+            && ((!this->sensors_[index]->has_state())
+                || (this->sensors_[index]->raw_state != value))
+            ) {
+                this->sensors_[index]->publish_state(value);
+            }
         }
         #endif
 

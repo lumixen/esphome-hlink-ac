@@ -4,6 +4,9 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
 
+#ifdef USE_SENSOR
+#include "esphome/components/sensor/sensor.h"
+#endif
 #ifdef USE_SWITCH
 #include "esphome/components/switch/switch.h"
 #endif
@@ -68,8 +71,7 @@ namespace esphome
       REMOTE_CONTROL_LOCK = 0x0006,
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
-      CURRENT_OUTDOOR_TEMP_101 = 0x0101,
-      CURRENT_OUTDOOR_TEMP = 0x0102,
+      CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise has 7E value
       MODEL = 0x0900,
     };
 
@@ -135,6 +137,13 @@ namespace esphome
         }
         return (static_cast<uint16_t>((*p_value)[0]) << 8) | static_cast<uint16_t>((*p_value)[1]);
       }
+
+      optional<int8_t> p_value_as_int8() const {
+        if (!p_value.has_value() || p_value->size() != 1) {
+          return {};
+        }
+        return static_cast<int8_t>((*p_value)[0]);
+      }
     };
 
     struct ComponentStatus
@@ -170,6 +179,14 @@ namespace esphome
       }
     };
 
+    #ifdef USE_SENSOR
+    enum class SensorType {
+      OUTDOOR_TEMPERATURE,
+      // Used to count the number of sensors in the enum
+      COUNT,
+    };
+    #endif
+
     static const uint8_t REQUESTS_QUEUE_SIZE = 16;
     class CircularRequestsQueue {
       public:
@@ -195,6 +212,13 @@ namespace esphome
       protected:
         switch_::Switch *remote_lock_switch_{nullptr};
       #endif
+      #ifdef USE_SENSOR
+      public:
+        void set_sensor(SensorType type, sensor::Sensor *s);
+      protected:
+        void update_sensor_state_(SensorType type, float value);
+        sensor::Sensor *sensors_[(size_t) SensorType::COUNT]{nullptr};
+      #endif
     public:
       // Component overrides
       void setup() override;
@@ -210,7 +234,7 @@ namespace esphome
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
       void write_feature_status_request_(FeatureType feature_type);
-      void apply_feature_response_to_hlink_entity_(FeatureType requested_feature, HlinkResponseFrame feature_response);
+      void handle_feature_response_(FeatureType requested_feature, HlinkResponseFrame feature_response);
       void publish_updates_if_any_();
       HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
       void write_hlink_frame_(HlinkRequestFrame frame);
