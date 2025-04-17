@@ -26,6 +26,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_REMOTE_LOCK): switch.switch_schema(
             RemoteLockSwitch,
             icon=ICON_REMOTE,
+            entity_category=ENTITY_CATEGORY_CONFIG,
             default_restore_mode="DISABLED",
         ),
         cv.Optional(CONF_BEEPER): switch.switch_schema(
@@ -40,7 +41,7 @@ CONFIG_SCHEMA = cv.Schema(
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_HLINK_AC_ID])
 
-    for switch_type in [CONF_REMOTE_LOCK]:
+    for switch_type in [CONF_REMOTE_LOCK, CONF_BEEPER]:
         if conf := config.get(switch_type):
             sw_var = await switch.new_switch(conf)
             await cg.register_parented(sw_var, parent)
