@@ -72,6 +72,7 @@ namespace esphome
       SWING_MODE = 0x0014,
       CURRENT_INDOOR_TEMP = 0x0100,
       CURRENT_OUTDOOR_TEMP = 0x0102, // Available only when unit is working, otherwise has 7E value
+      ACTIVITY_STATUS = 0x0301,
       MODEL = 0x0900,
     };
 

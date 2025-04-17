@@ -19,7 +19,8 @@ namespace esphome
             CURRENT_INDOOR_TEMP,
             FAN_MODE,
             SWING_MODE,
-            MODEL
+            MODEL,
+            ACTIVITY_STATUS
             #ifdef USE_SWITCH
             ,
             REMOTE_CONTROL_LOCK
