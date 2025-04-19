@@ -35,8 +35,8 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Mode: %s", this->hlink_entity_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hlink_entity_status_.mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hlink_entity_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hlink_entity_status_.fan_mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hlink_entity_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value())) : "N/A");
-            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
-            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Model: %s", this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str() : "N/A");
             #ifdef USE_SWITCH
             ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
@@ -211,10 +211,6 @@ namespace esphome
                 else if (response.p_value_as_uint16() == HLINK_MODE_FAN)
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
-                }
-                else if (response.p_value_as_uint16() == HLINK_MODE_AUTO)
-                {
-                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
                 }
                 break;
             case FeatureType::TARGET_TEMP:
@@ -477,10 +473,6 @@ namespace esphome
                     this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
                     this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
-                case climate::ClimateMode::CLIMATE_MODE_AUTO:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
-                    break;
                 default:
                     break;
                 }
@@ -538,8 +530,7 @@ namespace esphome
                                         climate::CLIMATE_MODE_COOL,
                                         climate::CLIMATE_MODE_HEAT,
                                         climate::CLIMATE_MODE_DRY,
-                                        climate::CLIMATE_MODE_FAN_ONLY,
-                                        climate::CLIMATE_MODE_AUTO
+                                        climate::CLIMATE_MODE_FAN_ONLY
                                     });
             traits.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO,
                                             climate::CLIMATE_FAN_LOW,
