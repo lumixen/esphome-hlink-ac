@@ -113,10 +113,11 @@ sensor:
 
 ## Building locally
 
-Project includes a test [dev configuration](hlink.yml) that can be used for compilation.
+Project includes a test [dev configurations](build/) that can be used for compilation.
 Run from the project root folder (docker is required):
 ```bash
-docker run --rm -v "$(pwd)":/config -it esphome/esphome compile hlink.yml
+cd build/
+./compile
 ```
 
 ## Debugging serial communication
