@@ -208,6 +208,14 @@ namespace esphome
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
+                else if (response.p_value_as_uint16() == HLINK_MODE_FAN)
+                {
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
+                }
+                else if (response.p_value_as_uint16() == HLINK_MODE_AUTO)
+                {
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+                }
                 break;
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
@@ -451,19 +459,27 @@ namespace esphome
                 switch (mode)
                 {
                 case climate::ClimateMode::CLIMATE_MODE_OFF:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0000));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0000));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_COOL:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_HEAT:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_DRY:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_AUTO:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 default:
                     break;
@@ -521,7 +537,10 @@ namespace esphome
             traits.set_supported_modes({climate::CLIMATE_MODE_OFF,
                                         climate::CLIMATE_MODE_COOL,
                                         climate::CLIMATE_MODE_HEAT,
-                                        climate::CLIMATE_MODE_DRY});
+                                        climate::CLIMATE_MODE_DRY,
+                                        climate::CLIMATE_MODE_FAN_ONLY,
+                                        climate::CLIMATE_MODE_AUTO
+                                    });
             traits.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO,
                                             climate::CLIMATE_FAN_LOW,
                                             climate::CLIMATE_FAN_MEDIUM,

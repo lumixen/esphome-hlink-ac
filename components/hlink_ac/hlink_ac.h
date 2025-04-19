@@ -77,6 +77,8 @@ namespace esphome
     constexpr uint16_t HLINK_MODE_COOL = 0x0040;
     constexpr uint16_t HLINK_MODE_COOL_AUTO = 0x8040;
     constexpr uint16_t HLINK_MODE_DRY = 0x0020;
+    constexpr uint16_t HLINK_MODE_FAN = 0x0050;
+    constexpr uint16_t HLINK_MODE_AUTO = 0x8000;
 
     constexpr uint16_t HLINK_SWING_OFF = 0x0000;
     constexpr uint16_t HLINK_SWING_VERTICAL = 0x0001;
