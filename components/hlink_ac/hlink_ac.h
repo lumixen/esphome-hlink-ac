@@ -26,9 +26,6 @@ namespace esphome
     static const std::string HLINK_MSG_OK_TOKEN = "OK";
     static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
-    // constexpr uint32_t MIN_TARGET_TEMPERATURE = 16;
-    // constexpr uint32_t MAX_TARGET_TEMPERATURE = 32;
-
     enum HlinkComponentState : uint8_t
     {
       IDLE,
