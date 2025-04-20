@@ -26,8 +26,8 @@ namespace esphome
     static const std::string HLINK_MSG_OK_TOKEN = "OK";
     static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
-    constexpr uint32_t MIN_TARGET_TEMPERATURE = 16;
-    constexpr uint32_t MAX_TARGET_TEMPERATURE = 32;
+    // constexpr uint32_t MIN_TARGET_TEMPERATURE = 16;
+    // constexpr uint32_t MAX_TARGET_TEMPERATURE = 32;
 
     enum HlinkComponentState : uint8_t
     {
@@ -281,13 +281,18 @@ namespace esphome
       void setup() override;
       void loop() override;
       void dump_config() override;
-      // Climate overrides
-      void control(const esphome::climate::ClimateCall &call) override;
-      esphome::climate::ClimateTraits traits() override;
+      // ----- CLIMATE -----
+      void control(const climate::ClimateCall &call) override;
+      climate::ClimateTraits traits() override;
+      void set_supported_climate_modes(const std::set<climate::ClimateMode> &modes);
+      void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
+      void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
+      // ----- END CLIMATE -----
 
     protected:
       ComponentStatus status_ = ComponentStatus();
       HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
+      climate::ClimateTraits traits_ = climate::ClimateTraits();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
       void write_feature_status_request_(FeatureType feature_type);

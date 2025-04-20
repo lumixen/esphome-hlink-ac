@@ -216,7 +216,11 @@ namespace esphome
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
                 if (response.p_value_as_uint16().has_value()) {
-                    this->hlink_entity_status_.target_temperature = (response.p_value_as_uint16() < MIN_TARGET_TEMPERATURE || response.p_value_as_uint16() > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value_as_uint16();
+                    float target_temp = response.p_value_as_uint16().value();
+                    this->hlink_entity_status_.target_temperature = 
+                        (target_temp < this->traits_.get_visual_min_temperature()
+                            || target_temp > this->traits_.get_visual_max_temperature()) 
+                        ? this->traits_.get_visual_min_temperature() : target_temp;
                 }
                 break;
             case FeatureType::CURRENT_INDOOR_TEMP:
@@ -523,28 +527,26 @@ namespace esphome
             }
         }
 
+        void HlinkAc::set_supported_climate_modes(const std::set<climate::ClimateMode> &modes)
+        {
+            this->traits_.add_supported_mode(climate::CLIMATE_MODE_OFF);
+            this->traits_.set_supported_modes(modes);
+        }
+
+        void HlinkAc::set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes)
+        {
+            this->traits_.set_supported_swing_modes(modes);
+        }
+
+        void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes)
+        {
+            this->traits_.set_supported_fan_modes(modes);
+        }
+
         esphome::climate::ClimateTraits HlinkAc::traits()
         {
-            climate::ClimateTraits traits = climate::ClimateTraits();
-            traits.set_supported_modes({climate::CLIMATE_MODE_OFF,
-                                        climate::CLIMATE_MODE_COOL,
-                                        climate::CLIMATE_MODE_HEAT,
-                                        climate::CLIMATE_MODE_DRY,
-                                        climate::CLIMATE_MODE_FAN_ONLY
-                                    });
-            traits.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO,
-                                            climate::CLIMATE_FAN_LOW,
-                                            climate::CLIMATE_FAN_MEDIUM,
-                                            climate::CLIMATE_FAN_HIGH,
-                                            climate::CLIMATE_FAN_QUIET});
-            traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF,
-                                              climate::CLIMATE_SWING_VERTICAL});
-            traits.set_visual_min_temperature(MIN_TARGET_TEMPERATURE);
-            traits.set_visual_max_temperature(MAX_TARGET_TEMPERATURE);
-            traits.set_supports_current_temperature(true);
-            traits.set_visual_target_temperature_step(1.0f);
-            traits.set_visual_current_temperature_step(1.0f);
-            return traits;
+            this->traits_.set_supports_current_temperature(true);
+            return this->traits_;
         }
 
         #ifdef USE_SWITCH
