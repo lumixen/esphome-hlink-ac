@@ -274,10 +274,11 @@ namespace esphome
       sensor::Sensor *sensors_[(size_t)SensorType::COUNT]{nullptr};
 #endif
     public:
-      // Component overrides
+      // ----- COMPONENT -----
       void setup() override;
       void loop() override;
       void dump_config() override;
+      // ----- END COMPONENT -----
       // ----- CLIMATE -----
       void control(const climate::ClimateCall &call) override;
       climate::ClimateTraits traits() override;
