@@ -89,6 +89,26 @@ sensor:
       name: Outdoor temperature
 ```
 
+without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
+
+```yml
+climate:
+  - platform: hlink_ac
+    name: "SNXXXXXX"
+    supported_modes:
+      - "OFF"
+      - COOL
+    supported_swing_modes:
+      - "OFF"
+    supported_fan_modes:
+      - AUTO
+      - LOW
+      - HIGH
+    visual:
+      min_temperature: 16.0
+      max_temperature: 28.0
+```
+
 ### Supported features:
 1. Climate
     - HVAC mode:
@@ -96,6 +116,7 @@ sensor:
       - `HEAT`
       - `COOL`
       - `DRY`
+      - `FAN_ONLY`
     - Fan mode:
       - `QUIET`
       - `LOW`
