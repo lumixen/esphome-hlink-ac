@@ -163,3 +163,4 @@ uart:
 
 - Florian did a fantastic detective investigation to reverse engineer H-Link connection in his [Let me control you: Hitachi air conditioner](https://hackaday.io/project/168959-let-me-control-you-hitachi-air-conditioner) hackaday project.
 - More protocol sniffing in Vince's [hackaday project](https://hackaday.io/project/179797-hitachi-hvac-controler-for-homeassistant-esp8266)
+- [hi-arduino project](https://github.com/farom57/hi-arduino/)
