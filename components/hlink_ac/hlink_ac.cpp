@@ -41,6 +41,7 @@ namespace esphome
             #ifdef USE_SWITCH
             ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
             #endif
+            this->check_uart_settings(9600, 1, uart::UART_CONFIG_PARITY_ODD, 8);
         }
 
         void HlinkAc::request_status_update_()

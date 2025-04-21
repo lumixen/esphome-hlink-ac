@@ -50,7 +50,10 @@ namespace esphome
 #endif
       bool has_hvac_status()
       {
-        return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
+        return power_state.has_value()
+          && current_temperature.has_value()
+          && target_temperature.has_value()
+          && mode.has_value();
       }
     };
 
