@@ -69,7 +69,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.4.2
+      ref: 2025.4.3
     components: [hlink_ac]
 
 climate:
@@ -89,6 +89,26 @@ sensor:
       name: Outdoor temperature
 ```
 
+without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
+
+```yml
+climate:
+  - platform: hlink_ac
+    name: "SNXXXXXX"
+    supported_modes:
+      - "OFF"
+      - COOL
+    supported_swing_modes:
+      - "OFF"
+    supported_fan_modes:
+      - AUTO
+      - LOW
+      - HIGH
+    visual:
+      min_temperature: 16.0
+      max_temperature: 28.0
+```
+
 ### Supported features:
 1. Climate
     - HVAC mode:
@@ -96,6 +116,7 @@ sensor:
       - `HEAT`
       - `COOL`
       - `DRY`
+      - `FAN_ONLY`
     - Fan mode:
       - `QUIET`
       - `LOW`
@@ -142,3 +163,4 @@ uart:
 
 - Florian did a fantastic detective investigation to reverse engineer H-Link connection in his [Let me control you: Hitachi air conditioner](https://hackaday.io/project/168959-let-me-control-you-hitachi-air-conditioner) hackaday project.
 - More protocol sniffing in Vince's [hackaday project](https://hackaday.io/project/179797-hitachi-hvac-controler-for-homeassistant-esp8266)
+- [hi-arduino project](https://github.com/farom57/hi-arduino/)

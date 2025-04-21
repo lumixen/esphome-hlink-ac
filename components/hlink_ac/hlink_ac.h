@@ -26,9 +26,6 @@ namespace esphome
     static const std::string HLINK_MSG_OK_TOKEN = "OK";
     static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
-    constexpr uint32_t MIN_TARGET_TEMPERATURE = 16;
-    constexpr uint32_t MAX_TARGET_TEMPERATURE = 32;
-
     enum HlinkComponentState : uint8_t
     {
       IDLE,
@@ -53,7 +50,10 @@ namespace esphome
 #endif
       bool has_hvac_status()
       {
-        return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() && mode.has_value() && fan_mode.has_value() && swing_mode.has_value();
+        return power_state.has_value()
+          && current_temperature.has_value()
+          && target_temperature.has_value()
+          && mode.has_value();
       }
     };
 
@@ -77,6 +77,8 @@ namespace esphome
     constexpr uint16_t HLINK_MODE_COOL = 0x0040;
     constexpr uint16_t HLINK_MODE_COOL_AUTO = 0x8040;
     constexpr uint16_t HLINK_MODE_DRY = 0x0020;
+    constexpr uint16_t HLINK_MODE_FAN = 0x0050;
+    constexpr uint16_t HLINK_MODE_AUTO = 0x8000;
 
     constexpr uint16_t HLINK_SWING_OFF = 0x0000;
     constexpr uint16_t HLINK_SWING_VERTICAL = 0x0001;
@@ -275,17 +277,23 @@ namespace esphome
       sensor::Sensor *sensors_[(size_t)SensorType::COUNT]{nullptr};
 #endif
     public:
-      // Component overrides
+      // ----- COMPONENT -----
       void setup() override;
       void loop() override;
       void dump_config() override;
-      // Climate overrides
-      void control(const esphome::climate::ClimateCall &call) override;
-      esphome::climate::ClimateTraits traits() override;
+      // ----- END COMPONENT -----
+      // ----- CLIMATE -----
+      void control(const climate::ClimateCall &call) override;
+      climate::ClimateTraits traits() override;
+      void set_supported_climate_modes(const std::set<climate::ClimateMode> &modes);
+      void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
+      void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
+      // ----- END CLIMATE -----
 
     protected:
       ComponentStatus status_ = ComponentStatus();
       HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
+      climate::ClimateTraits traits_ = climate::ClimateTraits();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
       void write_feature_status_request_(FeatureType feature_type);

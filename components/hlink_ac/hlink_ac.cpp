@@ -35,12 +35,13 @@ namespace esphome
             ESP_LOGCONFIG(TAG, "  Mode: %s", this->hlink_entity_status_.mode.has_value() ? LOG_STR_ARG(climate_mode_to_string(this->hlink_entity_status_.mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Fan mode: %s", this->hlink_entity_status_.fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->hlink_entity_status_.fan_mode.value())) : "N/A");
             ESP_LOGCONFIG(TAG, "  Swing mode: %s", this->hlink_entity_status_.swing_mode.has_value() ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value())) : "N/A");
-            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(this->hlink_entity_status_.current_temperature.value()).c_str() : "N/A");
-            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(this->hlink_entity_status_.target_temperature.value()).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Current temperature: %s", this->hlink_entity_status_.current_temperature.has_value() ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str() : "N/A");
+            ESP_LOGCONFIG(TAG, "  Target temperature: %s", this->hlink_entity_status_.target_temperature.has_value() ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str() : "N/A");
             ESP_LOGCONFIG(TAG, "  Model: %s", this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str() : "N/A");
             #ifdef USE_SWITCH
             ESP_LOGCONFIG(TAG, "  Remote lock: %s", this->hlink_entity_status_.remote_control_lock.has_value() ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF" : "N/A");
             #endif
+            this->check_uart_settings(9600, 1, uart::UART_CONFIG_PARITY_ODD, 8);
         }
 
         void HlinkAc::request_status_update_()
@@ -208,11 +209,19 @@ namespace esphome
                 {
                     this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
                 }
+                else if (response.p_value_as_uint16() == HLINK_MODE_FAN)
+                {
+                    this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
+                }
                 break;
             case FeatureType::TARGET_TEMP:
                 // After power off/on cycle AC could return values beyond MIN/MAX range
                 if (response.p_value_as_uint16().has_value()) {
-                    this->hlink_entity_status_.target_temperature = (response.p_value_as_uint16() < MIN_TARGET_TEMPERATURE || response.p_value_as_uint16() > MAX_TARGET_TEMPERATURE) ? MIN_TARGET_TEMPERATURE : response.p_value_as_uint16();
+                    float target_temp = response.p_value_as_uint16().value();
+                    this->hlink_entity_status_.target_temperature = 
+                        (target_temp < this->traits_.get_visual_min_temperature()
+                            || target_temp > this->traits_.get_visual_max_temperature()) 
+                        ? this->traits_.get_visual_min_temperature() : target_temp;
                 }
                 break;
             case FeatureType::CURRENT_INDOOR_TEMP:
@@ -451,19 +460,23 @@ namespace esphome
                 switch (mode)
                 {
                 case climate::ClimateMode::CLIMATE_MODE_OFF:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0000));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0000));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_COOL:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_HEAT:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 case climate::ClimateMode::CLIMATE_MODE_DRY:
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0000, 0x0001));
-                    this->pending_action_requests.enqueue(this->createRequestFrame_(0x0001, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+                    break;
+                case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+                    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
                     break;
                 default:
                     break;
@@ -515,26 +528,26 @@ namespace esphome
             }
         }
 
+        void HlinkAc::set_supported_climate_modes(const std::set<climate::ClimateMode> &modes)
+        {
+            this->traits_.add_supported_mode(climate::CLIMATE_MODE_OFF);
+            this->traits_.set_supported_modes(modes);
+        }
+
+        void HlinkAc::set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes)
+        {
+            this->traits_.set_supported_swing_modes(modes);
+        }
+
+        void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes)
+        {
+            this->traits_.set_supported_fan_modes(modes);
+        }
+
         esphome::climate::ClimateTraits HlinkAc::traits()
         {
-            climate::ClimateTraits traits = climate::ClimateTraits();
-            traits.set_supported_modes({climate::CLIMATE_MODE_OFF,
-                                        climate::CLIMATE_MODE_COOL,
-                                        climate::CLIMATE_MODE_HEAT,
-                                        climate::CLIMATE_MODE_DRY});
-            traits.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO,
-                                            climate::CLIMATE_FAN_LOW,
-                                            climate::CLIMATE_FAN_MEDIUM,
-                                            climate::CLIMATE_FAN_HIGH,
-                                            climate::CLIMATE_FAN_QUIET});
-            traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF,
-                                              climate::CLIMATE_SWING_VERTICAL});
-            traits.set_visual_min_temperature(MIN_TARGET_TEMPERATURE);
-            traits.set_visual_max_temperature(MAX_TARGET_TEMPERATURE);
-            traits.set_supports_current_temperature(true);
-            traits.set_visual_target_temperature_step(1.0f);
-            traits.set_visual_current_temperature_step(1.0f);
-            return traits;
+            this->traits_.set_supports_current_temperature(true);
+            return this->traits_;
         }
 
         #ifdef USE_SWITCH
