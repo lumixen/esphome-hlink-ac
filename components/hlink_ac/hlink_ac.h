@@ -157,14 +157,14 @@ namespace esphome
 
     struct PollHlinkFeature {
       HlinkRequestFrame request_frame;
-      std::function<void(const HlinkResponseFrame &response)> response_handler;
+      std::function<void(const HlinkResponseFrame &response)> response_callback;
     };
 
     struct ComponentStatus
     {
       HlinkComponentState state = IDLE;
       std::vector<PollHlinkFeature> polling_features = {};
-      uint8_t requested_read_feature_index = 0;
+      uint8_t requested_feature_index = 0;
       
       uint32_t non_idle_timeout_limit_ms = 0;
 
@@ -195,15 +195,15 @@ namespace esphome
 
       PollHlinkFeature get_currently_polling_feature()
       {
-        return polling_features[requested_read_feature_index];
+        return polling_features[requested_feature_index];
       }
 
       void poll_next_feature_or_publish_updates()
       {
-        if (requested_read_feature_index + 1 < polling_features.size())
+        if (requested_feature_index + 1 < polling_features.size())
         {
           state = REQUEST_NEXT_FEATURE;
-          requested_read_feature_index++;
+          requested_feature_index++;
         }
         else
         {
@@ -219,7 +219,7 @@ namespace esphome
         non_idle_timeout_limit_ms = 0;
         last_frame_sent_at_ms = 0;
         last_status_polling_finished_at_ms = 0;
-        requested_read_feature_index = 0;
+        requested_feature_index = 0;
         requests_left_to_apply = 0;
         currently_applying_message = nullptr;
       }

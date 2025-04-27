@@ -145,7 +145,7 @@ namespace esphome
             {
                 // Launch update sequence
                 this->status_.state = REQUEST_NEXT_FEATURE;
-                this->status_.requested_read_feature_index = 0;
+                this->status_.requested_feature_index = 0;
                 this->status_.refresh_non_idle_timeout(2000);
             }
         }
@@ -180,14 +180,13 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    requested_feature.response_handler(response);
+                    requested_feature.response_callback(response);
                     break;
                 case HlinkResponseFrame::Status::NG:
                     ESP_LOGW(TAG, "Received NG response for status update request [%d]", requested_feature.request_frame.p.first);
                     break;
                 case HlinkResponseFrame::Status::INVALID:
                     ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", requested_feature.request_frame.p.first);
-                    this->status_.state = IDLE;
                     break;
                 }
                 this->status_.poll_next_feature_or_publish_updates();
