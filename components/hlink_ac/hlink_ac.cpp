@@ -180,7 +180,6 @@ namespace esphome
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
-                    ESP_LOGI(TAG, "Received OK response for status update request [%d]", requested_feature.request_frame.p.first);
                     requested_feature.response_callback(response);
                     break;
                 case HlinkResponseFrame::Status::NG:
@@ -190,7 +189,10 @@ namespace esphome
                     ESP_LOGW(TAG, "Received INVALID response for status update request [%d]", requested_feature.request_frame.p.first);
                     break;
                 }
-                this->status_.poll_next_feature_or_publish_updates();
+                if (response.status != HlinkResponseFrame::Status::NOTHING)
+                {
+                    this->status_.poll_next_feature_or_publish_updates();
+                }
             }
 
             if (this->status_.state == PUBLISH_UPDATE_IF_ANY)
