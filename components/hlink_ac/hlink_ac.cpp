@@ -324,24 +324,23 @@ namespace esphome
                 {
                     this->publish_state();
                 }
-
-                #ifdef USE_SWITCH
-                if (this->remote_lock_switch_ != nullptr
-                    && this->hlink_entity_status_.remote_control_lock.has_value()
-                    && this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value())
-                {
-                    this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
-                }
-                #endif
-                #ifdef USE_TEXT_SENSOR
-                if (this->model_name_text_sensor_ != nullptr
-                    && this->hlink_entity_status_.model_name.has_value()
-                    && this->model_name_text_sensor_->state != this->hlink_entity_status_.model_name.value())
-                {
-                    this->model_name_text_sensor_->publish_state(this->hlink_entity_status_.model_name.value());
-                }
-                #endif
             }
+            #ifdef USE_SWITCH
+            if (this->remote_lock_switch_ != nullptr
+                && this->hlink_entity_status_.remote_control_lock.has_value()
+                && this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value())
+            {
+                this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+            }
+            #endif
+            #ifdef USE_TEXT_SENSOR
+            if (this->model_name_text_sensor_ != nullptr
+                && this->hlink_entity_status_.model_name.has_value()
+                && this->model_name_text_sensor_->state != this->hlink_entity_status_.model_name.value())
+            {
+                this->model_name_text_sensor_->publish_state(this->hlink_entity_status_.model_name.value());
+            }
+            #endif
         }
 
         void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame)
@@ -621,6 +620,7 @@ namespace esphome
             switch (type)
             {
             case TextSensorType::MODEL_NAME:
+                this->model_name_text_sensor_ = text_sensor;
                 this->status_.polling_features.push_back({
                     {HlinkRequestFrame::Type::MT,{FeatureType::MODEL_NAME}},
                     [this](const HlinkResponseFrame &response) {
