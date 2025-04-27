@@ -176,10 +176,11 @@ namespace esphome
             if (this->status_.state == READ_NEXT_FEATURE)
             {
                 HlinkResponseFrame response = this->read_hlink_frame_(50);
-                PollHlinkFeature requested_feature = this->status_.get_currently_polling_feature();
+                PolledFeature requested_feature = this->status_.get_currently_polling_feature();
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
+                    ESP_LOGI(TAG, "Received OK response for status update request [%d]", requested_feature.request_frame.p.first);
                     requested_feature.response_callback(response);
                     break;
                 case HlinkResponseFrame::Status::NG:
