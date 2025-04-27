@@ -193,6 +193,11 @@ namespace esphome
         return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
+      PollHlinkFeature get_currently_polling_feature()
+      {
+        return polling_features[requested_read_feature_index];
+      }
+
       void poll_next_feature_or_publish_updates()
       {
         if (requested_read_feature_index + 1 < polling_features.size())

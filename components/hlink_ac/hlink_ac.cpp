@@ -166,16 +166,17 @@ namespace esphome
             {
                 this->request_status_update_();
             }
+
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
-                this->write_hlink_frame_(this->status_.polling_features[this->status_.requested_read_feature_index].request_frame);
+                this->write_hlink_frame_(this->status_.get_currently_polling_feature().request_frame);
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
             if (this->status_.state == READ_NEXT_FEATURE)
             {
                 HlinkResponseFrame response = this->read_hlink_frame_(50);
-                PollHlinkFeature requested_feature = this->status_.polling_features[this->status_.requested_read_feature_index];
+                PollHlinkFeature requested_feature = this->status_.get_currently_polling_feature();
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
