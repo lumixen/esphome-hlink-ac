@@ -5,7 +5,6 @@ import esphome.config_validation as cv
 from esphome.components import text_sensor
 from esphome.const import (
     ENTITY_CATEGORY_DIAGNOSTIC,
-    ENTITY_CATEGORY_NONE,
 )
 from ..climate import (
     CONF_HLINK_AC_ID,
@@ -24,12 +23,12 @@ DEBUG = "debug"
 CONF_ADDRESS = "address"
 
 # ICON_BUG = "mdi:bug"
-ICON_TEXT_BOX = "mdi:text-box-outline"
+ICON_INFORMATION = "mdi:information-outline"
 
 TEXT_SENSOR_TYPES = {
     MODEL_NAME: text_sensor.text_sensor_schema(
-        icon=ICON_TEXT_BOX,
-        entity_category=ENTITY_CATEGORY_NONE,
+        icon=ICON_INFORMATION,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     DEBUG: text_sensor.TEXT_SENSOR_SCHEMA.extend(
         {

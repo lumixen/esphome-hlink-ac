@@ -165,7 +165,6 @@ namespace esphome
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
                 this->write_hlink_frame_(this->status_.polling_features[this->status_.requested_read_feature_index].request_frame);
-                // this->write_feature_status_request_(this->status_.get_requested_read_feature());
                 this->status_.state = READ_NEXT_FEATURE;
             }
 
