@@ -69,7 +69,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.4.3
+      ref: 2025.4.4
     components: [hlink_ac]
 
 climate:
@@ -87,6 +87,11 @@ sensor:
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor temperature
+
+text_sensor:
+  - platform: hlink_ac
+    model_name:
+      name: Model
 ```
 
 without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
@@ -131,17 +136,30 @@ climate:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
+4. Text sensor
+    - Model name
 
-## Building locally
+## H-link protocol reverse engineering
 
-Project includes a test [dev configurations](build/) that can be used for compilation.
-Run from the project root folder (docker is required):
-```bash
-cd build/
-./compile
+H-link specifications aren't publicly available, and this component was built using reverse-engineered data. It most likely doesn't cover all possible scenarios and combinations of features that different Hitachi climate devices offer. 
+
+If you're willing to dive into the protocol communication on your own, this component offers a convenient way to monitor H-link addresses dynamically using text sensors. You can add any number of `debug` text sensors that will be polled at the same interval as other known addresses:
+
+```yaml
+text_sensor:
+  - platform: hlink_ac
+    debug:
+      name: P0005
+      address: 0x0005
+  - platform: hlink_ac
+    debug:
+      name: P0201
+      address: 0x0201
 ```
 
-## Debugging serial communication
+Each sensor sends an `MT P=address C=XXXX` request. If unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns [error codes](https://github.com/lumixen/esphome-hlink-ac/blob/main/docs/hlink_alarm_codes.csv) if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. Debug sensors can help monitor unknown addresses and their behavior throughout the Hitachi unit lifecycle.
+
+H-link UART serial communication could be minotored using this snippet:
 
 ```yaml
 uart:
@@ -157,6 +175,15 @@ uart:
       delimiter: "\n"
     sequence:
       - lambda: UARTDebug::log_string(direction, bytes);
+```
+
+## Building locally
+
+Project includes a test [dev configurations](build/) that can be used for compilation.
+Run from the project root folder (docker is required):
+```bash
+cd build/
+./compile
 ```
 
 ## Credits

@@ -10,6 +10,9 @@
 #ifdef USE_SWITCH
 #include "esphome/components/switch/switch.h"
 #endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 namespace esphome
 {
@@ -31,7 +34,7 @@ namespace esphome
       IDLE,
       REQUEST_NEXT_FEATURE,
       READ_NEXT_FEATURE,
-      PUBLISH_CLIMATE_UPDATE_IF_ANY,
+      PUBLISH_UPDATE_IF_ANY,
       APPLY_REQUEST,
       ACK_APPLIED_REQUEST
     };
@@ -150,36 +153,43 @@ namespace esphome
         }
         return static_cast<int8_t>((*p_value)[0]);
       }
+
+      optional<std::string> p_value_as_string() const
+      {
+        if (!p_value.has_value())
+        {
+          return {};
+        }
+        std::string hex_string;
+        for (const auto &byte : *p_value)
+        {
+          char buffer[3];
+          sprintf(buffer, "%02X", byte);
+          hex_string += buffer;
+        }
+        return hex_string;
+      }
     };
 
-    // Polled AC status features
-    constexpr FeatureType features[] = {
-        POWER_STATE,
-        MODE,
-        TARGET_TEMP,
-        CURRENT_INDOOR_TEMP,
-        FAN_MODE,
-        SWING_MODE,
-        MODEL_NAME
-#ifdef USE_SWITCH
-        ,
-        REMOTE_CONTROL_LOCK
-#endif
-#ifdef USE_SENSOR
-        ,
-        CURRENT_OUTDOOR_TEMP
-#endif
+    struct HlinkFeatureRequest {
+      HlinkRequestFrame request_frame;
+      std::function<void(const HlinkResponseFrame &response)> response_callback;
     };
-    constexpr int features_size = sizeof(features) / sizeof(features[0]);
 
     struct ComponentStatus
     {
       HlinkComponentState state = IDLE;
-      uint32_t timeout_counter_started_at_ms = 0;
+      std::vector<HlinkFeatureRequest> polling_features = {};
+      uint8_t requested_feature_index = 0;
+      
       uint32_t non_idle_timeout_limit_ms = 0;
-      uint8_t requested_read_feature_index = 0;
+
+      uint32_t last_status_polling_finished_at_ms = 0;
       uint32_t last_frame_sent_at_ms = 0;
+      uint32_t timeout_counter_started_at_ms = 0;
+
       uint8_t requests_left_to_apply = 0;
+
       std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
 
       void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms)
@@ -199,21 +209,22 @@ namespace esphome
         return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
-      FeatureType get_requested_read_feature()
+      HlinkFeatureRequest get_currently_polling_feature()
       {
-        return features[requested_read_feature_index];
+        return polling_features[requested_feature_index];
       }
 
-      void read_next_feature_if_any()
+      void poll_next_feature_or_publish_updates()
       {
-        if (requested_read_feature_index + 1 < features_size)
+        if (requested_feature_index + 1 < polling_features.size())
         {
           state = REQUEST_NEXT_FEATURE;
-          requested_read_feature_index++;
+          requested_feature_index++;
         }
         else
         {
-          state = PUBLISH_CLIMATE_UPDATE_IF_ANY;
+          state = PUBLISH_UPDATE_IF_ANY;
+          last_status_polling_finished_at_ms = millis();
         }
       }
 
@@ -223,7 +234,8 @@ namespace esphome
         timeout_counter_started_at_ms = 0;
         non_idle_timeout_limit_ms = 0;
         last_frame_sent_at_ms = 0;
-        requested_read_feature_index = 0;
+        last_status_polling_finished_at_ms = 0;
+        requested_feature_index = 0;
         requests_left_to_apply = 0;
         currently_applying_message = nullptr;
       }
@@ -234,6 +246,12 @@ namespace esphome
     {
       OUTDOOR_TEMPERATURE = 0,
       // Used to count the number of sensors in the enum
+      COUNT,
+    };
+#endif
+#ifdef USE_TEXT_SENSOR
+    enum class TextSensorType {
+      MODEL_NAME,
       COUNT,
     };
 #endif
@@ -273,8 +291,15 @@ namespace esphome
       void set_sensor(SensorType type, sensor::Sensor *s);
 
     protected:
-      void update_sensor_state_(SensorType type, float value);
-      sensor::Sensor *sensors_[(size_t)SensorType::COUNT]{nullptr};
+      void update_sensor_state_(sensor::Sensor *sensor, float value);
+#endif
+#ifdef USE_TEXT_SENSOR
+    public:
+      void set_text_sensor(TextSensorType type, text_sensor::TextSensor *sens);
+      void set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *sens);
+
+    protected:
+      text_sensor::TextSensor *model_name_text_sensor_{nullptr};
 #endif
     public:
       // ----- COMPONENT -----
@@ -296,8 +321,6 @@ namespace esphome
       climate::ClimateTraits traits_ = climate::ClimateTraits();
       CircularRequestsQueue pending_action_requests;
       void request_status_update_();
-      void write_feature_status_request_(FeatureType feature_type);
-      void handle_feature_read_response_(FeatureType requested_feature, HlinkResponseFrame response);
       void handle_feature_write_response_ack_(HlinkRequestFrame applied_request);
       void publish_updates_if_any_();
       HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
