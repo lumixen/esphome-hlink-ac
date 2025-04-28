@@ -27,3 +27,16 @@ sensor:
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor temperature
+
+text_sensor:
+  - platform: hlink_ac
+    model_name:
+      name: Model
+  - platform: hlink_ac
+    debug:
+      name: P0005
+      address: 0x0005
+  - platform: hlink_ac
+    debug:
+      name: P000A
+      address: 0x000A
