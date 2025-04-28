@@ -162,11 +162,6 @@ namespace esphome
         */
         void HlinkAc::loop()
         {
-            if (this->status_.state == IDLE && this->status_.last_status_polling_finished_at_ms + STATUS_UPDATE_INTERVAL < millis())
-            {
-                this->request_status_update_();
-            }
-
             if (this->status_.state == REQUEST_NEXT_FEATURE && this->status_.can_send_next_frame())
             {
                 this->write_hlink_frame_(this->status_.get_currently_polling_feature().request_frame);
@@ -275,6 +270,12 @@ namespace esphome
                 this->status_.requests_left_to_apply = this->pending_action_requests.size();
                 this->status_.state = APPLY_REQUEST;
                 this->status_.refresh_non_idle_timeout(2000);
+            }
+
+            // Start polling if we are in IDLE state and the status update interval is reached
+            if (this->status_.state == IDLE && this->status_.last_status_polling_finished_at_ms + STATUS_UPDATE_INTERVAL < millis())
+            {
+                this->request_status_update_();
             }
         }
 
