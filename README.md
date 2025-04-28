@@ -87,6 +87,11 @@ sensor:
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor temperature
+
+text_sensor:
+  - platform: hlink_ac
+    model_name:
+      name: Model
 ```
 
 without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
@@ -131,6 +136,8 @@ climate:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
+4. Text sensor
+    - Model name
 
 ## Building locally
 
@@ -141,7 +148,27 @@ cd build/
 ./compile
 ```
 
-## Debugging serial communication
+## H-link protocol reverse engineering
+
+H-link specifications aren't publicly available, and this component was built using reverse-engineered data. It most likely doesn't cover all possible scenarios and combinations of features that different Hitachi climate devices offer. 
+
+If you're willing to dive into the protocol communication on your own, this component offers a convenient way to monitor H-link addresses dynamically using text sensors. You can add any number of `debug` text sensors that will be polled at the same interval as other known addresses:
+
+```yaml
+text_sensor:
+  - platform: hlink_ac
+    debug:
+      name: P0005
+      address: 0x0005
+  - platform: hlink_ac
+    debug:
+      name: P0201
+      address: 0x0201
+```
+
+If an address request returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns error codes if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. This is where the debug text sensor could be useful. 
+
+H-link UART serial communication could be minotored using this snippet:
 
 ```yaml
 uart:
