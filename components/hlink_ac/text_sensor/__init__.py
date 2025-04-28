@@ -22,7 +22,7 @@ DEBUG = "debug"
 
 CONF_ADDRESS = "address"
 
-# ICON_BUG = "mdi:bug"
+ICON_BUG = "mdi:bug"
 ICON_INFORMATION = "mdi:information-outline"
 
 TEXT_SENSOR_TYPES = {
@@ -30,7 +30,10 @@ TEXT_SENSOR_TYPES = {
         icon=ICON_INFORMATION,
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
-    DEBUG: text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    DEBUG: text_sensor.text_sensor_schema(
+        icon=ICON_BUG,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ).extend(
         {
             cv.Required(CONF_ADDRESS): cv.hex_uint16_t,
         }
@@ -46,7 +49,6 @@ CONFIG_SCHEMA = cv.Schema(
 
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_HLINK_AC_ID])
-    _LOGGER.info("Parent: %s", parent)
     for type_ in TEXT_SENSOR_TYPES:
         if conf := config.get(type_):
             sens = await text_sensor.new_text_sensor(conf)

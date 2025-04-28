@@ -153,6 +153,22 @@ namespace esphome
         }
         return static_cast<int8_t>((*p_value)[0]);
       }
+
+      optional<std::string> p_value_as_string() const
+      {
+        if (!p_value.has_value())
+        {
+          return {};
+        }
+        std::string hex_string;
+        for (const auto &byte : *p_value)
+        {
+          char buffer[3];
+          sprintf(buffer, "%02X", byte);
+          hex_string += buffer;
+        }
+        return hex_string;
+      }
     };
 
     struct HlinkFeatureRequest {

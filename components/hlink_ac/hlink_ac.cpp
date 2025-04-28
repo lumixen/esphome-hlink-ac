@@ -639,11 +639,12 @@ namespace esphome
         {
             this->status_.polling_features.push_back({
                 {HlinkRequestFrame::Type::MT,{address}},
-                [this, text_sensor](const HlinkResponseFrame &response) {
+                [text_sensor](const HlinkResponseFrame &response) {
                     if (response.p_value.has_value()) {
-                        std::string response_value(5, 0x00);
-                        sprintf(&response_value[0], "%04X", response.p_value.value());
-                        text_sensor->publish_state(response_value);
+                        std::string response_value = response.p_value_as_string().value();
+                        if (text_sensor->state != response_value) {
+                            text_sensor->publish_state(response_value);
+                        }
                     }
                 }
             });
