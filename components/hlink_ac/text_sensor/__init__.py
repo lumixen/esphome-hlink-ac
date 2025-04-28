@@ -19,6 +19,7 @@ TextSensorTypeEnum = hlink_ac_ns.enum("TextSensorType", True)
 
 MODEL_NAME = "model_name"
 DEBUG = "debug"
+DEBUG_DISCOVERY = "debug_discovery"
 
 CONF_ADDRESS = "address"
 
@@ -38,6 +39,10 @@ TEXT_SENSOR_TYPES = {
             cv.Required(CONF_ADDRESS): cv.hex_uint16_t,
         }
     ),
+    DEBUG_DISCOVERY: text_sensor.text_sensor_schema(
+        icon=ICON_BUG,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
 }
 
 CONFIG_SCHEMA = cv.Schema(
@@ -54,6 +59,8 @@ async def to_code(config):
             sens = await text_sensor.new_text_sensor(conf)
             if type_ == DEBUG:
                 cg.add(parent.set_debug_text_sensor(conf[CONF_ADDRESS], sens))
+            elif type_ == DEBUG_DISCOVERY:
+                cg.add(parent.set_debug_discovery_text_sensor(sens))
             else:
                 sensor_type = getattr(TextSensorTypeEnum, type_.upper())
                 cg.add(parent.set_text_sensor(sensor_type, sens))

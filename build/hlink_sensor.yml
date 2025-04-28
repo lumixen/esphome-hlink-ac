@@ -40,3 +40,6 @@ text_sensor:
     debug:
       name: P000A
       address: 0x000A
+  - platform: hlink_ac
+    debug_discovery:
+      name: H-link addresses discovery
