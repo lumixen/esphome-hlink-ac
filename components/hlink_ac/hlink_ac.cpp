@@ -157,7 +157,7 @@ void HlinkAc::loop() {
     this->status_.state = READ_FEATURE_RESPONSE;
   }
 
-  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE_IF_ANY && this->status_.can_send_next_frame()) {
+  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame()) {
     if (this->status_.low_priority_hlink_request.has_value()) {
       HlinkFeatureRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
       this->write_hlink_frame_(low_priority_feature_request.request_frame);
@@ -288,7 +288,7 @@ void HlinkAc::loop() {
 
   // Request low priority feature if idling and nothing else to do
   if (this->status_.state == IDLE && this->status_.low_priority_hlink_request.has_value()) {
-    this->status_.state = REQUEST_LOW_PRIORITY_FEATURE_IF_ANY;
+    this->status_.state = REQUEST_LOW_PRIORITY_FEATURE;
     this->status_.refresh_non_idle_timeout(300);
   }
 }
@@ -609,41 +609,33 @@ void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *t
 
 void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sensor) {
   static uint16_t current_address = 0x0000;
-
-  std::function<void(const HlinkResponseFrame &)> ok_callback;
-  std::function<void()> ng_callback;
-  std::function<void()> invalid_and_timeout_callback;
-
-  ok_callback = [this, text_sensor, &ok_callback, &ng_callback,
-                 &invalid_and_timeout_callback](const HlinkResponseFrame &response) {
-    char address_str[5];
-    sprintf(address_str, "%04X", current_address);
-    std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
-    text_sensor->publish_state(sensor_value);
-
-    // Move to the next address
-    this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback,
-                            ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+  std::function<HlinkFeatureRequest(uint16_t)> create_discovery_request;
+  auto create_ok_callback = [this, text_sensor, &create_discovery_request](uint16_t address) {
+    return [this, text_sensor, address, &create_discovery_request](const HlinkResponseFrame &response) mutable {
+      char address_str[5];
+      sprintf(address_str, "%04X", address);
+      std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
+      text_sensor->publish_state(sensor_value);
+      this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
+    };
   };
-
-  ng_callback = [this, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
-    // Just move to the next address, nothing to publish
-    this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback,
-                            ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+  auto create_ng_callback = [this, &create_discovery_request](uint16_t address) {
+    return [this, address, &create_discovery_request]() mutable {
+      this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
+    };
   };
-
-  invalid_and_timeout_callback = [this, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
-    // Retry the same address
-    this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback,
-                            invalid_and_timeout_callback, invalid_and_timeout_callback};
+  auto create_invalid_callback = [this, &create_discovery_request](uint16_t address) {
+    return [this, address, &create_discovery_request]() mutable {
+      this->status_.low_priority_hlink_request = create_discovery_request(address);
+    };
   };
-
-  this->status_.low_priority_hlink_request =
-      HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback,
-                          invalid_and_timeout_callback, invalid_and_timeout_callback};
+  create_discovery_request = [this, text_sensor, &create_ok_callback, &create_ng_callback,
+                              &create_invalid_callback](uint16_t address) {
+    return HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}}, create_ok_callback(address),
+                               create_ng_callback(address), create_invalid_callback(address),
+                               create_invalid_callback(address)};
+  };
+  this->status_.low_priority_hlink_request = create_discovery_request(current_address);
 }
 #endif
 
