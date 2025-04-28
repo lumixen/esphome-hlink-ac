@@ -608,34 +608,30 @@ void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *t
 }
 
 void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sensor) {
-  static uint16_t current_address = 0x0000;
   std::function<HlinkFeatureRequest(uint16_t)> create_discovery_request;
-  auto create_ok_callback = [this, text_sensor, &create_discovery_request](uint16_t address) {
-    return [this, text_sensor, address, &create_discovery_request](const HlinkResponseFrame &response) mutable {
-      char address_str[5];
-      sprintf(address_str, "%04X", address);
-      std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
-      text_sensor->publish_state(sensor_value);
-      this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
-    };
+  create_discovery_request = [this, text_sensor, &create_discovery_request](uint16_t address) {
+    return HlinkFeatureRequest{
+        HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}},
+        [this, text_sensor, address, &create_discovery_request](const HlinkResponseFrame &response) mutable {
+          // Handle successful response
+          char address_str[5];
+          sprintf(address_str, "%04X", address);
+          //   std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
+          //   text_sensor->publish_state(sensor_value);
+          text_sensor->publish_state(std::string(address_str));
+          this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
+        },
+        [this, address, &create_discovery_request]() mutable {
+          this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
+        },
+        [this, address, &create_discovery_request]() mutable {
+          this->status_.low_priority_hlink_request = create_discovery_request(address);
+        },
+        [this, address, &create_discovery_request]() mutable {
+          this->status_.low_priority_hlink_request = create_discovery_request(address);
+        }};
   };
-  auto create_ng_callback = [this, &create_discovery_request](uint16_t address) {
-    return [this, address, &create_discovery_request]() mutable {
-      this->status_.low_priority_hlink_request = create_discovery_request(address + 1);
-    };
-  };
-  auto create_invalid_callback = [this, &create_discovery_request](uint16_t address) {
-    return [this, address, &create_discovery_request]() mutable {
-      this->status_.low_priority_hlink_request = create_discovery_request(address);
-    };
-  };
-  create_discovery_request = [this, text_sensor, &create_ok_callback, &create_ng_callback,
-                              &create_invalid_callback](uint16_t address) {
-    return HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}}, create_ok_callback(address),
-                               create_ng_callback(address), create_invalid_callback(address),
-                               create_invalid_callback(address)};
-  };
-  this->status_.low_priority_hlink_request = create_discovery_request(current_address);
+  this->status_.low_priority_hlink_request = create_discovery_request(0x0000);
 }
 #endif
 
