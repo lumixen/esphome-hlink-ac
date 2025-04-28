@@ -608,7 +608,7 @@ void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *t
 }
 
 void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sensor) {
-  this->set_timeout(5000, [this, text_sensor]() {
+  this->set_timeout(20000, [this, text_sensor]() {
     auto create_discovery_request = std::make_shared<std::function<HlinkFeatureRequest(uint16_t)>>();
     *create_discovery_request = [this, text_sensor, create_discovery_request](uint16_t address) {
       return HlinkFeatureRequest{
