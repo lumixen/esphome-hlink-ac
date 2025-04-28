@@ -156,7 +156,7 @@ struct ComponentStatus {
   uint32_t non_idle_timeout_limit_ms = 0;
 
   uint32_t last_status_polling_finished_at_ms = 0;
-  uint32_t last_frame_sent_at_ms = 0;
+  uint32_t last_frame_received_at_ms = 0;
   uint32_t timeout_counter_started_at_ms = 0;
 
   uint8_t requests_left_to_apply = 0;
@@ -171,8 +171,8 @@ struct ComponentStatus {
   bool reached_timeout_thereshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
 
   bool can_send_next_frame() {
-    // Min interval between frames shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC will return NG
-    return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
+    // Min interval received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC will return NG
+    return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
 
   HlinkFeatureRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
@@ -181,7 +181,7 @@ struct ComponentStatus {
     state = IDLE;
     timeout_counter_started_at_ms = 0;
     non_idle_timeout_limit_ms = 0;
-    last_frame_sent_at_ms = 0;
+    last_frame_received_at_ms = 0;
     last_status_polling_finished_at_ms = 0;
     requested_feature_index = -1;
     requests_left_to_apply = 0;

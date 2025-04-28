@@ -371,8 +371,6 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
   }
   // Send the message to uart
   this->write_str(message.c_str());
-  // Update the timestamp of the last frame sent
-  this->status_.last_frame_sent_at_ms = millis();
 }
 
 // Returns NOTHING state if nothing available on UART input yet
@@ -389,6 +387,8 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
       }
       read_index++;
     }
+      // Update the timestamp of the last frame received
+    this->status_.last_frame_received_at_ms = millis();
     std::vector<std::string> response_tokens;
     for (int i = 0, last_space_i = 0; i <= read_index; i++) {
       if (response_buf[i] == ' ' || response_buf[i] == '\r') {
