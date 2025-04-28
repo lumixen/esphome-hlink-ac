@@ -157,7 +157,7 @@ text_sensor:
       address: 0x0201
 ```
 
-Each sensor would send a `MT P=address C=XXXX` request. If unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns error codes if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. Debug sensors can assist in monitoring unknown addresses and their behavior throughout the Hitachi unit lifecycle.
+Each sensor sends an `MT P=address C=XXXX` request. If unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns error codes if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. Debug sensors can help monitor unknown addresses and their behavior throughout the Hitachi unit lifecycle.
 
 H-link UART serial communication could be minotored using this snippet:
 
