@@ -140,10 +140,10 @@ struct HlinkResponseFrame {
 
 struct HlinkFeatureRequest {
   HlinkRequestFrame request_frame;
-  std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr;
-  std::function<void()> ng_callback = nullptr;
-  std::function<void()> invalid_callback = nullptr;
-  std::function<void()> timeout_callback = nullptr;
+  std::function<void(const HlinkResponseFrame &response)> ok_callback;
+  std::function<void()> ng_callback;
+  std::function<void()> invalid_callback;
+  std::function<void()> timeout_callback;
 };
 
 struct ComponentStatus {

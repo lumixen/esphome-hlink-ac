@@ -141,8 +141,8 @@ void HlinkAc::request_status_update_() {
 /*
  * Main loop implements a state machine with the following states:
  * 1. IDLE - does nothing
- * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature, the list of requested features is stored in the
- * polling_features list.
+ * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature, the list of requested features is
+ * stored in the polling_features list.
  * 3. REQUEST_LOW_PRIORITY_FEATURE_IF_ANY - sends a request for the low priority feature if any.
  * 4. READ_NEXT_FEATURE - reads a response for the requested feature
  * 5. PUBLISH_CLIMATE_UPDATE_IF_ANY - once all features are read, updates climate component if there are any changes
@@ -179,18 +179,18 @@ void HlinkAc::loop() {
       this->status_.currently_requested_feature = {};
       switch (response.status) {
         case HlinkResponseFrame::Status::OK:
-          if (requested_feature.ok_callback != nullptr) {
+          if (requested_feature.ok_callback) {
             requested_feature.ok_callback(response);
           }
           break;
         case HlinkResponseFrame::Status::NG:
           ESP_LOGW(TAG, "Received NG response for status update request [%d]", requested_feature.request_frame.p.first);
-          if (requested_feature.ng_callback != nullptr) {
+          if (requested_feature.ng_callback) {
             requested_feature.ng_callback();
           }
           break;
         case HlinkResponseFrame::Status::INVALID:
-          if (requested_feature.invalid_callback != nullptr) {
+          if (requested_feature.invalid_callback) {
             requested_feature.invalid_callback();
           }
           ESP_LOGW(TAG, "Received INVALID response for status update request [%d]",
@@ -259,7 +259,10 @@ void HlinkAc::loop() {
   if (this->status_.state != IDLE && this->status_.reached_timeout_thereshold()) {
     ESP_LOGW(TAG, "Reached timeout while performing [%d] state action. Reset state to IDLE.", this->status_.state);
     if (this->status_.currently_requested_feature.has_value()) {
-      this->status_.currently_requested_feature.value().timeout_callback();
+      auto timeout_callback = this->status_.currently_requested_feature.value().timeout_callback;
+      if (timeout_callback) {
+        timeout_callback();
+      }
     }
     this->status_.reset_state();
   }
@@ -611,32 +614,36 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
   std::function<void()> ng_callback;
   std::function<void()> invalid_and_timeout_callback;
 
-  ok_callback = [this, text_sensor, &ok_callback, &ng_callback, &invalid_and_timeout_callback](const HlinkResponseFrame &response) {
+  ok_callback = [this, text_sensor, &ok_callback, &ng_callback,
+                 &invalid_and_timeout_callback](const HlinkResponseFrame &response) {
     char address_str[5];
-    snprintf(address_str, sizeof(address_str), "%04X", current_address);
-    std::string response_value = response.p_value_as_string().value();
-    std::string sensor_value = std::string(address_str) + ":" + response_value;
+    sprintf(address_str, "%04X", current_address);
+    std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
     text_sensor->publish_state(sensor_value);
 
     // Move to the next address
     this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback, ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback,
+                            ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
   };
 
-  ng_callback = [this, text_sensor, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
+  ng_callback = [this, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
     // Just move to the next address, nothing to publish
     this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback, ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {++current_address}}, ok_callback,
+                            ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
   };
 
-  invalid_and_timeout_callback = [this, text_sensor, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
+  invalid_and_timeout_callback = [this, &ok_callback, &ng_callback, &invalid_and_timeout_callback]() {
     // Retry the same address
     this->status_.low_priority_hlink_request =
-        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+        HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback,
+                            invalid_and_timeout_callback, invalid_and_timeout_callback};
   };
 
   this->status_.low_priority_hlink_request =
-      HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback, invalid_and_timeout_callback, invalid_and_timeout_callback};
+      HlinkFeatureRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {current_address}}, ok_callback, ng_callback,
+                          invalid_and_timeout_callback, invalid_and_timeout_callback};
 }
 #endif
 
