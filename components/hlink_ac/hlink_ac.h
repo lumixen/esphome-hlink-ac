@@ -155,7 +155,7 @@ namespace esphome
       }
     };
 
-    struct PolledFeature {
+    struct HlinkFeatureRequest {
       HlinkRequestFrame request_frame;
       std::function<void(const HlinkResponseFrame &response)> response_callback;
     };
@@ -163,7 +163,7 @@ namespace esphome
     struct ComponentStatus
     {
       HlinkComponentState state = IDLE;
-      std::vector<PolledFeature> polling_features = {};
+      std::vector<HlinkFeatureRequest> polling_features = {};
       uint8_t requested_feature_index = 0;
       
       uint32_t non_idle_timeout_limit_ms = 0;
@@ -193,7 +193,7 @@ namespace esphome
         return millis() - last_frame_sent_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
       }
 
-      PolledFeature get_currently_polling_feature()
+      HlinkFeatureRequest get_currently_polling_feature()
       {
         return polling_features[requested_feature_index];
       }

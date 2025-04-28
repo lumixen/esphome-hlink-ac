@@ -176,7 +176,7 @@ namespace esphome
             if (this->status_.state == READ_NEXT_FEATURE)
             {
                 HlinkResponseFrame response = this->read_hlink_frame_(50);
-                PolledFeature requested_feature = this->status_.get_currently_polling_feature();
+                HlinkFeatureRequest requested_feature = this->status_.get_currently_polling_feature();
                 switch (response.status)
                 {
                 case HlinkResponseFrame::Status::OK:
@@ -635,8 +635,18 @@ namespace esphome
             }
         }
 
-        void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *sens)
+        void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *text_sensor)
         {
+            this->status_.polling_features.push_back({
+                {HlinkRequestFrame::Type::MT,{address}},
+                [this, text_sensor](const HlinkResponseFrame &response) {
+                    if (response.p_value.has_value()) {
+                        std::string response_value(5, 0x00);
+                        sprintf(&response_value[0], "%04X", response.p_value.value());
+                        text_sensor->publish_state(response_value);
+                    }
+                }
+            });
         }
         #endif
 
