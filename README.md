@@ -139,15 +139,6 @@ climate:
 4. Text sensor
     - Model name
 
-## Building locally
-
-Project includes a test [dev configurations](build/) that can be used for compilation.
-Run from the project root folder (docker is required):
-```bash
-cd build/
-./compile
-```
-
 ## H-link protocol reverse engineering
 
 H-link specifications aren't publicly available, and this component was built using reverse-engineered data. It most likely doesn't cover all possible scenarios and combinations of features that different Hitachi climate devices offer. 
@@ -166,7 +157,7 @@ text_sensor:
       address: 0x0201
 ```
 
-If an address request returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns error codes if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. This is where the debug text sensor could be useful. 
+Each sensor would send a `MT P=address C=XXXX` request. If unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns error codes if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. This is where the debug text sensor could be useful. 
 
 H-link UART serial communication could be minotored using this snippet:
 
@@ -184,6 +175,15 @@ uart:
       delimiter: "\n"
     sequence:
       - lambda: UARTDebug::log_string(direction, bytes);
+```
+
+## Building locally
+
+Project includes a test [dev configurations](build/) that can be used for compilation.
+Run from the project root folder (docker is required):
+```bash
+cd build/
+./compile
 ```
 
 ## Credits
