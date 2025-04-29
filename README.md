@@ -122,6 +122,7 @@ climate:
       - `COOL`
       - `DRY`
       - `FAN_ONLY`
+      - `AUTO`
     - Fan mode:
       - `QUIET`
       - `LOW`
@@ -138,12 +139,15 @@ climate:
     - Outdoor temperature
 4. Text sensor
     - Model name
+    - Debug
+    - Debug discovery
 
 ## H-link protocol reverse engineering
 
-H-link specifications aren't publicly available, and this component was built using reverse-engineered data. It most likely doesn't cover all possible scenarios and combinations of features that different Hitachi climate devices offer. 
+The H-link specifications are not publicly available, and this component was developed using reverse-engineered data. As a result, it may not cover all possible scenarios and combinations of features offered by different Hitachi climate devices.
 
-If you're willing to dive into the protocol communication on your own, this component offers a convenient way to monitor H-link addresses dynamically using text sensors. You can add any number of `debug` text sensors that will be polled at the same interval as other known addresses:
+If you are interested in exploring the protocol communication on your own, this component provides several text sensors to help monitor H-link addresses dynamically. 
+For instance, you can add multiple `debug` text sensors that will be polled repeatedly:
 
 ```yaml
 text_sensor:
@@ -157,7 +161,15 @@ text_sensor:
       address: 0x0201
 ```
 
-Each sensor sends an `MT P=address C=XXXX` request. If unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns [error codes](https://github.com/lumixen/esphome-hlink-ac/blob/main/docs/hlink_alarm_codes.csv) if something is wrong with the AC, but I haven't seen reliable proof yet (fortunately) to add it as an established sensor. Debug sensors can help monitor unknown addresses and their behavior throughout the Hitachi unit lifecycle.
+Each sensor sends an `MT P=address C=XXXX` request. If the unit returns an `OK` response with a payload, it will be rendered as a text sensor value. For example, the address `0201` most likely returns [error codes](https://github.com/lumixen/esphome-hlink-ac/blob/main/docs/hlink_alarm_codes.csv) if something is wrong with the AC. However, I haven't yet seen reliable proof to add it as an established sensor (fortunately I guess). Debug sensors can help monitor unknown addresses and their behavior throughout the Hitachi unit lifecycle.
+
+Another helpful debug text sensor is called `debug_discovery`. It repeatedly scans the entire range of addresses (0-65535) and prints every non-NG response as a text sensor value (e.g., `0001:8010`/`0304:00000000`/`0302:00`), where the value before the colon is the polled address (P=XXXX), and the value after the colon is the response from the AC. The full range scan takes more than a few hours.
+
+```yaml
+  - platform: hlink_ac
+    debug_discovery:
+      name: H-link addresses scanner
+```
 
 H-link UART serial communication could be minotored using this snippet:
 
