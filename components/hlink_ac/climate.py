@@ -10,6 +10,7 @@ from esphome.components.climate import (
 )
 from esphome.const import (
     CONF_ADDRESS,
+    CONF_DATA,
     CONF_SUPPORTED_MODES,
     CONF_SUPPORTED_SWING_MODES,
     CONF_SUPPORTED_FAN_MODES,
@@ -65,8 +66,7 @@ HlinkAcSendHlinkFrame = hlink_ac_ns.class_("HlinkAcSendHlinkFrame", automation.A
         {
             cv.GenerateID(): cv.use_id(HlinkAc),
             cv.Required(CONF_ADDRESS): cv.templatable(cv.string),
-            cv.Required("data"): cv.templatable(cv.string),
-            cv.Required("format"): cv.templatable(cv.uint8_t),
+            cv.Required(CONF_DATA): cv.templatable(cv.string),
         }
     ),
 )
@@ -75,12 +75,10 @@ async def send_hlink_frame_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     address_template = await cg.templatable(config[CONF_ADDRESS], args, cg.std_string)
-    data_template = await cg.templatable(config["data"], args, cg.std_string)
-    format_template = await cg.templatable(config["format"], args, cg.uint8)
+    data_template = await cg.templatable(config[CONF_DATA], args, cg.std_string)
 
     cg.add(var.set_address(address_template))
     cg.add(var.set_data(data_template))
-    cg.add(var.set_format(format_template))
 
     return var
 

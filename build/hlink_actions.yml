@@ -45,8 +45,3 @@ mqtt:
               return x["data"];
             }
             return "";
-          format: !lambda |-
-            if (x.containsKey("format")) {
-              return x["format"];
-            }
-            return 0;

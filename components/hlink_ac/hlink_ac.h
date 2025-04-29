@@ -260,7 +260,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
   void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
   // ----- END CLIMATE -----
-  void send_hlink_frame(std::string address, std::string data, uint8_t format);
+  void send_hlink_frame(std::string address, std::string data);
 
  protected:
   ComponentStatus status_ = ComponentStatus();

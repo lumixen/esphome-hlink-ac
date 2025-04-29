@@ -9,13 +9,11 @@ template<typename... Ts> class HlinkAcSendHlinkFrame : public Action<Ts...>, pub
  public:
   TEMPLATABLE_VALUE(std::string, address)
   TEMPLATABLE_VALUE(std::string, data)
-  TEMPLATABLE_VALUE(uint8_t, format)
 
   void play(Ts... x) override {
     auto address = this->address_.value(x...);
     auto data = this->data_.value(x...);
-    auto format = this->format_.value(x...);
-    this->parent_->send_hlink_frame(address, data, format);
+    this->parent_->send_hlink_frame(address, data);
   }
 };
 }  // namespace hlink_ac

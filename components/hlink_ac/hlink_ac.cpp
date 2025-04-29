@@ -442,7 +442,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
   return HLINK_RESPONSE_NOTHING;
 }
 
-void HlinkAc::send_hlink_frame(std::string address, std::string data, uint8_t format) {
+void HlinkAc::send_hlink_frame(std::string address, std::string data) {
   if (address.size() != 4) {
     ESP_LOGW(TAG, "Invalid address length: %s", address.c_str());
     return;
@@ -454,7 +454,7 @@ void HlinkAc::send_hlink_frame(std::string address, std::string data, uint8_t fo
   uint16_t address_uint16 = static_cast<uint16_t>(std::stoi(address, nullptr, 16));
   this->pending_action_requests.enqueue(this->createRequestFrame_(
       static_cast<uint16_t>(std::stoi(address, nullptr, 16)), static_cast<uint16_t>(std::stoi(data, nullptr, 16)),
-      static_cast<HlinkRequestFrame::AttributeFormat>(format)));
+      static_cast<HlinkRequestFrame::AttributeFormat>(data.size() == 4)));
 }
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
