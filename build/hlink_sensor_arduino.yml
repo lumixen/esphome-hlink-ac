@@ -1,5 +1,5 @@
 esphome:
-  name: hlink-dev-espidf-sensor
+  name: hlink-dev-arduino-sensor
 
 external_components:
   - source: /components
@@ -10,7 +10,7 @@ logger:
 esp32:
   board: lolin_d32
   framework:
-    type: esp-idf
+    type: arduino
 
 uart:
   id: hitachi_bus
