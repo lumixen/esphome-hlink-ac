@@ -166,6 +166,7 @@ Each sensor sends an `MT P=address C=XXXX` request. If the unit returns an `OK` 
 Another helpful debug text sensor is called `debug_discovery`. It repeatedly scans the entire range of addresses (0-65535) and prints every non-NG response as a text sensor value (e.g., `0001:8010`/`0304:00000000`/`0302:00`), where the value before the colon is the polled address (P=XXXX), and the value after the colon is the response from the AC. The full range scan takes more than a few hours.
 
 ```yaml
+text_sensor:
   - platform: hlink_ac
     debug_discovery:
       name: H-link addresses scanner
