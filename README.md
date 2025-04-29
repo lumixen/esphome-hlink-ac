@@ -33,7 +33,7 @@ An example of wiring diagram with cheapo aliexpress building blocks that worked 
 
 <img width="500" alt="wiring_diagram" src="https://github.com/user-attachments/assets/2cb0cb2e-880b-4b07-accb-a8271d7da15c" />
 
-H-link connector is a 6-pin JST PA with 2.0 mm pitch. 
+H-link connector is a JST 6-pin PA-6P-TOP with 2.0 mm pitch. 
 
 <img width="135" alt="image" src="https://github.com/user-attachments/assets/7b9b47dd-26e3-4733-a2ff-2601d4fdb389" />
 
