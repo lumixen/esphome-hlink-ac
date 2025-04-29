@@ -1,3 +1,4 @@
+from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uart
@@ -8,6 +9,7 @@ from esphome.components.climate import (
     ClimateFanMode,
 )
 from esphome.const import (
+    CONF_ADDRESS,
     CONF_SUPPORTED_MODES,
     CONF_SUPPORTED_SWING_MODES,
     CONF_SUPPORTED_FAN_MODES,
@@ -53,6 +55,34 @@ SUPPORTED_FAN_MODES_OPTIONS = {
     "HIGH": ClimateFanMode.CLIMATE_FAN_HIGH,
     "QUIET": ClimateFanMode.CLIMATE_FAN_QUIET,
 }
+
+HlinkAcSendHlinkFrame = hlink_ac_ns.class_("HlinkAcSendHlinkFrame", automation.Action)
+
+@automation.register_action(
+    "hlink_ac.send_hlink_frame",
+    HlinkAcSendHlinkFrame,
+        cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(HlinkAc),
+            cv.Required(CONF_ADDRESS): cv.templatable(cv.string),
+            cv.Required("data"): cv.templatable(cv.string),
+            cv.Required("format"): cv.templatable(cv.uint8_t),
+        }
+    ),
+)
+async def send_hlink_frame_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+
+    address_template = await cg.templatable(config[CONF_ADDRESS], args, cg.std_string)
+    data_template = await cg.templatable(config["data"], args, cg.std_string)
+    format_template = await cg.templatable(config["format"], args, cg.uint8)
+
+    cg.add(var.set_address(address_template))
+    cg.add(var.set_data(data_template))
+    cg.add(var.set_format(format_template))
+
+    return var
 
 def validate_visual(config):
     if CONF_VISUAL in config:

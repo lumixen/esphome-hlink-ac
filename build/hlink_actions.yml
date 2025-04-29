@@ -1,0 +1,52 @@
+esphome:
+  name: hlink-dev-arduino-actions
+
+external_components:
+  - source: /components
+
+logger:
+  level: DEBUG
+
+esp32:
+  board: lolin_d32
+  framework:
+    type: arduino
+
+uart:
+  id: hitachi_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+  parity: ODD
+
+climate:
+  - platform: hlink_ac
+    name: "H-Link Test Climate Device"
+
+wifi:
+  ssid: test
+  password: testtest
+
+mqtt:
+  broker: 1.1.1.1
+  username: test
+  password: test
+  on_json_message:
+    topic: hlink_ac/send_hlink_frame
+    then:
+      - hlink_ac.send_hlink_frame:
+          address: !lambda
+            if (x.containsKey("address")) {
+              return x["address"];
+            }
+            return "";
+          data: !lambda |-
+            if (x.containsKey("data")) {
+              return x["data"];
+            }
+            return "";
+          format: !lambda |-
+            if (x.containsKey("format")) {
+              return x["format"];
+            }
+            return 0;
