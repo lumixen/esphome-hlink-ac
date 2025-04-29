@@ -151,17 +151,13 @@ struct ComponentStatus {
   optional<HlinkFeatureRequest> currently_requested_feature = {};
   std::vector<HlinkFeatureRequest> polling_features = {};
   optional<HlinkFeatureRequest> low_priority_hlink_request = {};
+  std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
   int16_t requested_feature_index = -1;
-
   uint32_t non_idle_timeout_limit_ms = 0;
-
   uint32_t last_status_polling_finished_at_ms = 0;
   uint32_t last_frame_received_at_ms = 0;
   uint32_t timeout_counter_started_at_ms = 0;
-
   uint8_t requests_left_to_apply = 0;
-
-  std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
 
   void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms) {
     this->timeout_counter_started_at_ms = millis();
@@ -171,7 +167,8 @@ struct ComponentStatus {
   bool reached_timeout_thereshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
 
   bool can_send_next_frame() {
-    // Min interval received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC will return NG
+    // Min interval received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC
+    // will return NG
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
 

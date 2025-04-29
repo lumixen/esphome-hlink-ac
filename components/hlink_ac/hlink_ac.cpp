@@ -35,6 +35,8 @@ void HlinkAc::setup() {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
          } else if (response.p_value_as_uint16() == HLINK_MODE_FAN) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
+         } else if (response.p_value_as_uint16() == HLINK_MODE_AUTO) {
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          }
        }});
   this->status_.polling_features.push_back(
@@ -184,7 +186,7 @@ void HlinkAc::loop() {
           }
           break;
         case HlinkResponseFrame::Status::NG:
-          ESP_LOGW(TAG, "Received NG response for status update request [%d]", requested_feature.request_frame.p.first);
+          ESP_LOGW(TAG, "Received NG response for feature request [%04X]", requested_feature.request_frame.p.first);
           if (requested_feature.ng_callback) {
             requested_feature.ng_callback();
           }
@@ -193,7 +195,7 @@ void HlinkAc::loop() {
           if (requested_feature.invalid_callback) {
             requested_feature.invalid_callback();
           }
-          ESP_LOGW(TAG, "Received INVALID response for status update request [%d]",
+          ESP_LOGW(TAG, "Received INVALID response for feature request [%04X]",
                    requested_feature.request_frame.p.first);
           break;
       }
@@ -387,7 +389,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
       }
       read_index++;
     }
-      // Update the timestamp of the last frame received
+    // Update the timestamp of the last frame received
     this->status_.last_frame_received_at_ms = millis();
     std::vector<std::string> response_tokens;
     for (int i = 0, last_space_i = 0; i <= read_index; i++) {
@@ -458,6 +460,11 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
         this->pending_action_requests.enqueue(this->createRequestFrame_(
             FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        break;
+      case climate::ClimateMode::CLIMATE_MODE_AUTO:
+        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->createRequestFrame_(
+            FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       default:
         break;
