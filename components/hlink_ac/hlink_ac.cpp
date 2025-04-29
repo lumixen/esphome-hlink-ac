@@ -316,6 +316,7 @@ void HlinkAc::publish_updates_if_any_() {
     if (!(this->target_temperature == this->hlink_entity_status_.target_temperature.value() ||
           (std::isnan(this->target_temperature) &&
            std::isnan(this->hlink_entity_status_.target_temperature.value())))) {
+      this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
     if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
