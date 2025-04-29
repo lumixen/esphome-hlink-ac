@@ -147,14 +147,14 @@ void HlinkAc::request_status_update_() {
 
 /*
  * Main loop implements a state machine with the following states:
- * 1. IDLE - does nothing
+ * 1. IDLE - does nothing.
  * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature, the list of requested features is
  * stored in the polling_features list.
- * 3. REQUEST_LOW_PRIORITY_FEATURE_IF_ANY - sends a request for the low priority feature if any.
- * 4. READ_NEXT_FEATURE - reads a response for the requested feature
- * 5. PUBLISH_CLIMATE_UPDATE_IF_ANY - once all features are read, updates climate component if there are any changes
- * 6. APPLY_REQUEST - applies the requested climate controls from the queue
- * 7. ACK_APPLIED_REQUEST - confirms successful applied control reqeuest
+ * 3. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low priority feature if any.
+ * 4. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
+ * 5. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
+ * 6. APPLY_REQUEST - applies the requested climate controls from the queue.
+ * 7. ACK_APPLIED_REQUEST - confirms successful applied control reqeuest.
  */
 void HlinkAc::loop() {
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
