@@ -44,13 +44,15 @@ void HlinkAc::setup() {
        }});
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
-         // After power off/on cycle AC could return values beyond MIN/MAX range
+         // Returns FFFE  when in auto cool mode 8040
+         // Returns FF02  when in auto heat mode 8010
          if (response.p_value_as_uint16().has_value()) {
            float target_temp = response.p_value_as_uint16().value();
-           this->hlink_entity_status_.target_temperature = (target_temp < this->traits_.get_visual_min_temperature() ||
-                                                            target_temp > this->traits_.get_visual_max_temperature())
-                                                               ? this->traits_.get_visual_min_temperature()
-                                                               : target_temp;
+           if (target_temp < 10 || target_temp > 40) {
+             this->hlink_entity_status_.target_temperature = NAN;
+           } else {
+             this->hlink_entity_status_.target_temperature = target_temp;
+           }
          }
        }});
   this->status_.polling_features.push_back(
@@ -311,8 +313,9 @@ void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_reque
 void HlinkAc::publish_updates_if_any_() {
   if (this->hlink_entity_status_.has_hvac_status()) {
     bool should_publish_climate_state = false;
-    if (this->target_temperature != this->hlink_entity_status_.target_temperature.value()) {
-      this->target_temperature = this->hlink_entity_status_.target_temperature.value();
+    if (!(this->target_temperature == this->hlink_entity_status_.target_temperature.value() ||
+          (std::isnan(this->target_temperature) &&
+           std::isnan(this->hlink_entity_status_.target_temperature.value())))) {
       should_publish_climate_state = true;
     }
     if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
