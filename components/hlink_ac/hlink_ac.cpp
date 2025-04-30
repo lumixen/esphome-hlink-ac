@@ -256,7 +256,7 @@ void HlinkAc::loop() {
         } else {
           this->status_.state = IDLE;
         }
-        this->status_.currently_applying_message = {};
+        this->status_.currently_applying_message = nullptr;
     }
     // Update status right away after the applied batch
     if (this->status_.state == IDLE) {
@@ -442,7 +442,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
   return HLINK_RESPONSE_NOTHING;
 }
 
-void HlinkAc::send_hlink_frame(std::string address, std::string data) {
+void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
   if (address.size() != 4) {
     ESP_LOGW(TAG, "Invalid address length: %s", address.c_str());
     return;
@@ -452,7 +452,7 @@ void HlinkAc::send_hlink_frame(std::string address, std::string data) {
     return;
   }
   uint16_t address_uint16 = static_cast<uint16_t>(std::stoi(address, nullptr, 16));
-  this->pending_action_requests.enqueue(this->createRequestFrame_(
+  this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
       static_cast<uint16_t>(std::stoi(address, nullptr, 16)), static_cast<uint16_t>(std::stoi(data, nullptr, 16)),
       static_cast<HlinkRequestFrame::AttributeFormat>(data.size() == 4)));
 }
@@ -462,31 +462,31 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
     climate::ClimateMode mode = *call.get_mode();
     switch (mode) {
       case climate::ClimateMode::CLIMATE_MODE_OFF:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0000));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0000));
         break;
       case climate::ClimateMode::CLIMATE_MODE_COOL:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_HEAT:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_DRY:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_AUTO:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       default:
@@ -513,12 +513,12 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_fan_speed = HLINK_FAN_QUIET;
         break;
     }
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::FAN_MODE, h_link_fan_speed));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::FAN_MODE, h_link_fan_speed));
   }
   if (call.get_target_temperature().has_value()) {
     float target_temperature = *call.get_target_temperature();
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::TARGET_TEMP, target_temperature,
-                                                                    HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
+        FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
   }
   if (call.get_swing_mode().has_value()) {
     climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
@@ -531,7 +531,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_swing_mode = HLINK_SWING_VERTICAL;
         break;
     }
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::SWING_MODE, h_link_swing_mode));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::SWING_MODE, h_link_swing_mode));
   }
 }
 
@@ -700,7 +700,7 @@ bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE
 
 uint8_t CircularRequestsQueue::size() { return size_; }
 
-std::unique_ptr<HlinkRequestFrame> HlinkAc::createRequestFrame_(
+std::unique_ptr<HlinkRequestFrame> HlinkAc::create_hlink_st_frame_(
     uint16_t address, uint16_t data, optional<HlinkRequestFrame::AttributeFormat> data_format) {
   return std::unique_ptr<HlinkRequestFrame>(
       new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {address, data, data_format}});

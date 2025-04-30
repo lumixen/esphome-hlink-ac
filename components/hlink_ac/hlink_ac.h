@@ -3,7 +3,6 @@
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
-#include "esphome/core/automation.h"
 
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
@@ -260,7 +259,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
   void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
   // ----- END CLIMATE -----
-  void send_hlink_frame(std::string address, std::string data);
+  void send_hlink_cmd(std::string address, std::string data);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -272,7 +271,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequestFrame> createRequestFrame_(
+  std::unique_ptr<HlinkRequestFrame> create_hlink_st_frame_(
       uint16_t address, uint16_t data,
       optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
 };

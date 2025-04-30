@@ -57,11 +57,11 @@ SUPPORTED_FAN_MODES_OPTIONS = {
     "QUIET": ClimateFanMode.CLIMATE_FAN_QUIET,
 }
 
-HlinkAcSendHlinkFrame = hlink_ac_ns.class_("HlinkAcSendHlinkFrame", automation.Action)
+HlinkAcSendHlinkCmd= hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
 
 @automation.register_action(
-    "hlink_ac.send_hlink_frame",
-    HlinkAcSendHlinkFrame,
+    "hlink_ac.send_hlink_cmd",
+    HlinkAcSendHlinkCmd,
         cv.Schema(
         {
             cv.GenerateID(): cv.use_id(HlinkAc),
@@ -70,7 +70,7 @@ HlinkAcSendHlinkFrame = hlink_ac_ns.class_("HlinkAcSendHlinkFrame", automation.A
         }
     ),
 )
-async def send_hlink_frame_to_code(config, action_id, template_arg, args):
+async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
 

@@ -5,7 +5,7 @@
 
 namespace esphome {
 namespace hlink_ac {
-template<typename... Ts> class HlinkAcSendHlinkFrame : public Action<Ts...>, public Parented<HlinkAc> {
+template<typename... Ts> class HlinkAcSendHlinkCmd : public Action<Ts...>, public Parented<HlinkAc> {
  public:
   TEMPLATABLE_VALUE(std::string, address)
   TEMPLATABLE_VALUE(std::string, data)
@@ -13,7 +13,7 @@ template<typename... Ts> class HlinkAcSendHlinkFrame : public Action<Ts...>, pub
   void play(Ts... x) override {
     auto address = this->address_.value(x...);
     auto data = this->data_.value(x...);
-    this->parent_->send_hlink_frame(address, data);
+    this->parent_->send_hlink_cmd(address, data);
   }
 };
 }  // namespace hlink_ac

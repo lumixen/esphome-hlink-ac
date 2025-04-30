@@ -34,8 +34,8 @@ mqtt:
   on_json_message:
     topic: hlink_ac/send_hlink_frame
     then:
-      - hlink_ac.send_hlink_frame:
-          address: !lambda
+      - hlink_ac.send_hlink_cmd:
+          address: !lambda |-
             if (x.containsKey("address")) {
               return x["address"];
             }
