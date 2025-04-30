@@ -73,6 +73,7 @@ constexpr uint16_t HLINK_MODE_HEAT_AUTO = 0x8010;
 constexpr uint16_t HLINK_MODE_COOL = 0x0040;
 constexpr uint16_t HLINK_MODE_COOL_AUTO = 0x8040;
 constexpr uint16_t HLINK_MODE_DRY = 0x0020;
+constexpr uint16_t HLINK_MODE_DRY_AUTO = 0x8020;
 constexpr uint16_t HLINK_MODE_FAN = 0x0050;
 constexpr uint16_t HLINK_MODE_AUTO = 0x8000;
 
@@ -92,11 +93,11 @@ constexpr uint16_t HLINK_BEEP_ACTION = 0x0007;
 
 struct HlinkRequestFrame {
   enum class Type { MT, ST };
-  enum class AttributeFormat { TWO_DIGITS, FOUR_DIGITS };
+  enum class AttributeFormat { TWO_DIGITS = 0x0, FOUR_DIGITS = 0x1 };
   struct ProgramPayload {
-    uint16_t first;
-    optional<uint16_t> secondary;
-    optional<AttributeFormat> secondary_format;
+    uint16_t address;
+    optional<uint16_t> data;
+    optional<AttributeFormat> data_format;
   };
   Type type;
   ProgramPayload p;
@@ -258,6 +259,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
   void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
   // ----- END CLIMATE -----
+  void send_hlink_cmd(std::string address, std::string data);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -269,10 +271,9 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequestFrame> createRequestFrame_(
-      uint16_t primary_control, uint16_t secondary_control,
-      optional<HlinkRequestFrame::AttributeFormat> secondary_control_format =
-          HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
+  std::unique_ptr<HlinkRequestFrame> create_hlink_st_frame_(
+      uint16_t address, uint16_t data,
+      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
 };
 }  // namespace hlink_ac
 }  // namespace esphome

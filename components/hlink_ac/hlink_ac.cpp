@@ -38,6 +38,8 @@ void HlinkAc::setup() {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          } else if (response.p_value_as_uint16() == HLINK_MODE_COOL_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+         } else if (response.p_value_as_uint16() == HLINK_MODE_DRY_AUTO) {
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          } else if (response.p_value_as_uint16() == HLINK_MODE_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          }
@@ -191,7 +193,7 @@ void HlinkAc::loop() {
           }
           break;
         case HlinkResponseFrame::Status::NG:
-          ESP_LOGW(TAG, "Received NG response for feature request [%04X]", requested_feature.request_frame.p.first);
+          ESP_LOGW(TAG, "Received NG response for feature request [%04X]", requested_feature.request_frame.p.address);
           if (requested_feature.ng_callback) {
             requested_feature.ng_callback();
           }
@@ -201,7 +203,7 @@ void HlinkAc::loop() {
             requested_feature.invalid_callback();
           }
           ESP_LOGW(TAG, "Received INVALID response for feature request [%04X]",
-                   requested_feature.request_frame.p.first);
+                   requested_feature.request_frame.p.address);
           break;
       }
       if (this->status_.requested_feature_index == -1) {
@@ -254,7 +256,7 @@ void HlinkAc::loop() {
         } else {
           this->status_.state = IDLE;
         }
-        this->status_.currently_applying_message = {};
+        this->status_.currently_applying_message = nullptr;
     }
     // Update status right away after the applied batch
     if (this->status_.state == IDLE) {
@@ -304,7 +306,7 @@ void HlinkAc::loop() {
  * Handles the ACK_OK response for the ST write request.
  */
 void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_request) {
-  switch (applied_request.p.first) {
+  switch (applied_request.p.address) {
     default:
       break;
   }
@@ -360,23 +362,22 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
   }
   const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
   uint8_t message_size = 17;  // Default message, e.g. "MT P=1234 C=1234\r"
-  if (frame.p.secondary.has_value() &&
-      frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS) {
+  if (frame.p.data.has_value() && frame.p.data_format.value() == HlinkRequestFrame::AttributeFormat::TWO_DIGITS) {
     message_size = 20;  // "ST P=1234,12 C=1234\r"
-  } else if (frame.p.secondary.has_value() &&
-             frame.p.secondary_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS) {
+  } else if (frame.p.data.has_value() &&
+             frame.p.data_format.value() == HlinkRequestFrame::AttributeFormat::FOUR_DIGITS) {
     message_size = 22;  // "ST P=1234,1234 C=1234\r"
   }
   std::string message(message_size, 0x00);
-  uint16_t checksum = ((frame.p.first >> 8) + (frame.p.first & 0xFF) + (frame.p.secondary.value_or(0) >> 8) +
-                       (frame.p.secondary.value_or(0) & 0xFF)) ^
+  uint16_t checksum = ((frame.p.address >> 8) + (frame.p.address & 0xFF) + (frame.p.data.value_or(0) >> 8) +
+                       (frame.p.data.value_or(0) & 0xFF)) ^
                       0xFFFF;
   if (message_size == 17) {
-    sprintf(&message[0], "%s P=%04X C=%04X\x0D", message_type, frame.p.first, checksum);
+    sprintf(&message[0], "%s P=%04X C=%04X\x0D", message_type, frame.p.address, checksum);
   } else if (message_size == 20) {
-    sprintf(&message[0], "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+    sprintf(&message[0], "%s P=%04X,%02X C=%04X\x0D", message_type, frame.p.address, frame.p.data.value(), checksum);
   } else if (message_size == 22) {
-    sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.first, frame.p.secondary.value(), checksum);
+    sprintf(&message[0], "%s P=%04X,%04X C=%04X\x0D", message_type, frame.p.address, frame.p.data.value(), checksum);
   }
   // Send the message to uart
   this->write_str(message.c_str());
@@ -441,36 +442,50 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
   return HLINK_RESPONSE_NOTHING;
 }
 
+void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
+  if (address.size() != 4) {
+    ESP_LOGW(TAG, "Invalid address length: %s", address.c_str());
+    return;
+  }
+  if (data.size() != 4 && data.size() != 2) {
+    ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
+    return;
+  }
+  this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
+      static_cast<uint16_t>(std::stoi(address, nullptr, 16)), static_cast<uint16_t>(std::stoi(data, nullptr, 16)),
+      static_cast<HlinkRequestFrame::AttributeFormat>(data.size() == 4)));
+}
+
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   if (call.get_mode().has_value()) {
     climate::ClimateMode mode = *call.get_mode();
     switch (mode) {
       case climate::ClimateMode::CLIMATE_MODE_OFF:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0000));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0000));
         break;
       case climate::ClimateMode::CLIMATE_MODE_COOL:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_HEAT:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_DRY:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       case climate::ClimateMode::CLIMATE_MODE_AUTO:
-        this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->createRequestFrame_(
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
+        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
             FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
         break;
       default:
@@ -497,12 +512,12 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_fan_speed = HLINK_FAN_QUIET;
         break;
     }
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::FAN_MODE, h_link_fan_speed));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::FAN_MODE, h_link_fan_speed));
   }
   if (call.get_target_temperature().has_value()) {
     float target_temperature = *call.get_target_temperature();
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::TARGET_TEMP, target_temperature,
-                                                                    HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
+        FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
   }
   if (call.get_swing_mode().has_value()) {
     climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
@@ -515,7 +530,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_swing_mode = HLINK_SWING_VERTICAL;
         break;
     }
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::SWING_MODE, h_link_swing_mode));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::SWING_MODE, h_link_swing_mode));
   }
 }
 
@@ -684,11 +699,10 @@ bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE
 
 uint8_t CircularRequestsQueue::size() { return size_; }
 
-std::unique_ptr<HlinkRequestFrame> HlinkAc::createRequestFrame_(
-    uint16_t primary_control, uint16_t secondary_control,
-    optional<HlinkRequestFrame::AttributeFormat> secondary_control_format) {
-  return std::unique_ptr<HlinkRequestFrame>(new HlinkRequestFrame{
-      HlinkRequestFrame::Type::ST, {primary_control, secondary_control, secondary_control_format}});
+std::unique_ptr<HlinkRequestFrame> HlinkAc::create_hlink_st_frame_(
+    uint16_t address, uint16_t data, optional<HlinkRequestFrame::AttributeFormat> data_format) {
+  return std::unique_ptr<HlinkRequestFrame>(
+      new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {address, data, data_format}});
 }
 }  // namespace hlink_ac
 }  // namespace esphome

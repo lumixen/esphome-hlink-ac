@@ -47,6 +47,8 @@ My AC unit had more than enough space to fit the dev board inside.
 <img width="299" alt="image" src="https://github.com/user-attachments/assets/035ad807-4ec6-48c6-948b-3311f392a0a6" />
 <img width="236" alt="image" src="https://github.com/user-attachments/assets/af76570f-3b65-477b-97b3-73b63646a645" />
 
+**Be very careful when working with wiring. Always disconnect the AC from the mains before performing any manipulations. Double-check the pinout and voltages to prevent damage to the electronics.**
+
 ## ESPHome configuration
 
 ```yml
@@ -172,7 +174,28 @@ text_sensor:
       name: H-link addresses scanner
 ```
 
-H-link UART serial communication could be minotored using this snippet:
+Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `ST P=address,value C=XXXX` control frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink command upon receiving a JSON MQTT message `{"address":"XXXX","data":"DD" | "DDDD"}` in the `hlink_ac/send_hlink_frame` topic:
+```yaml
+mqtt:
+  broker: 1.1.1.1
+  ...
+  on_json_message:
+    topic: hlink_ac/send_hlink_frame
+    then:
+      - hlink_ac.send_hlink_cmd:
+          address: !lambda |-
+            if (x.containsKey("address")) {
+              return x["address"];
+            }
+            return "";
+          data: !lambda |-
+            if (x.containsKey("data")) {
+              return x["data"];
+            }
+            return "";
+```
+
+H-link UART serial communication could be monitored using this snippet:
 
 ```yaml
 uart:
