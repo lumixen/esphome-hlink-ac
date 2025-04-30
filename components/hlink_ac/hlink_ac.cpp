@@ -451,7 +451,6 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
     ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
     return;
   }
-  uint16_t address_uint16 = static_cast<uint16_t>(std::stoi(address, nullptr, 16));
   this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
       static_cast<uint16_t>(std::stoi(address, nullptr, 16)), static_cast<uint16_t>(std::stoi(data, nullptr, 16)),
       static_cast<HlinkRequestFrame::AttributeFormat>(data.size() == 4)));
