@@ -10,8 +10,8 @@ const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::I
 const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
 void HlinkAc::setup() {
-  this->defined_visual_min_temperature_override_ = this->visual_min_temperature_override_.value_or(0.0f);
-  this->defined_visual_max_temperature_override_ = this->visual_max_temperature_override_.value_or(0.0f);
+  this->defined_visual_min_temperature_ = this->traits_.get_visual_min_temperature();
+  this->defined_visual_max_temperature_ = this->traits_.get_visual_max_temperature();
   // Setup default polling features
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
@@ -59,21 +59,21 @@ void HlinkAc::setup() {
              // FF05
              // AUTO COOLING: FFFD -> FFFB, FFFE -> FFFC, FFFF -> FFFD, FF00 -> FFFE, FF01 -> FFFF, FF02 -> FF00, FF03 ->
              // FF01
-             this->traits_.set_visual_min_temperature(-3.0f);
-             this->traits_.set_visual_max_temperature(3.0f);
+             this->set_visual_min_temperature_override(-3.0f);
+             this->set_visual_max_temperature_override(3.0f);
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
              if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
                this->hlink_entity_status_.target_temperature = offset_temp - 2;
              } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
                this->hlink_entity_status_.target_temperature = offset_temp + 2;
              } else {
-               this->hlink_entity_status_.target_temperature = offset_temp;
+               this->hlink_entity_status_.target_temperature = NAN;
              }
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              // Set normal visual temperature range
-             this->traits_.set_visual_min_temperature(this->defined_visual_min_temperature_override_);
-             this->traits_.set_visual_max_temperature(this->defined_visual_max_temperature_override_);
+             this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
+             this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
              this->hlink_entity_status_.target_temperature = target_temperature;
            } else {
              this->hlink_entity_status_.target_temperature = NAN;

@@ -266,8 +266,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void send_hlink_cmd(std::string address, std::string data);
 
  protected:
-  float defined_visual_min_temperature_override_ = 0.0f;
-  float defined_visual_max_temperature_override_ = 0.0f;
+  float defined_visual_min_temperature_ = 0.0f;
+  float defined_visual_max_temperature_ = 0.0f;
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
