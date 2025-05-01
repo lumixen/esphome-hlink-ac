@@ -42,10 +42,11 @@ enum HlinkComponentState : uint8_t {
 
 struct HlinkEntityStatus {
   optional<bool> power_state;
-  optional<float> current_temperature;
-  optional<float> target_temperature;
   optional<uint16_t> hlink_climate_mode;
   optional<esphome::climate::ClimateMode> mode;
+  optional<float> current_temperature;
+  optional<float> target_temperature;
+  optional<float> target_temperature_auto_offset;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
   optional<std::string> model_name;
@@ -266,8 +267,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void send_hlink_cmd(std::string address, std::string data);
 
  protected:
-  float defined_visual_min_temperature_ = 0.0f;
-  float defined_visual_max_temperature_ = 0.0f;
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();

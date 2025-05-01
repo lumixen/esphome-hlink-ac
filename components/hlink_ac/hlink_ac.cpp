@@ -10,8 +10,6 @@ const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::I
 const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
 void HlinkAc::setup() {
-  this->defined_visual_min_temperature_ = this->visual_min_temperature_override_.value();
-  this->defined_visual_max_temperature_ = this->visual_max_temperature_override_.value();
   // Setup default polling features
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
@@ -54,6 +52,7 @@ void HlinkAc::setup() {
            if ((this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
                 this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) &&
                target_temperature >= 0xFF00) {
+             this->hlink_entity_status_.target_temperature = NAN;
              // In auto mode the target temperature control is not available
              // Instead AC expects temperature shifts in range [-3;+3] C
              // AUTO HEATING: FFFD -> FFFF, FFFE -> FF00, FFFF -> FF01, FF00 -> FF02, FF01 -> FF03, FF02 -> FF04, FF03
@@ -61,17 +60,19 @@ void HlinkAc::setup() {
              // FF00, FF03 -> FF01
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
              if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
-               this->hlink_entity_status_.target_temperature = offset_temp - 2;
+               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp - 2;
              } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-               this->hlink_entity_status_.target_temperature = offset_temp + 2;
+               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp + 2;
              } else {
-               this->hlink_entity_status_.target_temperature = NAN;
+               this->hlink_entity_status_.target_temperature_auto_offset = NAN;
              }
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              this->hlink_entity_status_.target_temperature = target_temperature;
+             this->hlink_entity_status_.target_temperature_auto_offset = NAN;
            } else {
              this->hlink_entity_status_.target_temperature = NAN;
+             this->hlink_entity_status_.target_temperature_auto_offset = NAN;
            }
          }
        }});
@@ -336,15 +337,6 @@ void HlinkAc::publish_updates_if_any_() {
     if (!(this->target_temperature == this->hlink_entity_status_.target_temperature.value() ||
           (std::isnan(this->target_temperature) &&
            std::isnan(this->hlink_entity_status_.target_temperature.value())))) {
-      if (this->hlink_entity_status_.target_temperature.value() >= -3 &&
-          this->hlink_entity_status_.target_temperature.value() <= 3) {
-        this->set_visual_min_temperature_override(-3.0f);
-        this->set_visual_max_temperature_override(3.0f);
-      } else {
-        // Set normal visual temperature range
-        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
-        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
-      }
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
