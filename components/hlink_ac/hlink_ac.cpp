@@ -55,6 +55,10 @@ void HlinkAc::setup() {
                target_temperature >= 0xFF00) {
              // In auto mode the target temperature control is not available
              // Instead AC expects temperature shifts in range [-3;+3] C
+             // AUTO HEATING: FFFD -> FFFF, FFFE -> FF00, FFFF -> FF01, FF00 -> FF02, FF01 -> FF03, FF02 -> FF04, FF03 ->
+             // FF05
+             // AUTO COOLING: FFFD -> FFFB, FFFE -> FFFC, FFFF -> FFFD, FF00 -> FFFE, FF01 -> FFFF, FF02 -> FF00, FF03 ->
+             // FF01
              this->set_visual_min_temperature_override(-3.0f);
              this->set_visual_max_temperature_override(3.0f);
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
