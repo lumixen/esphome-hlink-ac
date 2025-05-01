@@ -52,14 +52,13 @@ void HlinkAc::setup() {
          if (response.p_value_as_uint16().has_value()) {
            uint16_t target_temperature = response.p_value_as_uint16().value();
            if ((this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
-               this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) && target_temperature >= 0xFF00) {
+                this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) &&
+               target_temperature >= 0xFF00) {
              // In auto mode the target temperature control is not available
              // Instead AC expects temperature shifts in range [-3;+3] C
              // AUTO HEATING: FFFD -> FFFF, FFFE -> FF00, FFFF -> FF01, FF00 -> FF02, FF01 -> FF03, FF02 -> FF04, FF03
              // -> FF05 AUTO COOLING: FFFD -> FFFB, FFFE -> FFFC, FFFF -> FFFD, FF00 -> FFFE, FF01 -> FFFF, FF02 ->
              // FF00, FF03 -> FF01
-             this->set_visual_min_temperature_override(-3.0f);
-             this->set_visual_max_temperature_override(3.0f);
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
              if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
                this->hlink_entity_status_.target_temperature = offset_temp - 2;
@@ -70,9 +69,6 @@ void HlinkAc::setup() {
              }
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
-             // Set normal visual temperature range
-             this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
-             this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
              this->hlink_entity_status_.target_temperature = target_temperature;
            } else {
              this->hlink_entity_status_.target_temperature = NAN;
@@ -340,6 +336,15 @@ void HlinkAc::publish_updates_if_any_() {
     if (!(this->target_temperature == this->hlink_entity_status_.target_temperature.value() ||
           (std::isnan(this->target_temperature) &&
            std::isnan(this->hlink_entity_status_.target_temperature.value())))) {
+      if (this->hlink_entity_status_.target_temperature.value() >= -3 &&
+          this->hlink_entity_status_.target_temperature.value() <= 3) {
+        this->set_visual_min_temperature_override(-3.0f);
+        this->set_visual_max_temperature_override(3.0f);
+      } else {
+        // Set normal visual temperature range
+        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
+        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
+      }
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
