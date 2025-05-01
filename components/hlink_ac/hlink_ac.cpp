@@ -10,8 +10,8 @@ const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::I
 const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
 void HlinkAc::setup() {
-  this->defined_visual_min_temperature_ = this->traits_.get_visual_min_temperature();
-  this->defined_visual_max_temperature_ = this->traits_.get_visual_max_temperature();
+  this->defined_visual_min_temperature_ = this->visual_min_temperature_override_.value();
+  this->defined_visual_max_temperature_ = this->visual_max_temperature_override_.value();
   // Setup default polling features
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
@@ -342,8 +342,8 @@ void HlinkAc::publish_updates_if_any_() {
         this->set_visual_max_temperature_override(3.0f);
       } else {
         // Set normal visual temperature range
-        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_.value());
-        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_.value());
+        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
+        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
       }
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
