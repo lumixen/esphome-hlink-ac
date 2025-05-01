@@ -52,7 +52,7 @@ void HlinkAc::setup() {
          if (response.p_value_as_uint16().has_value()) {
            uint16_t target_temperature = response.p_value_as_uint16().value();
            if (this->hlink_entity_status_.mode == esphome::climate::ClimateMode::CLIMATE_MODE_AUTO &&
-               target_temperature > 0xFF00) {
+               target_temperature >= 0xFF00) {
              // In auto mode the target temperature control is not available
              // Instead AC expects temperature shifts in range [-3;+3] C
              this->set_visual_min_temperature_override(-3.0f);
