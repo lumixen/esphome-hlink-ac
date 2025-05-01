@@ -342,8 +342,8 @@ void HlinkAc::publish_updates_if_any_() {
         this->set_visual_max_temperature_override(3.0f);
       } else {
         // Set normal visual temperature range
-        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_);
-        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_);
+        this->set_visual_min_temperature_override(this->defined_visual_min_temperature_.value());
+        this->set_visual_max_temperature_override(this->defined_visual_max_temperature_.value());
       }
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
