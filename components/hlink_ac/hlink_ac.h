@@ -27,6 +27,9 @@ constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 16;
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
+
 enum HlinkComponentState : uint8_t {
   IDLE,
   REQUEST_NEXT_STATUS_FEATURE,
@@ -41,6 +44,7 @@ struct HlinkEntityStatus {
   optional<bool> power_state;
   optional<float> current_temperature;
   optional<float> target_temperature;
+  optional<uint16_t> hlink_climate_mode;
   optional<esphome::climate::ClimateMode> mode;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
@@ -262,6 +266,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void send_hlink_cmd(std::string address, std::string data);
 
  protected:
+  float defined_visual_min_temperature_override_ = 0.0f;
+  float defined_visual_max_temperature_override_ = 0.0f;
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();

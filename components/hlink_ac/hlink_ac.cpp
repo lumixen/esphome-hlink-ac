@@ -10,6 +10,8 @@ const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::I
 const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
 
 void HlinkAc::setup() {
+  this->defined_visual_min_temperature_override_ = this->visual_min_temperature_override_.value_or(0.0f);
+  this->defined_visual_max_temperature_override_ = this->visual_max_temperature_override_.value_or(0.0f);
   // Setup default polling features
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
@@ -21,39 +23,56 @@ void HlinkAc::setup() {
            ESP_LOGW(TAG, "Can't handle climate mode response without power state data");
            return;
          }
+         this->hlink_entity_status_.hlink_climate_mode = response.p_value_as_uint16();
          if (!this->hlink_entity_status_.power_state.value()) {
            // Climate mode should be off when device is turned off
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
            return;
          }
-         if (response.p_value_as_uint16() == HLINK_MODE_HEAT) {
+         if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_COOL) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_DRY) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_DRY) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_FAN) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_FAN) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_HEAT_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_COOL_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_DRY_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_DRY_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          }
        }});
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
-         // Returns FFFE  when in auto cool mode 8040
-         // Returns FF02  when in auto heat mode 8010
          if (response.p_value_as_uint16().has_value()) {
-           float target_temp = response.p_value_as_uint16().value();
-           if (target_temp < 10 || target_temp > 40) {
-             this->hlink_entity_status_.target_temperature = NAN;
+           uint16_t target_temperature = response.p_value_as_uint16().value();
+           if (this->hlink_entity_status_.mode == esphome::climate::ClimateMode::CLIMATE_MODE_AUTO &&
+               target_temperature > 0xFF00) {
+             // In auto mode the target temperature control is not available
+             // Instead AC expects temperature shifts in range [-3;+3] C
+             this->set_visual_min_temperature_override(-3.0f);
+             this->set_visual_max_temperature_override(3.0f);
+             int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
+             if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
+               this->hlink_entity_status_.target_temperature = offset_temp - 2;
+             } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
+               this->hlink_entity_status_.target_temperature = offset_temp + 2;
+             } else {
+               this->hlink_entity_status_.target_temperature = offset_temp;
+             }
+           } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
+                      target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
+             // Set normal visual temperature range
+             this->set_visual_min_temperature_override(this->defined_visual_min_temperature_override_);
+             this->set_visual_max_temperature_override(this->defined_visual_max_temperature_override_);
+             this->hlink_entity_status_.target_temperature = target_temperature;
            } else {
-             this->hlink_entity_status_.target_temperature = target_temp;
+             this->hlink_entity_status_.target_temperature = NAN;
            }
          }
        }});
@@ -281,7 +300,7 @@ void HlinkAc::loop() {
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
-      this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+      this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
     }
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests.size();
@@ -566,14 +585,14 @@ void HlinkAc::set_remote_lock_switch(switch_::Switch *sw) {
 }
 
 void HlinkAc::enqueue_remote_lock_action(bool state) {
-  this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+  this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::REMOTE_CONTROL_LOCK, state));
 }
 
 void HlinkAc::set_beeper_switch(switch_::Switch *sw) { this->beeper_switch_ = sw; }
 
 void HlinkAc::handle_beep_state_change(bool state) {
   if (state) {
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
   }
 }
 #endif

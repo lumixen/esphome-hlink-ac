@@ -6,4 +6,5 @@ docker run --rm \
   hlink.yml \
   hlink_switch.yml \
   hlink_sensor.yml \
-  hlink_sensor_arduino.yml
+  hlink_sensor_arduino.yml \
+  hlink_actions.yml
