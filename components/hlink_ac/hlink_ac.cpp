@@ -144,6 +144,12 @@ void HlinkAc::dump_config() {
       this->hlink_entity_status_.target_temperature.has_value()
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
           : "N/A");
+  ESP_LOGCONFIG(
+      TAG, "  Auto target temperature offset: %s",
+      this->hlink_entity_status_.target_temperature_auto_offset.has_value()
+          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature_auto_offset.value()))
+                .c_str()
+          : "N/A");
   ESP_LOGCONFIG(TAG, "  Model: %s",
                 this->hlink_entity_status_.model_name.has_value()
                     ? this->hlink_entity_status_.model_name.value().c_str()
