@@ -111,7 +111,7 @@ struct HlinkRequestFrame {
   ProgramPayload p;
 };
 struct HlinkResponseFrame {
-  enum class Status { NOTHING, OK, ACK_OK, NG, INVALID };
+  enum class Status { NOTHING, OK, NG, INVALID };
   Status status;
   optional<std::vector<uint8_t>> p_value;
   uint16_t checksum;
