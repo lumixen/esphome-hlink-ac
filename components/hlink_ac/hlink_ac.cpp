@@ -487,38 +487,39 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   if (call.get_mode().has_value()) {
     climate::ClimateMode mode = *call.get_mode();
+    uint16_t power_state = 0x0001;
+    uint16_t h_link_mode = HLINK_MODE_AUTO;
     switch (mode) {
       case climate::ClimateMode::CLIMATE_MODE_OFF:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0000));
+        power_state = 0x0000;
         break;
       case climate::ClimateMode::CLIMATE_MODE_COOL:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_st_request_(
-            FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_COOL;
         break;
       case climate::ClimateMode::CLIMATE_MODE_HEAT:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_st_request_(
-            FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_COOL;
         break;
       case climate::ClimateMode::CLIMATE_MODE_DRY:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_st_request_(
-            FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_DRY;
         break;
       case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_st_request_(
-            FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_FAN;
         break;
       case climate::ClimateMode::CLIMATE_MODE_AUTO:
-        this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_st_request_(
-            FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_AUTO;
         break;
       default:
+        power_state = 0x0000;
         break;
     }
+    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, power_state));
+    this->pending_action_requests.enqueue(
+        this->create_st_request_(FeatureType::MODE, h_link_mode, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
+                                 [this, power_state, mode](const HlinkResponseFrame &response) {
+                                   this->hlink_entity_status_.power_state = power_state;
+                                   this->hlink_entity_status_.mode = mode;
+                                   this->publish_state();
+                                 }));
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
@@ -540,12 +541,21 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_fan_speed = HLINK_FAN_QUIET;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::FAN_MODE, h_link_fan_speed));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::FAN_MODE, h_link_fan_speed, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+        [this, fan_mode](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.fan_mode = fan_mode;
+          this->publish_state();
+        }));
   }
   if (call.get_target_temperature().has_value()) {
     float target_temperature = *call.get_target_temperature();
-    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::TARGET_TEMP, target_temperature,
-                                                                   HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
+        [this, target_temperature](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.target_temperature = target_temperature;
+          this->publish_state();
+        }));
   }
   if (call.get_swing_mode().has_value()) {
     climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
@@ -558,7 +568,12 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_swing_mode = HLINK_SWING_VERTICAL;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::SWING_MODE, h_link_swing_mode));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::SWING_MODE, h_link_swing_mode, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+        [this, swing_mode](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.swing_mode = swing_mode;
+          this->publish_state();
+        }));
   }
 }
 
