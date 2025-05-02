@@ -599,7 +599,10 @@ void HlinkAc::set_remote_lock_state(bool state) {
   };
   this->pending_action_requests.enqueue(this->create_st_request_(
       FeatureType::REMOTE_CONTROL_LOCK, state, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
-      [this, state](const HlinkResponseFrame &response) { this->remote_lock_switch_->publish_state(state); },
+      [this, state](const HlinkResponseFrame &response) {
+        this->hlink_entity_status_.remote_control_lock = state;
+        this->remote_lock_switch_->publish_state(state);
+      },
       publish_current_state, publish_current_state, publish_current_state));
 }
 
@@ -706,7 +709,10 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
   };
   this->pending_action_requests.enqueue(this->create_st_request_(
       FeatureType::TARGET_TEMP, offset_temp, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
-      [this, offset](const HlinkResponseFrame &response) { this->temperature_offset_number_->publish_state(offset); },
+      [this, offset](const HlinkResponseFrame &response) {
+        this->hlink_entity_status_.target_temperature_auto_offset = offset;
+        this->temperature_offset_number_->publish_state(offset);
+      },
       publish_current_state, publish_current_state, publish_current_state));
 }
 #endif
