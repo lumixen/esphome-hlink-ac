@@ -258,9 +258,9 @@ void HlinkAc::loop() {
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                this->status_.current_request->request_frame.p.address);
       if (this->status_.current_request->ok_callback == nullptr) {
-        ESP_LOGW(TAG, "Has OK callback");
-      } else {
         ESP_LOGW(TAG, "Has no OK callback");
+      } else {
+        ESP_LOGW(TAG, "Has OK callback");
       }
       this->handle_hlink_request_response_(*this->status_.current_request, response);
       if (this->status_.requests_left_to_apply > 0) {
