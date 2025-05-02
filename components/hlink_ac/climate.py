@@ -57,12 +57,13 @@ SUPPORTED_FAN_MODES_OPTIONS = {
     "QUIET": ClimateFanMode.CLIMATE_FAN_QUIET,
 }
 
-HlinkAcSendHlinkCmd= hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+HlinkAcSendHlinkCmd = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+
 
 @automation.register_action(
     "hlink_ac.send_hlink_cmd",
     HlinkAcSendHlinkCmd,
-        cv.Schema(
+    cv.Schema(
         {
             cv.GenerateID(): cv.use_id(HlinkAc),
             cv.Required(CONF_ADDRESS): cv.templatable(cv.string),
@@ -81,6 +82,7 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     cg.add(var.set_data(data_template))
 
     return var
+
 
 def validate_visual(config):
     if CONF_VISUAL in config:
@@ -102,7 +104,9 @@ def validate_visual(config):
         else:
             config[CONF_VISUAL][CONF_MAX_TEMPERATURE] = PROTOCOL_MAX_TEMPERATURE
         if CONF_TEMPERATURE_STEP in visual_config:
-            temp_step = config[CONF_VISUAL][CONF_TEMPERATURE_STEP][CONF_TARGET_TEMPERATURE]
+            temp_step = config[CONF_VISUAL][CONF_TEMPERATURE_STEP][
+                CONF_TARGET_TEMPERATURE
+            ]
             if temp_step % 1 != 0:
                 raise cv.Invalid(
                     f"Configured visual temperature step {temp_step} is wrong, it should be a multiple of 1"
@@ -123,6 +127,7 @@ def validate_visual(config):
         }
     return config
 
+
 CONFIG_SCHEMA = cv.All(
     climate.CLIMATE_SCHEMA.extend(
         {
@@ -130,9 +135,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_SUPPORTED_MODES,
                 default=list(SUPPORTED_CLIMATE_MODES_OPTIONS.keys()),
-            ): cv.ensure_list(
-                cv.enum(SUPPORTED_CLIMATE_MODES_OPTIONS, upper=True)
-            ),
+            ): cv.ensure_list(cv.enum(SUPPORTED_CLIMATE_MODES_OPTIONS, upper=True)),
             cv.Optional(
                 CONF_SUPPORTED_SWING_MODES,
                 default=list(SUPPORTED_SWING_MODES_OPTIONS.keys()),
@@ -147,6 +150,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(cv.COMPONENT_SCHEMA),
     validate_visual,
 )
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

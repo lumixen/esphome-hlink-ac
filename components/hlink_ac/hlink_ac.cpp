@@ -7,7 +7,7 @@ static const char *const TAG = "hlink_ac";
 
 const HlinkResponseFrame HLINK_RESPONSE_NOTHING = {HlinkResponseFrame::Status::NOTHING};
 const HlinkResponseFrame HLINK_RESPONSE_INVALID = {HlinkResponseFrame::Status::INVALID};
-const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::ACK_OK};
+const HlinkResponseFrame HLINK_RESPONSE_ACK_OK = {HlinkResponseFrame::Status::OK};
 
 void HlinkAc::setup() {
   // Setup default polling features
@@ -21,39 +21,60 @@ void HlinkAc::setup() {
            ESP_LOGW(TAG, "Can't handle climate mode response without power state data");
            return;
          }
+         this->hlink_entity_status_.hlink_climate_mode = response.p_value_as_uint16();
          if (!this->hlink_entity_status_.power_state.value()) {
            // Climate mode should be off when device is turned off
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_OFF;
            return;
          }
-         if (response.p_value_as_uint16() == HLINK_MODE_HEAT) {
+         if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_COOL) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_COOL;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_DRY) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_DRY) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_DRY;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_FAN) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_FAN) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_HEAT_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_COOL_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_DRY_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_DRY_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
-         } else if (response.p_value_as_uint16() == HLINK_MODE_AUTO) {
+         } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
          }
        }});
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
-         // Returns FFFE  when in auto cool mode 8040
-         // Returns FF02  when in auto heat mode 8010
          if (response.p_value_as_uint16().has_value()) {
-           float target_temp = response.p_value_as_uint16().value();
-           if (target_temp < 10 || target_temp > 40) {
+           uint16_t target_temperature = response.p_value_as_uint16().value();
+           if ((this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
+                this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) &&
+               target_temperature >= 0xFF00) {
              this->hlink_entity_status_.target_temperature = NAN;
+             // In auto mode the target temperature control is not available
+             // Instead, AC expects temperature offset in range [-3;+3] C
+             // AUTO HEATING: FFFD -> FFFF, FFFE -> FF00, FFFF -> FF01, FF00 -> FF02, FF01 -> FF03, FF02 -> FF04, FF03
+             // -> FF05
+             // AUTO COOLING: FFFD -> FFFB, FFFE -> FFFC, FFFF -> FFFD, FF00 -> FFFE, FF01 -> FFFF, FF02 ->
+             // FF00, FF03 -> FF01
+             // Needs testing, it's not clear if offset makes any difference in real life
+             int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
+             if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
+               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp - 2;
+             } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
+               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp + 2;
+             } else {
+               this->hlink_entity_status_.target_temperature_auto_offset = {};
+             }
+           } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
+                      target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
+             this->hlink_entity_status_.target_temperature = target_temperature;
+             this->hlink_entity_status_.target_temperature_auto_offset = {};
            } else {
-             this->hlink_entity_status_.target_temperature = target_temp;
+             this->hlink_entity_status_.target_temperature = NAN;
+             this->hlink_entity_status_.target_temperature_auto_offset = {};
            }
          }
        }});
@@ -122,8 +143,16 @@ void HlinkAc::dump_config() {
           : "N/A");
   ESP_LOGCONFIG(
       TAG, "  Target temperature: %s",
-      this->hlink_entity_status_.target_temperature.has_value()
+      this->hlink_entity_status_.target_temperature.has_value() &&
+              !std::isnan(this->hlink_entity_status_.target_temperature.value())
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
+          : "N/A");
+  ESP_LOGCONFIG(
+      TAG, "  Auto target temperature offset: %s",
+      this->hlink_entity_status_.target_temperature_auto_offset.has_value() &&
+              !std::isnan(this->hlink_entity_status_.target_temperature_auto_offset.value())
+          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature_auto_offset.value()))
+                .c_str()
           : "N/A");
   ESP_LOGCONFIG(TAG, "  Model: %s",
                 this->hlink_entity_status_.model_name.has_value()
@@ -160,17 +189,17 @@ void HlinkAc::request_status_update_() {
  */
 void HlinkAc::loop() {
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
-    HlinkFeatureRequest state_feature_request = this->status_.get_currently_polling_feature();
-    this->status_.currently_requested_feature = state_feature_request;
+    HlinkRequest state_feature_request = this->status_.get_currently_polling_feature();
+    this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
     this->write_hlink_frame_(state_feature_request.request_frame);
     this->status_.state = READ_FEATURE_RESPONSE;
   }
 
   if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame()) {
     if (this->status_.low_priority_hlink_request.has_value()) {
-      HlinkFeatureRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
+      HlinkRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
       this->write_hlink_frame_(low_priority_feature_request.request_frame);
-      this->status_.currently_requested_feature = low_priority_feature_request;
+      this->status_.current_request = make_unique<HlinkRequest>(low_priority_feature_request);
       this->status_.low_priority_hlink_request = {};
       this->status_.state = READ_FEATURE_RESPONSE;
     }
@@ -178,34 +207,14 @@ void HlinkAc::loop() {
 
   if (this->status_.state == READ_FEATURE_RESPONSE) {
     HlinkResponseFrame response = this->read_hlink_frame_(50);
-    if (!this->status_.currently_requested_feature.has_value()) {
+    if (this->status_.current_request == nullptr) {
       ESP_LOGW(TAG, "Received response for unknown feature");
       this->status_.reset_state();
       return;
     }
-    HlinkFeatureRequest requested_feature = this->status_.currently_requested_feature.value();
+    HlinkRequest requested_feature = *this->status_.current_request;
     if (response.status != HlinkResponseFrame::Status::NOTHING) {
-      this->status_.currently_requested_feature = {};
-      switch (response.status) {
-        case HlinkResponseFrame::Status::OK:
-          if (requested_feature.ok_callback) {
-            requested_feature.ok_callback(response);
-          }
-          break;
-        case HlinkResponseFrame::Status::NG:
-          ESP_LOGW(TAG, "Received NG response for feature request [%04X]", requested_feature.request_frame.p.address);
-          if (requested_feature.ng_callback) {
-            requested_feature.ng_callback();
-          }
-          break;
-        case HlinkResponseFrame::Status::INVALID:
-          if (requested_feature.invalid_callback) {
-            requested_feature.invalid_callback();
-          }
-          ESP_LOGW(TAG, "Received INVALID response for feature request [%04X]",
-                   requested_feature.request_frame.p.address);
-          break;
-      }
+      this->handle_hlink_request_response_(requested_feature, response);
       if (this->status_.requested_feature_index == -1) {
         this->status_.state = IDLE;
       } else if (this->status_.requested_feature_index + 1 < this->status_.polling_features.size()) {
@@ -216,6 +225,7 @@ void HlinkAc::loop() {
         this->status_.requested_feature_index = -1;
         this->status_.last_status_polling_finished_at_ms = millis();
       }
+      this->status_.current_request = nullptr;
     }
   }
 
@@ -227,10 +237,10 @@ void HlinkAc::loop() {
 
   if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame()) {
     if (this->status_.requests_left_to_apply > 0) {
-      std::unique_ptr<HlinkRequestFrame> request_msg = this->pending_action_requests.dequeue();
+      std::unique_ptr<HlinkRequest> request_msg = this->pending_action_requests.dequeue();
       if (request_msg != nullptr) {
-        this->write_hlink_frame_(*request_msg);
-        this->status_.currently_applying_message = std::move(request_msg);
+        this->write_hlink_frame_(request_msg->request_frame);
+        this->status_.current_request = std::move(request_msg);
         this->status_.requests_left_to_apply--;
         this->status_.state = ACK_APPLIED_REQUEST;
       } else {
@@ -243,20 +253,14 @@ void HlinkAc::loop() {
 
   if (this->status_.state == ACK_APPLIED_REQUEST) {
     HlinkResponseFrame response = this->read_hlink_frame_(50);
-    switch (response.status) {
-      case HlinkResponseFrame::Status::INVALID:
-      case HlinkResponseFrame::Status::NG:
-        ESP_LOGW(TAG, "Failed apply action request");
-      case HlinkResponseFrame::Status::ACK_OK:
-        if (this->status_.currently_applying_message != nullptr) {
-          this->handle_feature_write_response_ack_(*this->status_.currently_applying_message);
-        }
-        if (this->status_.requests_left_to_apply > 0) {
-          this->status_.state = APPLY_REQUEST;
-        } else {
-          this->status_.state = IDLE;
-        }
-        this->status_.currently_applying_message = nullptr;
+    if (response.status != HlinkResponseFrame::Status::NOTHING) {
+      this->handle_hlink_request_response_(*this->status_.current_request, response);
+      if (this->status_.requests_left_to_apply > 0) {
+        this->status_.state = APPLY_REQUEST;
+      } else {
+        this->status_.state = IDLE;
+      }
+      this->status_.current_request = nullptr;
     }
     // Update status right away after the applied batch
     if (this->status_.state == IDLE) {
@@ -267,9 +271,9 @@ void HlinkAc::loop() {
   // Reset status to IDLE if we reached timeout deadline
   if (this->status_.state != IDLE && this->status_.reached_timeout_thereshold()) {
     ESP_LOGW(TAG, "Reached timeout while performing [%d] state action. Reset state to IDLE.", this->status_.state);
-    if (this->status_.currently_requested_feature.has_value()) {
-      auto timeout_callback = this->status_.currently_requested_feature.value().timeout_callback;
-      if (timeout_callback) {
+    if (this->status_.current_request != nullptr) {
+      auto timeout_callback = this->status_.current_request->timeout_callback;
+      if (timeout_callback != nullptr) {
         timeout_callback();
       }
     }
@@ -277,11 +281,13 @@ void HlinkAc::loop() {
   }
 
   // If there are any pending requests - apply them ASAP
-  if (this->status_.state == IDLE && this->pending_action_requests.size() > 0) {
+  if ((this->status_.state == IDLE || this->status_.state == REQUEST_NEXT_STATUS_FEATURE) &&
+      this->pending_action_requests.size() > 0) {
+    this->status_.reset_state();
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
-      this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+      this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
     }
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests.size();
@@ -302,12 +308,28 @@ void HlinkAc::loop() {
   }
 }
 
-/**
- * Handles the ACK_OK response for the ST write request.
- */
-void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_request) {
-  switch (applied_request.p.address) {
-    default:
+void HlinkAc::handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response) {
+  switch (response.status) {
+    case HlinkResponseFrame::Status::OK:
+      if (request.ok_callback != nullptr) {
+        request.ok_callback(response);
+      }
+      break;
+    case HlinkResponseFrame::Status::NG:
+      ESP_LOGW(TAG, "Received NG response for [%s - %04X]",
+               request.request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
+               request.request_frame.p.address);
+      if (request.ng_callback != nullptr) {
+        request.ng_callback();
+      }
+      break;
+    case HlinkResponseFrame::Status::INVALID:
+      if (request.invalid_callback != nullptr) {
+        request.invalid_callback();
+      }
+      ESP_LOGW(TAG, "Received INVALID response for [%s - %04X]",
+               request.request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
+               request.request_frame.p.address);
       break;
   }
 }
@@ -315,9 +337,7 @@ void HlinkAc::handle_feature_write_response_ack_(HlinkRequestFrame applied_reque
 void HlinkAc::publish_updates_if_any_() {
   if (this->hlink_entity_status_.has_hvac_status()) {
     bool should_publish_climate_state = false;
-    if (!(this->target_temperature == this->hlink_entity_status_.target_temperature.value() ||
-          (std::isnan(this->target_temperature) &&
-           std::isnan(this->hlink_entity_status_.target_temperature.value())))) {
+    if (!is_nanable_equal(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
@@ -351,6 +371,15 @@ void HlinkAc::publish_updates_if_any_() {
   if (this->model_name_text_sensor_ != nullptr && this->hlink_entity_status_.model_name.has_value() &&
       this->model_name_text_sensor_->state != this->hlink_entity_status_.model_name.value()) {
     this->model_name_text_sensor_->publish_state(this->hlink_entity_status_.model_name.value());
+  }
+#endif
+#ifdef USE_NUMBER
+  if (this->temperature_offset_number_ != nullptr) {
+    if (!is_nanable_equal(this->temperature_offset_number_->state,
+                          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f))) {
+      this->temperature_offset_number_->publish_state(
+          this->hlink_entity_status_.target_temperature_auto_offset.value());
+    }
   }
 #endif
 }
@@ -451,7 +480,7 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
     ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
     return;
   }
-  this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
+  this->pending_action_requests.enqueue(this->create_st_request_(
       static_cast<uint16_t>(std::stoi(address, nullptr, 16)), static_cast<uint16_t>(std::stoi(data, nullptr, 16)),
       static_cast<HlinkRequestFrame::AttributeFormat>(data.size() == 4)));
 }
@@ -459,38 +488,40 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   if (call.get_mode().has_value()) {
     climate::ClimateMode mode = *call.get_mode();
+    uint16_t power_state = 0x0001;
+    uint16_t h_link_mode = HLINK_MODE_AUTO;
     switch (mode) {
       case climate::ClimateMode::CLIMATE_MODE_OFF:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0000));
+        power_state = 0x0000;
         break;
       case climate::ClimateMode::CLIMATE_MODE_COOL:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-            FeatureType::MODE, HLINK_MODE_COOL, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_COOL;
         break;
       case climate::ClimateMode::CLIMATE_MODE_HEAT:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-            FeatureType::MODE, HLINK_MODE_HEAT, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_HEAT;
         break;
       case climate::ClimateMode::CLIMATE_MODE_DRY:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-            FeatureType::MODE, HLINK_MODE_DRY, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_DRY;
         break;
       case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-            FeatureType::MODE, HLINK_MODE_FAN, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_FAN;
         break;
       case climate::ClimateMode::CLIMATE_MODE_AUTO:
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::POWER_STATE, 0x0001));
-        this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-            FeatureType::MODE, HLINK_MODE_AUTO, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+        h_link_mode = HLINK_MODE_AUTO;
         break;
       default:
+        power_state = 0x0000;
         break;
     }
+    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::POWER_STATE, power_state));
+    this->pending_action_requests.enqueue(
+        this->create_st_request_(FeatureType::MODE, h_link_mode, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
+                                 [this, power_state, mode](const HlinkResponseFrame &response) {
+                                   this->hlink_entity_status_.power_state = power_state;
+                                   this->hlink_entity_status_.mode = mode;
+                                   this->mode = mode;
+                                   this->publish_state();
+                                 }));
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
@@ -512,12 +543,23 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_fan_speed = HLINK_FAN_QUIET;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::FAN_MODE, h_link_fan_speed));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::FAN_MODE, h_link_fan_speed, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+        [this, fan_mode](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.fan_mode = fan_mode;
+          this->fan_mode = fan_mode;
+          this->publish_state();
+        }));
   }
   if (call.get_target_temperature().has_value()) {
     float target_temperature = *call.get_target_temperature();
-    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(
-        FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
+        [this, target_temperature](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.target_temperature = target_temperature;
+          this->target_temperature = target_temperature;
+          this->publish_state();
+        }));
   }
   if (call.get_swing_mode().has_value()) {
     climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
@@ -530,7 +572,13 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_swing_mode = HLINK_SWING_VERTICAL;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::SWING_MODE, h_link_swing_mode));
+    this->pending_action_requests.enqueue(this->create_st_request_(
+        FeatureType::SWING_MODE, h_link_swing_mode, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+        [this, swing_mode](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.swing_mode = swing_mode;
+          this->swing_mode = swing_mode;
+          this->publish_state();
+        }));
   }
 }
 
@@ -565,15 +613,24 @@ void HlinkAc::set_remote_lock_switch(switch_::Switch *sw) {
                                             }});
 }
 
-void HlinkAc::enqueue_remote_lock_action(bool state) {
-  this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::REMOTE_CONTROL_LOCK, state));
+void HlinkAc::set_remote_lock_state(bool state) {
+  auto publish_current_state = [this]() {
+    this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+  };
+  this->pending_action_requests.enqueue(this->create_st_request_(
+      FeatureType::REMOTE_CONTROL_LOCK, state, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+      [this, state](const HlinkResponseFrame &response) {
+        this->hlink_entity_status_.remote_control_lock = state;
+        this->remote_lock_switch_->publish_state(state);
+      },
+      publish_current_state, publish_current_state, publish_current_state));
 }
 
 void HlinkAc::set_beeper_switch(switch_::Switch *sw) { this->beeper_switch_ = sw; }
 
 void HlinkAc::handle_beep_state_change(bool state) {
   if (state) {
-    this->pending_action_requests.enqueue(this->createRequestFrame_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
+    this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::BEEPER, HLINK_BEEP_ACTION));
   }
 }
 #endif
@@ -600,7 +657,7 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
 void HlinkAc::update_sensor_state_(sensor::Sensor *sensor, float value) {
   if (sensor != nullptr) {
     float current_state = sensor->raw_state;
-    if (current_state == value || (std::isnan(current_state) && std::isnan(value))) {
+    if (is_nanable_equal(current_state, value)) {
       return;
     }
     sensor->publish_state(value);
@@ -638,9 +695,9 @@ void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *t
 
 void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sensor) {
   this->set_timeout(20000, [this, text_sensor]() {
-    auto create_discovery_request = std::make_shared<std::function<HlinkFeatureRequest(uint16_t)>>();
+    auto create_discovery_request = std::make_shared<std::function<HlinkRequest(uint16_t)>>();
     *create_discovery_request = [this, text_sensor, create_discovery_request](uint16_t address) {
-      return HlinkFeatureRequest{
+      return HlinkRequest{
           HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}},
           [this, text_sensor, address, create_discovery_request](const HlinkResponseFrame &response) mutable {
             char address_str[5];
@@ -664,8 +721,24 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
   });
 }
 #endif
+#ifdef USE_NUMBER
+void HlinkAc::set_auto_temperature_offset(float offset) {
+  uint16_t offset_temp = static_cast<uint8_t>(static_cast<int8_t>(offset)) + 0xFF00;
+  auto publish_current_state = [this]() {
+    this->temperature_offset_number_->publish_state(
+        this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f));
+  };
+  this->pending_action_requests.enqueue(this->create_st_request_(
+      FeatureType::TARGET_TEMP, offset_temp, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
+      [this, offset](const HlinkResponseFrame &response) {
+        this->hlink_entity_status_.target_temperature_auto_offset = offset;
+        this->temperature_offset_number_->publish_state(offset);
+      },
+      publish_current_state, publish_current_state, publish_current_state));
+}
+#endif
 
-int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequestFrame> request) {
+int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequest> request) {
   if (this->is_full()) {
     ESP_LOGE(TAG, "Action requests queue is full");
     return -1;
@@ -678,10 +751,10 @@ int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequestFrame> request
   return 1;
 }
 
-std::unique_ptr<HlinkRequestFrame> CircularRequestsQueue::dequeue() {
+std::unique_ptr<HlinkRequest> CircularRequestsQueue::dequeue() {
   if (this->is_empty())
     return nullptr;
-  std::unique_ptr<HlinkRequestFrame> dequeued_request = std::move(requests_[front_]);
+  std::unique_ptr<HlinkRequest> dequeued_request = std::move(requests_[front_]);
   if (front_ == rear_) {
     front_ = -1;
     rear_ = -1;
@@ -699,10 +772,15 @@ bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE
 
 uint8_t CircularRequestsQueue::size() { return size_; }
 
-std::unique_ptr<HlinkRequestFrame> HlinkAc::create_hlink_st_frame_(
-    uint16_t address, uint16_t data, optional<HlinkRequestFrame::AttributeFormat> data_format) {
-  return std::unique_ptr<HlinkRequestFrame>(
-      new HlinkRequestFrame{HlinkRequestFrame::Type::ST, {address, data, data_format}});
+std::unique_ptr<HlinkRequest> HlinkAc::create_st_request_(
+    uint16_t address, uint16_t data, optional<HlinkRequestFrame::AttributeFormat> data_format,
+    std::function<void(const HlinkResponseFrame &response)> ok_callback, std::function<void()> ng_callback,
+    std::function<void()> invalid_callback, std::function<void()> timeout_callback) {
+  {
+    return std::unique_ptr<HlinkRequest>(
+        new HlinkRequest{HlinkRequestFrame{HlinkRequestFrame::Type::ST, {address, data, data_format}}, ok_callback,
+                         ng_callback, invalid_callback, timeout_callback});
+  }
 }
 }  // namespace hlink_ac
 }  // namespace esphome

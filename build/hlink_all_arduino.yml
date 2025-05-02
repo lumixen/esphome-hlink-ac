@@ -1,5 +1,5 @@
 esphome:
-  name: hlink-dev-espidf-sensor
+  name: hlink-dev-arduino-all
 
 external_components:
   - source: /components
@@ -10,7 +10,7 @@ logger:
 esp32:
   board: lolin_d32
   framework:
-    type: esp-idf
+    type: arduino
 
 uart:
   id: hitachi_bus
@@ -43,3 +43,8 @@ text_sensor:
   - platform: hlink_ac
     debug_discovery:
       name: H-link addresses discovery
+
+number:
+  - platform: hlink_ac
+    auto_target_temperature_offset:
+      name: Auto offset

@@ -13,6 +13,9 @@
 #ifdef USE_TEXT_SENSOR
 #include "esphome/components/text_sensor/text_sensor.h"
 #endif
+#ifdef USE_NUMBER
+#include "esphome/components/number/number.h"
+#endif
 
 namespace esphome {
 namespace hlink_ac {
@@ -27,6 +30,9 @@ constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 16;
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
+
 enum HlinkComponentState : uint8_t {
   IDLE,
   REQUEST_NEXT_STATUS_FEATURE,
@@ -39,9 +45,11 @@ enum HlinkComponentState : uint8_t {
 
 struct HlinkEntityStatus {
   optional<bool> power_state;
+  optional<uint16_t> hlink_climate_mode;
+  optional<esphome::climate::ClimateMode> mode;
   optional<float> current_temperature;
   optional<float> target_temperature;
-  optional<esphome::climate::ClimateMode> mode;
+  optional<float> target_temperature_auto_offset;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
   optional<std::string> model_name;
@@ -103,7 +111,7 @@ struct HlinkRequestFrame {
   ProgramPayload p;
 };
 struct HlinkResponseFrame {
-  enum class Status { NOTHING, OK, ACK_OK, NG, INVALID };
+  enum class Status { NOTHING, OK, NG, INVALID };
   Status status;
   optional<std::vector<uint8_t>> p_value;
   uint16_t checksum;
@@ -139,7 +147,7 @@ struct HlinkResponseFrame {
   }
 };
 
-struct HlinkFeatureRequest {
+struct HlinkRequest {
   HlinkRequestFrame request_frame;
   std::function<void(const HlinkResponseFrame &response)> ok_callback;
   std::function<void()> ng_callback;
@@ -149,10 +157,9 @@ struct HlinkFeatureRequest {
 
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
-  optional<HlinkFeatureRequest> currently_requested_feature = {};
-  std::vector<HlinkFeatureRequest> polling_features = {};
-  optional<HlinkFeatureRequest> low_priority_hlink_request = {};
-  std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
+  std::unique_ptr<HlinkRequest> current_request = nullptr;
+  std::vector<HlinkRequest> polling_features = {};
+  optional<HlinkRequest> low_priority_hlink_request = {};
   int16_t requested_feature_index = -1;
   uint32_t non_idle_timeout_limit_ms = 0;
   uint32_t last_status_polling_finished_at_ms = 0;
@@ -173,18 +180,16 @@ struct ComponentStatus {
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
 
-  HlinkFeatureRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
+  HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
 
   void reset_state() {
     state = IDLE;
     timeout_counter_started_at_ms = 0;
     non_idle_timeout_limit_ms = 0;
-    last_frame_received_at_ms = 0;
     last_status_polling_finished_at_ms = 0;
     requested_feature_index = -1;
     requests_left_to_apply = 0;
-    currently_applying_message = nullptr;
-    currently_requested_feature = {};
+    current_request = nullptr;
   }
 };
 
@@ -205,8 +210,8 @@ enum class TextSensorType {
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
 class CircularRequestsQueue {
  public:
-  int8_t enqueue(std::unique_ptr<HlinkRequestFrame> request);
-  std::unique_ptr<HlinkRequestFrame> dequeue();
+  int8_t enqueue(std::unique_ptr<HlinkRequest> request);
+  std::unique_ptr<HlinkRequest> dequeue();
   bool is_empty();
   bool is_full();
   uint8_t size();
@@ -215,14 +220,14 @@ class CircularRequestsQueue {
   int front_{-1};
   int rear_{-1};
   uint8_t size_{0};
-  std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
+  std::unique_ptr<HlinkRequest> requests_[REQUESTS_QUEUE_SIZE];
 };
 
 class HlinkAc : public Component, public uart::UARTDevice, public climate::Climate {
 #ifdef USE_SWITCH
  public:
   void set_remote_lock_switch(switch_::Switch *sw);
-  void enqueue_remote_lock_action(bool state);
+  void set_remote_lock_state(bool state);
   void set_beeper_switch(switch_::Switch *sw);
   void handle_beep_state_change(bool state);
 
@@ -246,6 +251,12 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
  protected:
   text_sensor::TextSensor *model_name_text_sensor_{nullptr};
 #endif
+#ifdef USE_NUMBER
+  SUB_NUMBER(temperature_offset)
+
+ public:
+  void set_auto_temperature_offset(float offset);
+#endif
  public:
   // ----- COMPONENT -----
   void setup() override;
@@ -267,13 +278,18 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests;
   void request_status_update_();
-  void handle_feature_write_response_ack_(HlinkRequestFrame applied_request);
+  void handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequestFrame> create_hlink_st_frame_(
+  std::unique_ptr<HlinkRequest> create_st_request_(
       uint16_t address, uint16_t data,
-      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
+      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+      std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
+      std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
+      std::function<void()> timeout_callback = nullptr);
+  // ----- Utils -----
+  bool is_nanable_equal(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
 };
 }  // namespace hlink_ac
 }  // namespace esphome
