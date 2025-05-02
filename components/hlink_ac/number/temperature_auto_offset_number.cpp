@@ -4,7 +4,6 @@ namespace esphome {
 namespace hlink_ac {
 void TemperatureAutoOffsetNumber::control(float value) {
   this->parent_->set_auto_temperature_offset(value);
-  this->publish_state(value);
 }
 }  // namespace hlink_ac
 }  // namespace esphome
