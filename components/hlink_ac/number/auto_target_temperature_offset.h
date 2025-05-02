@@ -5,9 +5,9 @@
 
 namespace esphome {
 namespace hlink_ac {
-class TemperatureAutoOffsetNumber : public number::Number, public Parented<HlinkAc> {
+class AutoTargetTemperatureOffsetNumber : public number::Number, public Parented<HlinkAc> {
  public:
-  TemperatureAutoOffsetNumber() = default;
+ AutoTargetTemperatureOffsetNumber() = default;
 
  protected:
   void control(float value) override;

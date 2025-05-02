@@ -1,5 +1,3 @@
-import logging
-
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
@@ -11,8 +9,6 @@ from ..climate import (
     HlinkAc,
     hlink_ac_ns,
 )
-
-_LOGGER = logging.getLogger(__name__)
 
 CODEOWNERS = ["@lumixen"]
 TextSensorTypeEnum = hlink_ac_ns.enum("TextSensorType", True)

@@ -46,5 +46,5 @@ text_sensor:
 
 number:
   - platform: hlink_ac
-    temperature_auto_offset:
-      name: Auto mode target temperature offset
+    auto_target_temperature_offset:
+      name: Auto offset
