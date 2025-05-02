@@ -3,7 +3,7 @@ import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number
-from esphome.const import ENTITY_CATEGORY_CONFIG, UNIT_CELSIUS
+from esphome.const import ENTITY_CATEGORY_CONFIG, UNIT_CELSIUS, DEVICE_CLASS_TEMPERATURE
 from ..climate import (
     CONF_HLINK_AC_ID,
     HlinkAc,
@@ -27,6 +27,7 @@ CONFIG_SCHEMA = cv.Schema(
             icon=TEMPERATURE_AUTO_OFFSET_ICON,
             entity_category=ENTITY_CATEGORY_CONFIG,
             unit_of_measurement=UNIT_CELSIUS,
+            device_class=DEVICE_CLASS_TEMPERATURE,
         ),
     }
 )
