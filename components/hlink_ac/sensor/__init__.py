@@ -20,7 +20,7 @@ SensorTypeEnum = hlink_ac_ns.enum("SensorType", True)
 OUTDOOR_TEMPERATURE = "outdoor_temperature"
 
 SENSOR_TYPES = {
-        OUTDOOR_TEMPERATURE: sensor.sensor_schema(
+    OUTDOOR_TEMPERATURE: sensor.sensor_schema(
         unit_of_measurement=UNIT_CELSIUS,
         icon=ICON_RADIATOR,
         accuracy_decimals=0,
