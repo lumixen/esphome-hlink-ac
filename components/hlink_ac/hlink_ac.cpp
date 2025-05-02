@@ -379,9 +379,10 @@ void HlinkAc::publish_updates_if_any_() {
   }
 #endif
 #ifdef USE_NUMBER
+  ESP_LOGD(TAG, "Pending number state: %f", this->temperature_offset_number_->pending_state);
   if (this->temperature_offset_number_ != nullptr &&
       this->hlink_entity_status_.target_temperature_auto_offset.has_value() &&
-      !is_nanable_equal(this->temperature_offset_number_->state,
+      !is_nanable_equal(this->temperature_offset_number_->pending_state,
                         this->hlink_entity_status_.target_temperature_auto_offset.value())) {
     this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset.value());
   }

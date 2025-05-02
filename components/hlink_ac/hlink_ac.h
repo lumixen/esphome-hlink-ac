@@ -257,8 +257,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 #ifdef USE_NUMBER
   SUB_NUMBER(temperature_offset)
 
-  public:
-    void set_auto_temperature_offset(float offset);
+ public:
+  void set_auto_temperature_offset(float offset);
 #endif
  public:
   // ----- COMPONENT -----
@@ -289,9 +289,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
       uint16_t address, uint16_t data,
       optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
   // ----- Utils -----
-  bool is_nanable_equal(float a, float b) {
-    return (std::isnan(a) && std::isnan(b)) || (a == b);
-  }
+  bool is_nanable_equal(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
 };
 }  // namespace hlink_ac
 }  // namespace esphome

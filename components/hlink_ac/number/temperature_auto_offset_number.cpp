@@ -3,7 +3,7 @@
 namespace esphome {
 namespace hlink_ac {
 void TemperatureAutoOffsetNumber::control(float value) {
-  pending_state = value;
+  this->pending_state = value;
   this->parent_->set_auto_temperature_offset(value);
 }
 }  // namespace hlink_ac
