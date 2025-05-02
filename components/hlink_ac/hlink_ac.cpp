@@ -188,7 +188,7 @@ void HlinkAc::request_status_update_() {
 void HlinkAc::loop() {
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
     HlinkRequest state_feature_request = this->status_.get_currently_polling_feature();
-    this->status_.current_request = std::make_unique<HlinkRequest>(state_feature_request);
+    this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
     this->write_hlink_frame_(state_feature_request.request_frame);
     this->status_.state = READ_FEATURE_RESPONSE;
   }
@@ -197,7 +197,7 @@ void HlinkAc::loop() {
     if (this->status_.low_priority_hlink_request.has_value()) {
       HlinkRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
       this->write_hlink_frame_(low_priority_feature_request.request_frame);
-      this->status_.current_request = std::make_unique<HlinkRequest>(low_priority_feature_request);
+      this->status_.current_request = make_unique<HlinkRequest>(low_priority_feature_request);
       this->status_.low_priority_hlink_request = {};
       this->status_.state = READ_FEATURE_RESPONSE;
     }
