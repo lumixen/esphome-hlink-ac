@@ -600,7 +600,6 @@ void HlinkAc::set_remote_lock_state(bool state) {
   this->pending_action_requests.enqueue(this->create_st_request_(
       FeatureType::REMOTE_CONTROL_LOCK, state, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
       [this, state](const HlinkResponseFrame &response) {
-        ESP_LOGW(TAG, "Remote lock state changed to %d", state);
         this->hlink_entity_status_.remote_control_lock = state;
         this->remote_lock_switch_->publish_state(state);
       },
