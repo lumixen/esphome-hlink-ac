@@ -376,10 +376,10 @@ void HlinkAc::publish_updates_if_any_() {
 #ifdef USE_NUMBER
   if (this->temperature_offset_number_ != nullptr) {
     if (!is_nanable_equal(this->temperature_offset_number_->state,
-                          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f)))) {
-        this->temperature_offset_number_->publish_state(
-            this->hlink_entity_status_.target_temperature_auto_offset.value());
-      }
+                          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f))) {
+      this->temperature_offset_number_->publish_state(
+          this->hlink_entity_status_.target_temperature_auto_offset.value());
+    }
   }
 #endif
 }
