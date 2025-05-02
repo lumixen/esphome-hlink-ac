@@ -13,6 +13,9 @@
 #ifdef USE_TEXT_SENSOR
 #include "esphome/components/text_sensor/text_sensor.h"
 #endif
+#ifdef USE_NUMBER
+#include "esphome/components/number/number.h"
+#endif
 
 namespace esphome {
 namespace hlink_ac {
@@ -251,6 +254,12 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
  protected:
   text_sensor::TextSensor *model_name_text_sensor_{nullptr};
 #endif
+#ifdef USE_NUMBER
+  SUB_NUMBER(temperature_offset)
+
+  public:
+    void set_auto_temperature_offset(float offset);
+#endif
  public:
   // ----- COMPONENT -----
   void setup() override;
@@ -279,6 +288,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   std::unique_ptr<HlinkRequestFrame> create_hlink_st_frame_(
       uint16_t address, uint16_t data,
       optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
+  // ----- Utils -----
+  bool is_nanable_equal(float a, float b) {
+    return (std::isnan(a) && std::isnan(b)) || (a == b);
+  }
 };
 }  // namespace hlink_ac
 }  // namespace esphome
