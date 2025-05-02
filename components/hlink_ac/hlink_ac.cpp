@@ -254,14 +254,14 @@ void HlinkAc::loop() {
   if (this->status_.state == ACK_APPLIED_REQUEST) {
     HlinkResponseFrame response = this->read_hlink_frame_(50);
     if (response.status != HlinkResponseFrame::Status::NOTHING) {
-      // ESP_LOGW(TAG, "Handling ST response [%s - %04X]",
-      //          this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
-      //          this->status_.current_request->request_frame.p.address);
-      // if (this->status_.current_request->ok_callback == nullptr) {
-      //   ESP_LOGW(TAG, "Has OK callback");
-      // } else {
-      //   ESP_LOGW(TAG, "Has no OK callback");
-      // }
+      ESP_LOGW(TAG, "Handling ST response [%s - %04X]",
+               this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
+               this->status_.current_request->request_frame.p.address);
+      if (this->status_.current_request->ok_callback == nullptr) {
+        ESP_LOGW(TAG, "Has OK callback");
+      } else {
+        ESP_LOGW(TAG, "Has no OK callback");
+      }
       this->handle_hlink_request_response_(*this->status_.current_request, response);
       if (this->status_.requests_left_to_apply > 0) {
         this->status_.state = APPLY_REQUEST;
