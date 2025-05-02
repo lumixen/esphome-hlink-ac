@@ -205,7 +205,7 @@ void HlinkAc::loop() {
 
   if (this->status_.state == READ_FEATURE_RESPONSE) {
     HlinkResponseFrame response = this->read_hlink_frame_(50);
-    if (this->status_.current_request != nullptr) {
+    if (this->status_.current_request == nullptr) {
       ESP_LOGW(TAG, "Received response for unknown feature");
       this->status_.reset_state();
       return;
