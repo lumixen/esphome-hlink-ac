@@ -278,7 +278,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests;
   void request_status_update_();
-  void handle_hlink_request_response_(HlinkRequest request, HlinkResponseFrame response);
+  void handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
