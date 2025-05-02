@@ -186,7 +186,6 @@ struct ComponentStatus {
     state = IDLE;
     timeout_counter_started_at_ms = 0;
     non_idle_timeout_limit_ms = 0;
-    last_frame_received_at_ms = 0;
     last_status_polling_finished_at_ms = 0;
     requested_feature_index = -1;
     requests_left_to_apply = 0;
@@ -279,7 +278,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests;
   void request_status_update_();
-  void handle_hlink_request_response(HlinkRequest request, HlinkResponseFrame response);
+  void handle_hlink_request_response_(HlinkRequest request, HlinkResponseFrame response);
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);

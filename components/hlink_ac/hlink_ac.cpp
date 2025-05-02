@@ -214,7 +214,7 @@ void HlinkAc::loop() {
     }
     HlinkRequest requested_feature = *this->status_.current_request;
     if (response.status != HlinkResponseFrame::Status::NOTHING) {
-      this->handle_hlink_request_response(requested_feature, response);
+      this->handle_hlink_request_response_(requested_feature, response);
       if (this->status_.requested_feature_index == -1) {
         this->status_.state = IDLE;
       } else if (this->status_.requested_feature_index + 1 < this->status_.polling_features.size()) {
@@ -254,7 +254,7 @@ void HlinkAc::loop() {
   if (this->status_.state == ACK_APPLIED_REQUEST) {
     HlinkResponseFrame response = this->read_hlink_frame_(50);
     if (response.status != HlinkResponseFrame::Status::NOTHING) {
-      this->handle_hlink_request_response(*this->status_.current_request, response);
+      this->handle_hlink_request_response_(*this->status_.current_request, response);
       if (this->status_.requests_left_to_apply > 0) {
         this->status_.state = APPLY_REQUEST;
       } else {
@@ -281,7 +281,9 @@ void HlinkAc::loop() {
   }
 
   // If there are any pending requests - apply them ASAP
-  if (this->status_.state == IDLE && this->pending_action_requests.size() > 0) {
+  if ((this->status_.state == IDLE || this->status_.state == REQUEST_NEXT_STATUS_FEATURE) &&
+      this->pending_action_requests.size() > 0) {
+        this->status_.reset_state();
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
@@ -306,7 +308,7 @@ void HlinkAc::loop() {
   }
 }
 
-void HlinkAc::handle_hlink_request_response(HlinkRequest request, HlinkResponseFrame response) {
+void HlinkAc::handle_hlink_request_response_(HlinkRequest request, HlinkResponseFrame response) {
   switch (response.status) {
     case HlinkResponseFrame::Status::OK:
       if (request.ok_callback) {
