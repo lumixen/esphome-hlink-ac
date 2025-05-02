@@ -66,15 +66,15 @@ void HlinkAc::setup() {
              } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
                this->hlink_entity_status_.target_temperature_auto_offset = offset_temp + 2;
              } else {
-               this->hlink_entity_status_.target_temperature_auto_offset = NAN;
+               this->hlink_entity_status_.target_temperature_auto_offset = {};
              }
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              this->hlink_entity_status_.target_temperature = target_temperature;
-             this->hlink_entity_status_.target_temperature_auto_offset = NAN;
+             this->hlink_entity_status_.target_temperature_auto_offset = {};
            } else {
              this->hlink_entity_status_.target_temperature = NAN;
-             this->hlink_entity_status_.target_temperature_auto_offset = NAN;
+             this->hlink_entity_status_.target_temperature_auto_offset = {};
            }
          }
        }});
@@ -374,11 +374,12 @@ void HlinkAc::publish_updates_if_any_() {
   }
 #endif
 #ifdef USE_NUMBER
-  if (this->temperature_offset_number_ != nullptr &&
-      this->hlink_entity_status_.target_temperature_auto_offset.has_value() &&
-      !is_nanable_equal(this->temperature_offset_number_->state,
-                        this->hlink_entity_status_.target_temperature_auto_offset.value())) {
-    this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset.value());
+  if (this->temperature_offset_number_ != nullptr) {
+    if (!is_nanable_equal(this->temperature_offset_number_->state,
+                          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f)))) {
+        this->temperature_offset_number_->publish_state(
+            this->hlink_entity_status_.target_temperature_auto_offset.value());
+      }
   }
 #endif
 }
@@ -724,7 +725,8 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
 void HlinkAc::set_auto_temperature_offset(float offset) {
   uint16_t offset_temp = static_cast<uint8_t>(static_cast<int8_t>(offset)) + 0xFF00;
   auto publish_current_state = [this]() {
-    this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset.value());
+    this->temperature_offset_number_->publish_state(
+        this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f));
   };
   this->pending_action_requests.enqueue(this->create_st_request_(
       FeatureType::TARGET_TEMP, offset_temp, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
