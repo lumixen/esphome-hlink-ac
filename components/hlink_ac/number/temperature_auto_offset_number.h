@@ -7,7 +7,10 @@ namespace esphome {
 namespace hlink_ac {
 class TemperatureAutoOffsetNumber : public number::Number, public Parented<HlinkAc> {
  public:
-  TemperatureAutoOffsetNumber() = default;
+  float pending_state;
+  TemperatureAutoOffsetNumber() {
+    this->add_on_state_callback([this](float state) { this->pending_state = state; });
+  };
 
  protected:
   void control(float value) override;
