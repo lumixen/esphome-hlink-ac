@@ -699,7 +699,7 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
 #endif
 #ifdef USE_NUMBER
 void HlinkAc::set_auto_temperature_offset(float offset) {
-  uint16_t offset_temp = static_cast<int8_t>(offset) + 0xFF00;
+  uint16_t offset_temp = static_cast<uint8_t>(static_cast<int8_t>(offset)) + 0xFF00;
   this->pending_action_requests.enqueue(this->create_hlink_st_frame_(FeatureType::TARGET_TEMP, offset_temp,
                                                                      HlinkRequestFrame::AttributeFormat::FOUR_DIGITS));
 }
