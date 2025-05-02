@@ -553,6 +553,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
     this->pending_action_requests.enqueue(this->create_st_request_(
         FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
         [this, target_temperature](const HlinkResponseFrame &response) {
+          ESP_LOGD(TAG, "Publishing target climate temperature: %f", target_temperature);
           this->hlink_entity_status_.target_temperature = target_temperature;
           this->publish_state();
         }));
