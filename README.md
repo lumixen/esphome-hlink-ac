@@ -94,6 +94,11 @@ text_sensor:
   - platform: hlink_ac
     model_name:
       name: Model
+
+number:
+  - platform: hlink_ac
+    auto_target_temperature_offset:
+      name: Auto mode temperature offset
 ```
 
 without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
@@ -143,6 +148,8 @@ climate:
     - Model name
     - Debug
     - Debug discovery
+5. Number
+    - Temperature offset in auto mode
 
 ## H-link protocol reverse engineering
 
