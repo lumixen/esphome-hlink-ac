@@ -518,6 +518,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                                  [this, power_state, mode](const HlinkResponseFrame &response) {
                                    this->hlink_entity_status_.power_state = power_state;
                                    this->hlink_entity_status_.mode = mode;
+                                   this->mode = mode;
                                    this->publish_state();
                                  }));
   }
@@ -545,6 +546,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         FeatureType::FAN_MODE, h_link_fan_speed, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
         [this, fan_mode](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.fan_mode = fan_mode;
+          this->fan_mode = fan_mode;
           this->publish_state();
         }));
   }
@@ -553,8 +555,8 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
     this->pending_action_requests.enqueue(this->create_st_request_(
         FeatureType::TARGET_TEMP, target_temperature, HlinkRequestFrame::AttributeFormat::FOUR_DIGITS,
         [this, target_temperature](const HlinkResponseFrame &response) {
-          ESP_LOGD(TAG, "Publishing target climate temperature: %f", target_temperature);
           this->hlink_entity_status_.target_temperature = target_temperature;
+          this->target_temperature = target_temperature;
           this->publish_state();
         }));
   }
@@ -573,6 +575,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         FeatureType::SWING_MODE, h_link_swing_mode, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
         [this, swing_mode](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.swing_mode = swing_mode;
+          this->swing_mode = swing_mode;
           this->publish_state();
         }));
   }
