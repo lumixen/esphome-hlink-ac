@@ -498,7 +498,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_mode = HLINK_MODE_COOL;
         break;
       case climate::ClimateMode::CLIMATE_MODE_HEAT:
-        h_link_mode = HLINK_MODE_COOL;
+        h_link_mode = HLINK_MODE_HEAT;
         break;
       case climate::ClimateMode::CLIMATE_MODE_DRY:
         h_link_mode = HLINK_MODE_DRY;
