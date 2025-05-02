@@ -227,7 +227,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 #ifdef USE_SWITCH
  public:
   void set_remote_lock_switch(switch_::Switch *sw);
-  void enqueue_remote_lock_action(bool state);
+  void set_remote_lock_state(bool state);
   void set_beeper_switch(switch_::Switch *sw);
   void handle_beep_state_change(bool state);
 

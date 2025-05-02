@@ -283,7 +283,7 @@ void HlinkAc::loop() {
   // If there are any pending requests - apply them ASAP
   if ((this->status_.state == IDLE || this->status_.state == REQUEST_NEXT_STATUS_FEATURE) &&
       this->pending_action_requests.size() > 0) {
-        this->status_.reset_state();
+    this->status_.reset_state();
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
@@ -593,8 +593,14 @@ void HlinkAc::set_remote_lock_switch(switch_::Switch *sw) {
                                             }});
 }
 
-void HlinkAc::enqueue_remote_lock_action(bool state) {
-  this->pending_action_requests.enqueue(this->create_st_request_(FeatureType::REMOTE_CONTROL_LOCK, state));
+void HlinkAc::set_remote_lock_state(bool state) {
+  auto publish_current_state = [this]() {
+    this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+  };
+  this->pending_action_requests.enqueue(this->create_st_request_(
+      FeatureType::REMOTE_CONTROL_LOCK, state, HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+      [this, state](const HlinkResponseFrame &response) { this->remote_lock_switch_->publish_state(state); },
+      publish_current_state, publish_current_state, publish_current_state));
 }
 
 void HlinkAc::set_beeper_switch(switch_::Switch *sw) { this->beeper_switch_ = sw; }
