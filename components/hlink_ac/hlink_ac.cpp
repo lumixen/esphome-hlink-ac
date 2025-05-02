@@ -273,7 +273,7 @@ void HlinkAc::loop() {
     ESP_LOGW(TAG, "Reached timeout while performing [%d] state action. Reset state to IDLE.", this->status_.state);
     if (this->status_.current_request != nullptr) {
       auto timeout_callback = this->status_.current_request->timeout_callback;
-      if (timeout_callback) {
+      if (timeout_callback != nullptr) {
         timeout_callback();
       }
     }
@@ -311,7 +311,7 @@ void HlinkAc::loop() {
 void HlinkAc::handle_hlink_request_response_(HlinkRequest request, HlinkResponseFrame response) {
   switch (response.status) {
     case HlinkResponseFrame::Status::OK:
-      if (request.ok_callback) {
+      if (request.ok_callback != nullptr) {
         request.ok_callback(response);
       }
       break;
@@ -319,12 +319,12 @@ void HlinkAc::handle_hlink_request_response_(HlinkRequest request, HlinkResponse
       ESP_LOGW(TAG, "Received NG response for [%s - %04X]",
                request.request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                request.request_frame.p.address);
-      if (request.ng_callback) {
+      if (request.ng_callback != nullptr) {
         request.ng_callback();
       }
       break;
     case HlinkResponseFrame::Status::INVALID:
-      if (request.invalid_callback) {
+      if (request.invalid_callback != nullptr) {
         request.invalid_callback();
       }
       ESP_LOGW(TAG, "Received INVALID response for [%s - %04X]",
