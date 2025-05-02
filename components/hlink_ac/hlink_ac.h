@@ -147,7 +147,7 @@ struct HlinkResponseFrame {
   }
 };
 
-struct HlinkFeatureRequest {
+struct HlinkRequest {
   HlinkRequestFrame request_frame;
   std::function<void(const HlinkResponseFrame &response)> ok_callback;
   std::function<void()> ng_callback;
@@ -157,10 +157,9 @@ struct HlinkFeatureRequest {
 
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
-  optional<HlinkFeatureRequest> currently_requested_feature = {};
-  std::vector<HlinkFeatureRequest> polling_features = {};
-  optional<HlinkFeatureRequest> low_priority_hlink_request = {};
-  std::unique_ptr<HlinkRequestFrame> currently_applying_message = nullptr;
+  std::unique_ptr<HlinkRequest> current_request = nullptr;
+  std::vector<HlinkRequest> polling_features = {};
+  optional<HlinkRequest> low_priority_hlink_request = {};
   int16_t requested_feature_index = -1;
   uint32_t non_idle_timeout_limit_ms = 0;
   uint32_t last_status_polling_finished_at_ms = 0;
@@ -181,7 +180,7 @@ struct ComponentStatus {
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
 
-  HlinkFeatureRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
+  HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
 
   void reset_state() {
     state = IDLE;
@@ -191,8 +190,7 @@ struct ComponentStatus {
     last_status_polling_finished_at_ms = 0;
     requested_feature_index = -1;
     requests_left_to_apply = 0;
-    currently_applying_message = nullptr;
-    currently_requested_feature = {};
+    current_request = nullptr;
   }
 };
 
@@ -213,8 +211,8 @@ enum class TextSensorType {
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
 class CircularRequestsQueue {
  public:
-  int8_t enqueue(std::unique_ptr<HlinkRequestFrame> request);
-  std::unique_ptr<HlinkRequestFrame> dequeue();
+  int8_t enqueue(std::unique_ptr<HlinkRequest> request);
+  std::unique_ptr<HlinkRequest> dequeue();
   bool is_empty();
   bool is_full();
   uint8_t size();
@@ -223,7 +221,7 @@ class CircularRequestsQueue {
   int front_{-1};
   int rear_{-1};
   uint8_t size_{0};
-  std::unique_ptr<HlinkRequestFrame> requests_[REQUESTS_QUEUE_SIZE];
+  std::unique_ptr<HlinkRequest> requests_[REQUESTS_QUEUE_SIZE];
 };
 
 class HlinkAc : public Component, public uart::UARTDevice, public climate::Climate {
@@ -281,13 +279,16 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests;
   void request_status_update_();
-  void handle_feature_write_response_ack_(HlinkRequestFrame applied_request);
+  void handle_hlink_request_response(HlinkRequest request, HlinkResponseFrame response);
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequestFrame> create_hlink_st_frame_(
+  std::unique_ptr<HlinkRequest> create_st_request_(
       uint16_t address, uint16_t data,
-      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS);
+      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
+      std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
+      std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
+      std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
   bool is_nanable_equal(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
 };
