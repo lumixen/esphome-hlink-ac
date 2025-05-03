@@ -111,29 +111,18 @@ struct HlinkRequestFrame {
   Type type;
   ProgramPayload p;
 
-  static HlinkRequestFrame dataless(HlinkRequestFrame::Type type, uint16_t address) {
-    HlinkRequestFrame frame;
-    frame.type = type;
-    frame.p.address = address;
-    return frame;
-  }
-
   static HlinkRequestFrame with_uint8(HlinkRequestFrame::Type type, uint16_t address, uint8_t data) {
-    HlinkRequestFrame frame = dataless(type, address);
-    frame.p.data = std::vector<uint8_t>{data};
-    return frame;
+    return {type, {address, std::vector<uint8_t>{data}}};
   }
 
   static HlinkRequestFrame with_uint16(HlinkRequestFrame::Type type, uint16_t address, uint16_t data) {
-    HlinkRequestFrame frame = dataless(type, address);
-    frame.p.data = std::vector<uint8_t>{static_cast<uint8_t>((data >> 8) & 0xFF), static_cast<uint8_t>(data & 0xFF)};
-    return frame;
+    return {
+        type,
+        {address, std::vector<uint8_t>{static_cast<uint8_t>((data >> 8) & 0xFF), static_cast<uint8_t>(data & 0xFF)}}};
   }
 
   static HlinkRequestFrame with_string(HlinkRequestFrame::Type type, uint16_t address, const std::string &data) {
-    HlinkRequestFrame frame = dataless(type, address);
-    frame.p.data = std::vector<uint8_t>(data.begin(), data.end());
-    return frame;
+    return {type, {address, std::vector<uint8_t>(data.begin(), data.end())}};
   }
 };
 struct HlinkResponseFrame {
