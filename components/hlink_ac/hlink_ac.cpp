@@ -195,6 +195,7 @@ void HlinkAc::loop() {
     this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
     this->write_hlink_frame_(state_feature_request.request_frame);
     this->status_.state = READ_FEATURE_RESPONSE;
+    return;
   }
 
   if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame()) {
@@ -204,6 +205,7 @@ void HlinkAc::loop() {
       this->status_.current_request = make_unique<HlinkRequest>(low_priority_feature_request);
       this->status_.low_priority_hlink_request = {};
       this->status_.state = READ_FEATURE_RESPONSE;
+      return;
     }
   }
 
@@ -245,6 +247,7 @@ void HlinkAc::loop() {
         this->status_.current_request = std::move(request_msg);
         this->status_.requests_left_to_apply--;
         this->status_.state = ACK_APPLIED_REQUEST;
+        return;
       } else {
         this->status_.state = IDLE;
       }
