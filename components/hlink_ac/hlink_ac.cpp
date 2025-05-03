@@ -528,7 +528,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         break;
     }
     this->pending_action_requests.enqueue(this->create_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, power_state)));
+        HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, power_state)));
     this->pending_action_requests.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, power_state),
         [this, power_state, mode](const HlinkResponseFrame &response) {
