@@ -405,13 +405,12 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
     message_size += frame.p.data.value().size() * 2 + 1;  // "ST P=1234,12345.. C=1234\r" +1 for comma
   }
   std::string message(message_size, 0x00);
-  uint16_t checksum = (frame.p.address >> 8) + (frame.p.address & 0xFF);
+  uint16_t checksum = 0xFFFF - (frame.p.address >> 8) - (frame.p.address & 0xFF);
   if (frame.p.data.has_value()) {
     for (const auto &byte : frame.p.data.value()) {
-      checksum += byte;
+      checksum -= byte;
     }
   }
-  checksum = checksum ^ 0xFFFF;
   if (frame.p.data.has_value()) {
     char p_data_string[frame.p.data.value().size() * 2 + 1];
     char *p_data_ptr_iterator = p_data_string;
