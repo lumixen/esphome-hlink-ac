@@ -495,8 +495,12 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
     ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
     return;
   }
-  this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_string(
-      HlinkRequestFrame::Type::ST, static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data)));
+  this->pending_action_requests.enqueue(this->create_request_(
+      HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
+                                     static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
+      [address, data](const HlinkResponseFrame &response) {
+        ESP_LOGD(TAG, "Successfully applied custom ST request [%s:%s]", address.c_str(), data.c_str());
+      }));
 }
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
