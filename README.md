@@ -77,6 +77,7 @@ external_components:
 climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
+    hvac_actions: true # set false if you don't need HVAC actions
 
 switch:
   - platform: hlink_ac
@@ -139,6 +140,12 @@ climate:
     - Swing mode:
       - `OFF`
       - `VERTICAL`
+    - HVAC actions:
+      - `OFF`
+      - `COOLING`
+      - `HEATING`
+      - `DRYING`
+      - `FAN`
 2. Switch
     - Remote IR control lock
     - Beeper sounds
