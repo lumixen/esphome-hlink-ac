@@ -615,16 +615,19 @@ void HlinkAc::set_support_hvac_actions(bool support_hvac_actions) {
              auto hlink_climate_mode = this->hlink_entity_status_.hlink_climate_mode.value();
              if (!is_powered_on) {
                this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_OFF;
-             } else if (!is_active) {
-               this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_IDLE;
-             } else if (hlink_climate_mode == HLINK_MODE_COOL || hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
+             } else if (is_active &&
+                        (hlink_climate_mode == HLINK_MODE_COOL || hlink_climate_mode == HLINK_MODE_COOL_AUTO)) {
                this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_COOLING;
-             } else if (hlink_climate_mode == HLINK_MODE_HEAT || hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
+             } else if (is_active &&
+                        (hlink_climate_mode == HLINK_MODE_HEAT || hlink_climate_mode == HLINK_MODE_HEAT_AUTO)) {
                this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_HEATING;
-             } else if (hlink_climate_mode == HLINK_MODE_DRY) {
+             } else if (is_active && hlink_climate_mode == HLINK_MODE_DRY) {
                this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_DRYING;
              } else if (hlink_climate_mode == HLINK_MODE_FAN) {
+               // Activity status is always 0x0000 in fan mode
                this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_FAN;
+             } else {
+               this->hlink_entity_status_.action = esphome::climate::ClimateAction::CLIMATE_ACTION_IDLE;
              }
            }
          }});
