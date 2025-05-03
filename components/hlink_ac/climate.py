@@ -35,6 +35,8 @@ PROTOCOL_MAX_TEMPERATURE = 32.0
 PROTOCOL_TARGET_TEMPERATURE_STEP = 1.0
 PROTOCOL_CURRENT_TEMPERATURE_STEP = 1.0
 
+SUPPORT_HVAC_ACTIONS = "hvac_actions"
+
 SUPPORTED_CLIMATE_MODES_OPTIONS = {
     "OFF": ClimateMode.CLIMATE_MODE_OFF,
     "COOL": ClimateMode.CLIMATE_MODE_COOL,
@@ -144,6 +146,10 @@ CONFIG_SCHEMA = cv.All(
                 CONF_SUPPORTED_FAN_MODES,
                 default=list(SUPPORTED_FAN_MODES_OPTIONS.keys()),
             ): cv.ensure_list(cv.enum(SUPPORTED_FAN_MODES_OPTIONS, upper=True)),
+            cv.Optional(
+                SUPPORT_HVAC_ACTIONS,
+                default=False,
+            ): cv.boolean,
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -164,3 +170,5 @@ async def to_code(config):
         cg.add(var.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
     if CONF_SUPPORTED_FAN_MODES in config:
         cg.add(var.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
+    if SUPPORT_HVAC_ACTIONS in config:
+        cg.add(var.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))

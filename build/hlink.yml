@@ -22,3 +22,4 @@ uart:
 climate:
   - platform: hlink_ac
     name: "H-Link Test Climate Device"
+    hvac_actions: true

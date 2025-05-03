@@ -357,6 +357,31 @@ void HlinkAc::publish_updates_if_any_() {
       this->swing_mode = this->hlink_entity_status_.swing_mode.value();
       should_publish_climate_state = true;
     }
+    if (this->traits_.get_supports_action() && this->hlink_entity_status_.is_active.has_value() &&
+        this->hlink_entity_status_.hlink_climate_mode.has_value() &&
+        this->hlink_entity_status_.power_state.has_value()) {
+      auto is_powered_on = this->hlink_entity_status_.power_state.value();
+      auto is_active = this->hlink_entity_status_.is_active.value();
+      auto hlink_climate_mode = this->hlink_entity_status_.hlink_climate_mode.value();
+      esphome::climate::ClimateAction action = this->action;
+      if (!is_powered_on) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_OFF;
+      } else if (!is_active) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_IDLE;
+      } else if (hlink_climate_mode == HLINK_MODE_COOL || hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_COOLING;
+      } else if (hlink_climate_mode == HLINK_MODE_HEAT || hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_HEATING;
+      } else if (hlink_climate_mode == HLINK_MODE_DRY) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_DRYING;
+      } else if (hlink_climate_mode == HLINK_MODE_FAN) {
+        action = esphome::climate::ClimateAction::CLIMATE_ACTION_FAN;
+      }
+      if (action != this->action) {
+        this->action = action;
+        should_publish_climate_state = true;
+      }
+    }
     if (should_publish_climate_state) {
       this->publish_state();
     }
@@ -593,6 +618,16 @@ void HlinkAc::set_supported_swing_modes(const std::set<climate::ClimateSwingMode
 
 void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes) {
   this->traits_.set_supported_fan_modes(modes);
+}
+
+void HlinkAc::set_support_hvac_actions(bool support_hvac_actions) {
+  this->traits_.set_supports_action(support_hvac_actions);
+  if (support_hvac_actions) {
+    this->status_.polling_features.push_back(
+        {{HlinkRequestFrame::Type::MT, {FeatureType::ACTIVITY_STATUS}}, [this](const HlinkResponseFrame &response) {
+           this->hlink_entity_status_.is_active = response.p_value_as_uint16() == 0xFFFF;
+         }});
+  }
 }
 
 esphome::climate::ClimateTraits HlinkAc::traits() {
