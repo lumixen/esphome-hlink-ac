@@ -406,9 +406,10 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
     this->read();
   }
 
+  const char *message_type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
   uint8_t message_size = 17;  // Default message, e.g. "MT P=1234 C=1234\r"
   if (frame.p.data.has_value()) {
-    message_size += frame.p.data.value().size() * 2 + 1;  // +1 for comma
+    message_size += frame.p.data.value().size() * 2 + 1;  // "ST P=1234,12345.. C=1234\r" +1 for comma
   }
   std::string message(message_size, 0x00);
   uint16_t p_data_sum = 0;
@@ -426,9 +427,9 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
       p_data_ptr_iterator += 2;
     }
     *p_data_ptr_iterator = '\0';
-    sprintf(&message[0], "MT P=%04X,%s C=%04X\r", frame.p.address, p_data_string, checksum);
+    sprintf(&message[0], "%s P=%04X,%s C=%04X\r", message_type, frame.p.address, p_data_string, checksum);
   } else if (message_size == 20) {
-    sprintf(&message[0], "MT P=%04X C=%04X\r", frame.p.address, checksum);
+    sprintf(&message[0], "%s P=%04X C=%04X\r", message_type, frame.p.address, checksum);
   }
   // Send the message to uart
   this->write_str(message.c_str());
@@ -784,7 +785,7 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
         this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f));
   };
   this->pending_action_requests.enqueue(this->create_request_(
-      HlinkRequestFrame::from_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
+      HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
       [this, offset](const HlinkResponseFrame &response) {
         this->hlink_entity_status_.target_temperature_auto_offset = offset;
         this->temperature_offset_number_->publish_state(offset);
