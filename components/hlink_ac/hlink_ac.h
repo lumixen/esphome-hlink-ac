@@ -122,7 +122,11 @@ struct HlinkRequestFrame {
   }
 
   static HlinkRequestFrame with_string(HlinkRequestFrame::Type type, uint16_t address, const std::string &data) {
-    return {type, {address, std::vector<uint8_t>(data.begin(), data.end())}};
+    std::vector<uint8_t> vector_data;
+    for (size_t i = 0; i < data.length(); i += 2) {
+      vector_data.push_back(static_cast<uint8_t>(std::stoi(data.substr(i, 2), nullptr, 16)));
+    }
+    return {type, {address, vector_data}};
   }
 };
 struct HlinkResponseFrame {
