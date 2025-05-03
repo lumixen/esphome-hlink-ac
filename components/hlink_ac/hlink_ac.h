@@ -45,9 +45,9 @@ enum HlinkComponentState : uint8_t {
 
 struct HlinkEntityStatus {
   optional<bool> power_state;
-  optional<bool> is_active;
   optional<uint16_t> hlink_climate_mode;
   optional<esphome::climate::ClimateMode> mode;
+  optional<esphome::climate::ClimateAction> action;
   optional<float> current_temperature;
   optional<float> target_temperature;
   optional<float> target_temperature_auto_offset;
@@ -99,6 +99,8 @@ constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
 constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
 constexpr uint16_t HLINK_BEEP_ACTION = 0x0007;
+
+constexpr uint16_t HLINK_ACTIVE_ON = 0xFFFF;
 
 struct HlinkRequestFrame {
   enum class Type { MT, ST };
@@ -259,6 +261,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_auto_temperature_offset(float offset);
 #endif
  public:
+  HlinkAc();
   // ----- COMPONENT -----
   void setup() override;
   void loop() override;
