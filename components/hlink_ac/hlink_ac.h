@@ -30,7 +30,7 @@ constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
-constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 16;
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
 
 enum HlinkComponentState : uint8_t {
