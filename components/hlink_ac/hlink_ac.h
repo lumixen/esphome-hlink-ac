@@ -30,7 +30,7 @@ constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
-constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 16;
+constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
 
 enum HlinkComponentState : uint8_t {
@@ -47,6 +47,7 @@ struct HlinkEntityStatus {
   optional<bool> power_state;
   optional<uint16_t> hlink_climate_mode;
   optional<esphome::climate::ClimateMode> mode;
+  optional<esphome::climate::ClimateAction> action;
   optional<float> current_temperature;
   optional<float> target_temperature;
   optional<float> target_temperature_auto_offset;
@@ -85,30 +86,48 @@ constexpr uint16_t HLINK_MODE_DRY_AUTO = 0x8020;
 constexpr uint16_t HLINK_MODE_FAN = 0x0050;
 constexpr uint16_t HLINK_MODE_AUTO = 0x8000;
 
-constexpr uint16_t HLINK_SWING_OFF = 0x0000;
-constexpr uint16_t HLINK_SWING_VERTICAL = 0x0001;
+constexpr uint8_t HLINK_SWING_OFF = 0x00;
+constexpr uint8_t HLINK_SWING_VERTICAL = 0x01;
 
-constexpr uint16_t HLINK_FAN_AUTO = 0x0000;
-constexpr uint16_t HLINK_FAN_HIGH = 0x0001;
-constexpr uint16_t HLINK_FAN_MEDIUM = 0x0002;
-constexpr uint16_t HLINK_FAN_LOW = 0x0003;
-constexpr uint16_t HLINK_FAN_QUIET = 0x0004;
+constexpr uint8_t HLINK_FAN_AUTO = 0x00;
+constexpr uint8_t HLINK_FAN_HIGH = 0x01;
+constexpr uint8_t HLINK_FAN_MEDIUM = 0x02;
+constexpr uint8_t HLINK_FAN_LOW = 0x03;
+constexpr uint8_t HLINK_FAN_QUIET = 0x04;
 
 constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
 constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
 constexpr uint16_t HLINK_BEEP_ACTION = 0x0007;
 
+constexpr uint16_t HLINK_ACTIVE_ON = 0xFFFF;
+
 struct HlinkRequestFrame {
   enum class Type { MT, ST };
-  enum class AttributeFormat { TWO_DIGITS = 0x0, FOUR_DIGITS = 0x1 };
   struct ProgramPayload {
     uint16_t address;
-    optional<uint16_t> data;
-    optional<AttributeFormat> data_format;
+    optional<std::vector<uint8_t>> data;
   };
   Type type;
   ProgramPayload p;
+
+  static HlinkRequestFrame with_uint8(HlinkRequestFrame::Type type, uint16_t address, uint8_t data) {
+    return {type, {address, std::vector<uint8_t>{data}}};
+  }
+
+  static HlinkRequestFrame with_uint16(HlinkRequestFrame::Type type, uint16_t address, uint16_t data) {
+    return {
+        type,
+        {address, std::vector<uint8_t>{static_cast<uint8_t>((data >> 8) & 0xFF), static_cast<uint8_t>(data & 0xFF)}}};
+  }
+
+  static HlinkRequestFrame with_string(HlinkRequestFrame::Type type, uint16_t address, const std::string &data) {
+    std::vector<uint8_t> vector_data;
+    for (size_t i = 0; i < data.length(); i += 2) {
+      vector_data.push_back(static_cast<uint8_t>(std::stoi(data.substr(i, 2), nullptr, 16)));
+    }
+    return {type, {address, vector_data}};
+  }
 };
 struct HlinkResponseFrame {
   enum class Status { NOTHING, OK, NG, INVALID };
@@ -258,6 +277,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_auto_temperature_offset(float offset);
 #endif
  public:
+  HlinkAc();
   // ----- COMPONENT -----
   void setup() override;
   void loop() override;
@@ -269,6 +289,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_climate_modes(const std::set<climate::ClimateMode> &modes);
   void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
   void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
+  void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
   void send_hlink_cmd(std::string address, std::string data);
 
@@ -282,10 +303,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequest> create_st_request_(
-      uint16_t address, uint16_t data,
-      optional<HlinkRequestFrame::AttributeFormat> data_format = HlinkRequestFrame::AttributeFormat::TWO_DIGITS,
-      std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
+  std::unique_ptr<HlinkRequest> create_request_(
+      HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
       std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
       std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----

@@ -71,12 +71,13 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.5.0
+      ref: 2025.5.1
     components: [hlink_ac]
 
 climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
+    hvac_actions: true # set false if you don't need HVAC actions
 
 switch:
   - platform: hlink_ac
@@ -139,6 +140,12 @@ climate:
     - Swing mode:
       - `OFF`
       - `VERTICAL`
+    - HVAC actions:
+      - `OFF`
+      - `COOLING`
+      - `HEATING`
+      - `DRYING`
+      - `FAN`
 2. Switch
     - Remote IR control lock
     - Beeper sounds
