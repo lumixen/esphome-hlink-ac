@@ -293,7 +293,7 @@ void HlinkAc::loop() {
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
       this->pending_action_requests.enqueue(this->create_request_(
-          HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
+          HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
     }
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests.size();
@@ -684,7 +684,7 @@ void HlinkAc::set_beeper_switch(switch_::Switch *sw) { this->beeper_switch_ = sw
 void HlinkAc::handle_beep_state_change(bool state) {
   if (state) {
     this->pending_action_requests.enqueue(this->create_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
+        HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
   }
 }
 #endif
