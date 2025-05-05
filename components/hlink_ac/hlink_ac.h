@@ -98,7 +98,7 @@ constexpr uint8_t HLINK_FAN_QUIET = 0x04;
 constexpr uint16_t HLINK_REMOTE_LOCK_ON = 0x0001;
 constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 
-constexpr uint16_t HLINK_BEEP_ACTION = 0x0007;
+constexpr uint8_t HLINK_BEEP_ACTION = 0x0007;
 
 constexpr uint16_t HLINK_ACTIVE_ON = 0xFFFF;
 
