@@ -637,8 +637,8 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
     if (preset == climate::ClimatePreset::CLIMATE_PRESET_NONE) {
       this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
           HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_DISABLE_LEAVE_HOME)));
-          this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
-            HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01)));
+      this->pending_action_requests.enqueue(this->create_request_(
+          HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01)));
     }
   }
 }
