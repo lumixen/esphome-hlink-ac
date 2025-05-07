@@ -634,6 +634,10 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
             this->publish_state();
           }));
     }
+    if (preset == climate::ClimatePreset::CLIMATE_PRESET_NONE) {
+      this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
+          HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_DISABLE_LEAVE_HOME)));
+    }
   }
 }
 
@@ -652,6 +656,7 @@ void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &m
 
 void HlinkAc::set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets) {
   this->traits_.set_supported_presets(presets);
+  this->traits_.add_supported_preset(climate::ClimatePreset::CLIMATE_PRESET_NONE);
   if (presets.find(climate::ClimatePreset::CLIMATE_PRESET_AWAY) != presets.end()) {
     this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}},
                                               [this](const HlinkResponseFrame &response) {
