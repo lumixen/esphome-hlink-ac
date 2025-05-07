@@ -619,7 +619,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
       this->pending_action_requests.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT)));
       this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
-          HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS, HLINK_ENABLE_LEAVE_HOME)));
+          HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_ENABLE_LEAVE_HOME)));
       this->pending_action_requests.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x0001),
           [this](const HlinkResponseFrame &response) {
@@ -654,7 +654,7 @@ void HlinkAc::set_supported_climate_presets(const std::set<climate::ClimatePrese
   this->traits_.set_supported_presets(presets);
   if (presets.find(climate::ClimatePreset::CLIMATE_PRESET_AWAY) != presets.end()) {
     this->status_.polling_features.push_back(
-        {{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS}}, [this](const HlinkResponseFrame &response) {
+        {{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}}, [this](const HlinkResponseFrame &response) {
            this->hlink_entity_status_.leave_home_enabled =
                response.p_value.has_value() && response.p_value.value().back() == HLINK_LEAVE_HOME_ENABLED;
          }});

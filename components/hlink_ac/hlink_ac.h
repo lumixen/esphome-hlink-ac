@@ -73,8 +73,9 @@ enum FeatureType : uint16_t {
   SWING_MODE = 0x0014,
   CURRENT_INDOOR_TEMP = 0x0100,
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
+  LEAVE_HOME_STATUS_WRITE = 0x0300,
   ACTIVITY_STATUS = 0x0301,       // 0000=Stand-by FFFF=Active
-  LEAVE_HOME_STATUS = 0x0304,
+  LEAVE_HOME_STATUS_READ = 0x0304,
   BEEPER = 0x0800,  // Triggers beeper sound
   MODEL_NAME = 0x0900,
 };
