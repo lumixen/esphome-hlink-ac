@@ -621,7 +621,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
       this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
           HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_ENABLE_LEAVE_HOME)));
       this->pending_action_requests.enqueue(this->create_request_(
-          HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x0001),
+          HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01),
           [this](const HlinkResponseFrame &response) {
             this->hlink_entity_status_.power_state = true;
             this->hlink_entity_status_.hlink_climate_mode = HLINK_MODE_HEAT;
