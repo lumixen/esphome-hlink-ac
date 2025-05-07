@@ -372,7 +372,7 @@ void HlinkAc::publish_updates_if_any_() {
     if (this->hlink_entity_status_.leave_home_enabled.has_value()) {
       esphome::climate::ClimatePreset climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_NONE;
       if (this->hlink_entity_status_.leave_home_enabled.value() && this->hlink_entity_status_.power_state.value() &&
-          this->hlink_entity_status_.target_temperature == 10.0f) {
+          this->hlink_entity_status_.target_temperature == 10) {
         climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_AWAY;
       }
       if (this->preset != climate_preset) {
@@ -653,11 +653,12 @@ void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &m
 void HlinkAc::set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets) {
   this->traits_.set_supported_presets(presets);
   if (presets.find(climate::ClimatePreset::CLIMATE_PRESET_AWAY) != presets.end()) {
-    this->status_.polling_features.push_back(
-        {{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}}, [this](const HlinkResponseFrame &response) {
-           this->hlink_entity_status_.leave_home_enabled =
-               response.p_value.has_value() && response.p_value.value().back() == HLINK_LEAVE_HOME_ENABLED;
-         }});
+    this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}},
+                                              [this](const HlinkResponseFrame &response) {
+                                                this->hlink_entity_status_.leave_home_enabled =
+                                                    response.p_value.has_value() &&
+                                                    response.p_value.value().back() == HLINK_LEAVE_HOME_ENABLED;
+                                              }});
   }
 }
 
