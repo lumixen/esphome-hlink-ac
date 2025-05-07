@@ -658,7 +658,9 @@ void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &m
 
 void HlinkAc::set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets) {
   this->traits_.set_supported_presets(presets);
-  this->traits_.add_supported_preset(climate::ClimatePreset::CLIMATE_PRESET_NONE);
+  if (!presets.empty()) {
+    this->traits_.add_supported_preset(climate::ClimatePreset::CLIMATE_PRESET_NONE);
+  }
   if (presets.find(climate::ClimatePreset::CLIMATE_PRESET_AWAY) != presets.end()) {
     this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}},
                                               [this](const HlinkResponseFrame &response) {
