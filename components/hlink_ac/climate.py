@@ -5,6 +5,7 @@ from esphome.components import climate, uart
 from esphome.components.climate import (
     CONF_CURRENT_TEMPERATURE,
     ClimateMode,
+    ClimatePreset,
     ClimateSwingMode,
     ClimateFanMode,
 )
@@ -14,6 +15,7 @@ from esphome.const import (
     CONF_SUPPORTED_MODES,
     CONF_SUPPORTED_SWING_MODES,
     CONF_SUPPORTED_FAN_MODES,
+    CONF_SUPPORTED_PRESETS,
     CONF_ID,
     CONF_VISUAL,
     CONF_MIN_TEMPERATURE,
@@ -57,6 +59,10 @@ SUPPORTED_FAN_MODES_OPTIONS = {
     "MEDIUM": ClimateFanMode.CLIMATE_FAN_MEDIUM,
     "HIGH": ClimateFanMode.CLIMATE_FAN_HIGH,
     "QUIET": ClimateFanMode.CLIMATE_FAN_QUIET,
+}
+
+SUPPORTED_CLIMATE_PRESETS_OPTIONS = {
+    "AWAY": ClimatePreset.CLIMATE_PRESET_AWAY,
 }
 
 HlinkAcSendHlinkCmd = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
@@ -147,6 +153,10 @@ CONFIG_SCHEMA = cv.All(
                 default=list(SUPPORTED_FAN_MODES_OPTIONS.keys()),
             ): cv.ensure_list(cv.enum(SUPPORTED_FAN_MODES_OPTIONS, upper=True)),
             cv.Optional(
+                CONF_SUPPORTED_PRESETS,
+                default=[],
+            ): cv.ensure_list(cv.enum(SUPPORTED_CLIMATE_PRESETS_OPTIONS, upper=True)),
+            cv.Optional(
                 SUPPORT_HVAC_ACTIONS,
                 default=False,
             ): cv.boolean,
@@ -170,5 +180,7 @@ async def to_code(config):
         cg.add(var.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
     if CONF_SUPPORTED_FAN_MODES in config:
         cg.add(var.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
+    if CONF_SUPPORTED_PRESETS in config:
+        cg.add(var.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
     if SUPPORT_HVAC_ACTIONS in config:
         cg.add(var.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))

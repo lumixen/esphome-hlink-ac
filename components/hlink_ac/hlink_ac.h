@@ -53,6 +53,7 @@ struct HlinkEntityStatus {
   optional<float> target_temperature_auto_offset;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
+  optional<bool> leave_home_enabled;
   optional<std::string> model_name;
 #ifdef USE_SWITCH
   optional<bool> remote_control_lock;
@@ -73,7 +74,8 @@ enum FeatureType : uint16_t {
   CURRENT_INDOOR_TEMP = 0x0100,
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
   ACTIVITY_STATUS = 0x0301,       // 0000=Stand-by FFFF=Active
-  BEEPER = 0x0800,                // Triggers beeper sound
+  LEAVE_HOME_STATUS = 0x0304,
+  BEEPER = 0x0800,  // Triggers beeper sound
   MODEL_NAME = 0x0900,
 };
 
@@ -101,6 +103,12 @@ constexpr uint16_t HLINK_REMOTE_LOCK_OFF = 0x0000;
 constexpr uint8_t HLINK_BEEP_ACTION = 0x07;
 
 constexpr uint16_t HLINK_ACTIVE_ON = 0xFFFF;
+
+const uint8_t HLINK_LEAVE_HOME_ENABLED = 0x80;
+const uint8_t HLINK_LEAVE_HOME_DISABLED = 0x00;
+
+const uint16_t HLINK_ENABLE_LEAVE_HOME = 0x0040;
+const uint16_t HLINK_DISABLE_LEAVE_HOME = 0x0000;
 
 struct HlinkRequestFrame {
   enum class Type { MT, ST };
@@ -289,6 +297,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_climate_modes(const std::set<climate::ClimateMode> &modes);
   void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
   void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
+  void set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets);
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
   void send_hlink_cmd(std::string address, std::string data);
