@@ -56,7 +56,7 @@ esphome:
   name: "hitachi-ac"
 
 esp32:
-  board: XXXX # Put the valid board.
+  board: XXXX # Replace with valid board.
   framework:
     type: esp-idf
 
