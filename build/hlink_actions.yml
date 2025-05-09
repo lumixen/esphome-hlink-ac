@@ -21,6 +21,7 @@ uart:
 
 climate:
   - platform: hlink_ac
+    id: hitachi_ac
     name: "H-Link Test Climate Device"
 
 wifi:
@@ -34,14 +35,17 @@ mqtt:
   on_json_message:
     topic: hlink_ac/send_hlink_frame
     then:
-      - hlink_ac.send_hlink_cmd:
-          address: !lambda |-
-            if (x.containsKey("address")) {
-              return x["address"];
+      - lambda: |-
+          if (x.containsKey("messages") && x["messages"].is<JsonArrayConst>()) {
+            for (auto message : x["messages"].as<JsonArrayConst>()) {
+              std::string address = "";
+              std::string data = "";
+              if (message.containsKey("address")) {
+                address = std::string(message["address"].as<const char*>());
+              }
+              if (message.containsKey("data")) {
+                data = std::string(message["data"].as<const char*>());
+              }
+              id(hitachi_ac).send_hlink_cmd(address, data);
             }
-            return "";
-          data: !lambda |-
-            if (x.containsKey("data")) {
-              return x["data"];
-            }
-            return "";
+          }

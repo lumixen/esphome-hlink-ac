@@ -56,7 +56,7 @@ esphome:
   name: "hitachi-ac"
 
 esp32:
-  board: XXXX
+  board: XXXX # Replace with the valid board.
   framework:
     type: esp-idf
 
@@ -71,13 +71,15 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.5.1
+      ref: 2025.5.2
     components: [hlink_ac]
 
 climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
-    hvac_actions: true # set false if you don't need HVAC actions
+    hvac_actions: true # Remove or set to false if you don't need HVAC actions.
+    supported_presets: # Presets are disabled by default. Remove this if your AC does not support Leave Home mode.
+      - AWAY
 
 switch:
   - platform: hlink_ac
@@ -146,6 +148,8 @@ climate:
       - `HEATING`
       - `DRYING`
       - `FAN`
+    - Presets:
+      - `AWAY`  
 2. Switch
     - Remote IR control lock
     - Beeper sounds
