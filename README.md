@@ -247,4 +247,5 @@ cd build/
 - [hi-arduino project](https://github.com/farom57/hi-arduino/)
 
 ## Hardware implementation examples
-- [RAS-70YHA2 by shardshunt](https://github.com/shardshunt/H-Link-Docks)
+- [RAS-70YHA2](https://github.com/shardshunt/H-Link-Docks)
+- [RAK-DJ18RHAE](https://github.com/lumixen/esphome-hlink-ac/discussions/10)
