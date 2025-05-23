@@ -137,7 +137,8 @@ def validate_visual(config):
 
 
 CONFIG_SCHEMA = cv.All(
-    climate.CLIMATE_SCHEMA.extend(
+    climate.climate_schema(HlinkAc)
+    .extend(
         {
             cv.GenerateID(): cv.declare_id(HlinkAc),
             cv.Optional(
