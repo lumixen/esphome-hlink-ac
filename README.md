@@ -29,7 +29,7 @@ H-Link operates at 5V logic levels and provides a 12V power lane. Therefore, we 
 
 <img width="350" alt="hlink_connector" src="https://github.com/user-attachments/assets/fbedf5c1-f7b6-42a3-8e0d-7b35d1b10b6c" />
 
-An example of wiring diagram with cheapo aliexpress building blocks that worked for me:
+An example of wiring diagram with cheapo aliexpress building blocks that worked for me (pay attention to the h-link control line on pin 6, it should be connected to ground):
 
 <img width="500" alt="wiring_diagram" src="https://github.com/user-attachments/assets/2cb0cb2e-880b-4b07-accb-a8271d7da15c" />
 
