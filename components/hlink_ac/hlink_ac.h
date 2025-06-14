@@ -91,6 +91,8 @@ constexpr uint16_t HLINK_MODE_AUTO = 0x8000;
 
 constexpr uint8_t HLINK_SWING_OFF = 0x00;
 constexpr uint8_t HLINK_SWING_VERTICAL = 0x01;
+constexpr uint8_t HLINK_SWING_HORIZONTAL = 0x02;
+constexpr uint8_t HLINK_SWING_BOTH = 0x03;
 
 constexpr uint8_t HLINK_FAN_AUTO = 0x00;
 constexpr uint8_t HLINK_FAN_HIGH = 0x01;

@@ -51,7 +51,14 @@ SUPPORTED_CLIMATE_MODES_OPTIONS = {
 SUPPORTED_SWING_MODES_OPTIONS = {
     "OFF": ClimateSwingMode.CLIMATE_SWING_OFF,
     "VERTICAL": ClimateSwingMode.CLIMATE_SWING_VERTICAL,
+    "HORIZONTAL": ClimateSwingMode.CLIMATE_SWING_HORIZONTAL,
+    "BOTH": ClimateSwingMode.CLIMATE_SWING_BOTH,
 }
+
+DEFAULT_SWING_MODE_OPTIONS = [
+    "OFF",
+    "VERTICAL",
+]
 
 SUPPORTED_FAN_MODES_OPTIONS = {
     "AUTO": ClimateFanMode.CLIMATE_FAN_AUTO,
@@ -147,7 +154,7 @@ CONFIG_SCHEMA = cv.All(
             ): cv.ensure_list(cv.enum(SUPPORTED_CLIMATE_MODES_OPTIONS, upper=True)),
             cv.Optional(
                 CONF_SUPPORTED_SWING_MODES,
-                default=list(SUPPORTED_SWING_MODES_OPTIONS.keys()),
+                default=DEFAULT_SWING_MODE_OPTIONS,
             ): cv.ensure_list(cv.enum(SUPPORTED_SWING_MODES_OPTIONS, upper=True)),
             cv.Optional(
                 CONF_SUPPORTED_FAN_MODES,

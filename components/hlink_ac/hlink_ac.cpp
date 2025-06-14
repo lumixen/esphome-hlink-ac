@@ -88,6 +88,10 @@ HlinkAc::HlinkAc() {
            this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
          } else if (response.p_value_as_uint16() == HLINK_SWING_VERTICAL) {
            this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
+         } else if (response.p_value_as_uint16() == HLINK_SWING_HORIZONTAL) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_HORIZONTAL;
+         } else if (response.p_value_as_uint16() == HLINK_SWING_BOTH) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_BOTH;
          }
        }});
   this->status_.polling_features.push_back(
@@ -603,6 +607,12 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         break;
       case climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL:
         h_link_swing_mode = HLINK_SWING_VERTICAL;
+        break;
+      case climate::ClimateSwingMode::CLIMATE_SWING_HORIZONTAL:
+        h_link_swing_mode = HLINK_SWING_HORIZONTAL;
+        break;
+      case climate::ClimateSwingMode::CLIMATE_SWING_BOTH:
+        h_link_swing_mode = HLINK_SWING_BOTH;
         break;
     }
     this->pending_action_requests.enqueue(this->create_request_(
