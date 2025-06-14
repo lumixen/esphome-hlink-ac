@@ -22,6 +22,11 @@ uart:
 climate:
   - platform: hlink_ac
     name: "H-Link Test Climate Device"
+    supported_swing_modes:
+      - "OFF"
+      - "VERTICAL"
+      - "HORIZONTAL"
+      - "BOTH"
 
 sensor:
   - platform: hlink_ac
