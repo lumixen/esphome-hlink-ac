@@ -115,6 +115,9 @@ climate:
       - COOL
     supported_swing_modes:
       - "OFF"
+      - VERTICAL
+      - HORIZONTAL
+      - BOTH
     supported_fan_modes:
       - AUTO
       - LOW
@@ -142,6 +145,8 @@ climate:
     - Swing mode:
       - `OFF`
       - `VERTICAL`
+      - `HORIZONTAL`
+      - `BOTH`
     - HVAC actions:
       - `OFF`
       - `COOLING`
