@@ -80,6 +80,11 @@ climate:
     hvac_actions: true # Remove or set to false if you don't need HVAC actions.
     supported_presets: # Presets are disabled by default. Remove this if your AC does not support Leave Home mode.
       - AWAY
+    supported_swing_modes: # Could be removed if your AC does not support horizontal swinging. By default only vertical mode is exposed.
+      - "OFF"
+      - VERTICAL
+      - HORIZONTAL
+      - BOTH
 
 switch:
   - platform: hlink_ac
