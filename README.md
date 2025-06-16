@@ -71,7 +71,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.5.3
+      ref: 2025.6.0
     components: [hlink_ac]
 
 climate:
@@ -258,4 +258,5 @@ cd build/
 
 ## Hardware implementation examples
 - [RAS-70YHA2](https://github.com/shardshunt/H-Link-Docks)
-- [RAK-DJ18RHAE](https://github.com/lumixen/esphome-hlink-ac/discussions/10)
+- [RAK-DJ18RHAE](https://github.com/lumixen/esphome-hlink-ac/discussions/10#discussioncomment-13095591)
+- [Flashing native Hitachi AirHome 400 module RAK-DJ18RH/RAK-DJ50RH](https://github.com/clsergent/hitachi_altwifi)
