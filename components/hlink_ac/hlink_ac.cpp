@@ -452,7 +452,11 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
     std::string response_buf(HLINK_MSG_READ_BUFFER_SIZE, '\0');
     int read_index = 0;
     // Read response unless carriage return symbol, timeout or reasonable buffer size
-    while (millis() - started_millis < timeout_ms || read_index < HLINK_MSG_READ_BUFFER_SIZE) {
+    while (read_index < HLINK_MSG_READ_BUFFER_SIZE) {
+      if (millis() - started_millis > timeout_ms) {
+        ESP_LOGW(TAG, "Timeout while reading H-link response frame. Read %d bytes.", read_index);
+        break;
+      }
       this->read_byte((uint8_t *) &response_buf[read_index]);
       if (response_buf[read_index] == HLINK_MSG_TERMINATION_SYMBOL) {
         break;
