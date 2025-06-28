@@ -23,9 +23,9 @@ where `P=XXXX,XX(XX)` specifies the function to modify and the new value, `C=YYY
 
 ## Hardware
 
-For PoC project I used the Lolin D32 ESP32 dev board. 
+For PoC project I used the Lolin D32 ESP32 dev board.
 
-H-Link operates at 5V logic levels and provides a 12V power lane. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
+The H-Link port, often referred to as `CN7` in Hitachi manuals, operates at 5V logic levels and provides a 12V power line. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
 
 <img width="350" alt="hlink_connector" src="https://github.com/user-attachments/assets/fbedf5c1-f7b6-42a3-8e0d-7b35d1b10b6c" />
 
