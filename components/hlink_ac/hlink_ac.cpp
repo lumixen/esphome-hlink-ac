@@ -508,7 +508,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
   } else if (response_tokens[0] == HLINK_MSG_NG_TOKEN) {
     status = HlinkResponseFrame::Status::NG;
   } else {
-    ESP_LOGW(TAG, "Didn't understand first token. Response tokens array size: %d", response_tokens.size());
+    ESP_LOGW(TAG, "Unexpected token in response: [%s]. Response tokens array size: %d", response_tokens[0].c_str(), response_tokens.size());
     for (int i = 0; i < response_tokens.size(); i++) {
       ESP_LOGW(TAG, "Token %d: %s", i, response_tokens[i].c_str());
     }
