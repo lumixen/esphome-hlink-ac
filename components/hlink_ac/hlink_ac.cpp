@@ -295,7 +295,7 @@ void HlinkAc::loop() {
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
              this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.state == READ_FEATURE_RESPONSE || this->status_.state == ACK_APPLIED_REQUEST) {
-      ESP_LOGW(TAG, "Response buffer: %s, read_index: %d", this->status_.hlink_response_response_buffer.c_str(),
+      ESP_LOGW(TAG, "Response buffer: %s, read size: %d", this->status_.hlink_response_response_buffer.c_str(),
                this->status_.hlink_response_buffer_index);
     }
     if (this->status_.current_request != nullptr) {
@@ -436,8 +436,12 @@ void HlinkAc::publish_updates_if_any_() {
 
 void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
   // Reset uart buffer before sending new frame
-  while (this->available()) {
-    this->read();
+  if (this->available()) {
+    ESP_LOGW(TAG,
+             "UART RX buffer is not empty before sending H-link frame. Normally this shouldn't happen. Flushing it.");
+    while (this->available()) {
+      this->read();
+    }
   }
   this->status_.reset_response_buffer();
 
