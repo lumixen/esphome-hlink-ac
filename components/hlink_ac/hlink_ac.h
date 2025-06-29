@@ -24,7 +24,7 @@ constexpr uint32_t STATUS_UPDATE_INTERVAL = 5000;
 constexpr uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
 
-constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 40;
+constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 64;
 constexpr uint8_t ASCII_CR = 0x0D;
 
 static const std::string HLINK_MSG_OK_TOKEN = "OK";

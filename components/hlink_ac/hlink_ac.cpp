@@ -468,11 +468,16 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
       return HLINK_RESPONSE_INVALID;
     }
     if (!this->read_byte(reinterpret_cast<uint8_t *>(&response_buf[read_index]))) {
-      ESP_LOGW(TAG, "Failed to read byte from H-link UART");
+      ESP_LOGW(TAG, "Failed to read byte at index %d from H-link UART", read_index);
       return HLINK_RESPONSE_PARTIAL;
     }
     if (response_buf[read_index] == ASCII_CR) {
-      break;
+      if (!this->available()) {
+        break;  // If we reached CR and there is no more data available, we can stop reading
+      } else {
+        // If there is more data available after CR, we should continue and log a warning
+        ESP_LOGW(TAG, "There is more data available after CR, normally this shouldn't happen. Buffer: %s", response_buf.c_str());
+      }
     }
     read_index++;
   }
