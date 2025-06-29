@@ -179,7 +179,7 @@ void HlinkAc::request_status_update_() {
     // Launch update sequence
     this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
     this->status_.requested_feature_index = 0;
-    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 1000);
+    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 500);
   }
 }
 
@@ -295,7 +295,7 @@ void HlinkAc::loop() {
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
              this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.state == READ_FEATURE_RESPONSE || this->status_.state == ACK_APPLIED_REQUEST) {
-      ESP_LOGW(TAG, "RX buffer: %s, read size: %d", this->status_.hlink_response_response_buffer.c_str(),
+      ESP_LOGW(TAG, "RX buffer: %s, read size: %d", this->status_.hlink_response_buffer.c_str(),
                this->status_.hlink_response_buffer_index);
     }
     if (this->status_.current_request != nullptr) {
@@ -486,7 +486,7 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
 // Returns PARTIAL state if the response is not finished yet
 // Returns NOTHING state if nothing available on UART input yet
 HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
-  auto &response_buf = this->status_.hlink_response_response_buffer;
+  auto &response_buf = this->status_.hlink_response_buffer;
   auto &read_index = this->status_.hlink_response_buffer_index;
   uint32_t started_millis = millis();
 

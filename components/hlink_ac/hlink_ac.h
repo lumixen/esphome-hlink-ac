@@ -186,7 +186,7 @@ struct HlinkRequest {
 
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
-  std::string hlink_response_response_buffer = std::string(HLINK_MSG_READ_BUFFER_SIZE, '\0');
+  std::string hlink_response_buffer = std::string(HLINK_MSG_READ_BUFFER_SIZE, '\0');
   uint8_t hlink_response_buffer_index = 0;
   std::unique_ptr<HlinkRequest> current_request = nullptr;
   std::vector<HlinkRequest> polling_features = {};
@@ -225,7 +225,7 @@ struct ComponentStatus {
 
   void reset_response_buffer() {
     hlink_response_buffer_index = 0;
-    hlink_response_response_buffer.assign(HLINK_MSG_READ_BUFFER_SIZE, '\0');
+    hlink_response_buffer.assign(HLINK_MSG_READ_BUFFER_SIZE, '\0');
   }
 };
 
