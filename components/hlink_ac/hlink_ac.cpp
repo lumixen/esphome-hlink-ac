@@ -304,6 +304,10 @@ void HlinkAc::loop() {
         timeout_callback();
       }
     }
+    // Reset pending requests queue to avoid the infinite loop
+    while (!this->pending_action_requests.is_empty()) {
+      this->pending_action_requests.dequeue();
+    }
     this->status_.reset_state();
   }
 

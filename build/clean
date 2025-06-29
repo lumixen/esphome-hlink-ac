@@ -7,4 +7,5 @@ docker run --rm \
   hlink_switch.yml \
   hlink_all.yml \
   hlink_all_arduino.yml \
+  hlink_all_libretiny.yml \
   hlink_actions.yml

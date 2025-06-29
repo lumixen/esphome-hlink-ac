@@ -1,0 +1,53 @@
+esphome:
+  name: hlink-dev-libretiny-all
+
+external_components:
+  - source: /components
+
+logger:
+  level: DEBUG
+
+rtl87xx:
+  board: generic-rtl8710bn-2mb-788k
+
+uart:
+  id: hitachi_bus
+  tx_pin: GPIO23
+  rx_pin: GPIO18
+  baud_rate: 9600
+  parity: ODD
+
+climate:
+  - platform: hlink_ac
+    name: "H-Link Test Climate Device"
+    supported_swing_modes:
+      - "OFF"
+      - "VERTICAL"
+      - "HORIZONTAL"
+      - "BOTH"
+
+sensor:
+  - platform: hlink_ac
+    outdoor_temperature:
+      name: Outdoor temperature
+
+text_sensor:
+  - platform: hlink_ac
+    model_name:
+      name: Model
+  - platform: hlink_ac
+    debug:
+      name: P0005
+      address: 0x0005
+  - platform: hlink_ac
+    debug:
+      name: P000A
+      address: 0x000A
+  - platform: hlink_ac
+    debug_discovery:
+      name: H-link addresses discovery
+
+number:
+  - platform: hlink_ac
+    auto_target_temperature_offset:
+      name: Auto offset
