@@ -294,6 +294,10 @@ void HlinkAc::loop() {
              this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
              this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
+    if (this->status_.state == READ_FEATURE_RESPONSE || this->status_.state == ACK_APPLIED_REQUEST) {
+      ESP_LOGW(TAG, "Response buffer: %s, read_index: %d", this->status_.hlink_response_response_buffer.c_str(),
+               this->status_.hlink_response_buffer_index);
+    }
     if (this->status_.current_request != nullptr) {
       auto timeout_callback = this->status_.current_request->timeout_callback;
       if (timeout_callback != nullptr) {
