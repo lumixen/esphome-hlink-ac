@@ -278,7 +278,22 @@ void HlinkAc::loop() {
 
   // Reset status to IDLE if we reached timeout deadline
   if (this->status_.state != IDLE && this->status_.reached_timeout_thereshold()) {
-    ESP_LOGW(TAG, "Reached timeout while performing [%d] state action. Reset state to IDLE.", this->status_.state);
+    ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Resetting state to IDLE.",
+             this->status_.state == REQUEST_NEXT_STATUS_FEATURE    ? "REQUEST_NEXT_STATUS_FEATURE"
+             : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
+             : this->status_.state == READ_FEATURE_RESPONSE        ? "READ_FEATURE_RESPONSE"
+             : this->status_.state == PUBLISH_UPDATE_IF_ANY        ? "PUBLISH_UPDATE_IF_ANY"
+             : this->status_.state == APPLY_REQUEST                ? "APPLY_REQUEST"
+             : this->status_.state == ACK_APPLIED_REQUEST          ? "ACK_APPLIED_REQUEST"
+                                                                   : "UNKNOWN");
+    ESP_LOGW(TAG,
+             "Component state: requested_feature_index=%d, non_idle_timeout_limit_ms=%u, "
+             "last_status_polling_finished_at_ms=%u, last_frame_received_at_ms=%u, timeout_counter_started_at_ms=%u, "
+             "requests_left_to_apply=%u, pending_action_requests_size=%d, pending_low_priority_hlink_request=%s",
+             this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
+             this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
+             this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
+             this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
       auto timeout_callback = this->status_.current_request->timeout_callback;
       if (timeout_callback != nullptr) {
@@ -313,7 +328,7 @@ void HlinkAc::loop() {
   // Request low priority feature if idling and nothing else to do
   if (this->status_.state == IDLE && this->status_.low_priority_hlink_request.has_value()) {
     this->status_.state = REQUEST_LOW_PRIORITY_FEATURE;
-    this->status_.refresh_non_idle_timeout(300);
+    this->status_.refresh_non_idle_timeout(500);
   }
 }
 
@@ -476,7 +491,8 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
         break;  // If we reached CR and there is no more data available, we can stop reading
       } else {
         // If there is more data available after CR, we should continue and log a warning
-        ESP_LOGW(TAG, "There is more data available after CR, normally this shouldn't happen. Buffer: %s", response_buf.c_str());
+        ESP_LOGW(TAG, "There is more data available after CR, normally this shouldn't happen. Buffer: %s",
+                 response_buf.c_str());
       }
     }
     read_index++;
@@ -513,7 +529,8 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
   } else if (response_tokens[0] == HLINK_MSG_NG_TOKEN) {
     status = HlinkResponseFrame::Status::NG;
   } else {
-    ESP_LOGW(TAG, "Unexpected token in response: [%s]. Response tokens array size: %d", response_tokens[0].c_str(), response_tokens.size());
+    ESP_LOGW(TAG, "Unexpected token in response: [%s]. Response tokens array size: %d", response_tokens[0].c_str(),
+             response_tokens.size());
     for (int i = 0; i < response_tokens.size(); i++) {
       ESP_LOGW(TAG, "Token %d: %s", i, response_tokens[i].c_str());
     }
