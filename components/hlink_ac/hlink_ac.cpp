@@ -179,7 +179,7 @@ void HlinkAc::request_status_update_() {
     // Launch update sequence
     this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
     this->status_.requested_feature_index = 0;
-    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 400);
+    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 1000);
   }
 }
 
@@ -301,7 +301,7 @@ void HlinkAc::loop() {
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests.size();
     this->status_.state = APPLY_REQUEST;
-    this->status_.refresh_non_idle_timeout(2000);
+    this->status_.refresh_non_idle_timeout(5000);
   }
 
   // Start polling cycle if we are in IDLE state and the status update interval is reached
