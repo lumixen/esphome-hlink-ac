@@ -314,8 +314,6 @@ void HlinkAc::loop() {
     while (!this->pending_action_requests.is_empty()) {
       this->pending_action_requests.dequeue();
     }
-    // Flush UART TX buffer just in case
-    this->flush();
     this->status_.reset_state();
   }
 

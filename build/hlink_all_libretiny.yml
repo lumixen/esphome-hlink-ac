@@ -1,5 +1,9 @@
 esphome:
   name: hlink-dev-libretiny-all
+  platformio_options:
+    platform_packages:
+      - framework-arduino-api @ https://github.com/hn/ArduinoCore-API#RingBufferFix
+      # https://github.com/libretiny-eu/libretiny/issues/154
 
 external_components:
   - source: /components
