@@ -330,7 +330,7 @@ void HlinkAc::loop() {
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests.size();
     this->status_.state = APPLY_REQUEST;
-    this->status_.refresh_non_idle_timeout(5000);
+    this->status_.refresh_non_idle_timeout(2000);
   }
 
   // Start polling cycle if we are in IDLE state and the status update interval is reached
@@ -342,7 +342,7 @@ void HlinkAc::loop() {
   // Request low priority feature if idling and nothing else to do
   if (this->status_.state == IDLE && this->status_.low_priority_hlink_request.has_value()) {
     this->status_.state = REQUEST_LOW_PRIORITY_FEATURE;
-    this->status_.refresh_non_idle_timeout(500);
+    this->status_.refresh_non_idle_timeout(300);
   }
 }
 
