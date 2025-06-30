@@ -224,7 +224,7 @@ void HlinkAc::loop() {
     HlinkRequest requested_feature = *this->status_.current_request;
     if (this->handle_hlink_request_response_(requested_feature, response)) {
       if (this->status_.requested_feature_index == -1) {
-        // Requested feature index is -1 means that we are reading low priority feature
+        // Requested feature index is -1 means that we handling low priority request
         this->status_.state = IDLE;
       } else if (this->status_.requested_feature_index + 1 < this->status_.polling_features.size()) {
         this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
@@ -493,13 +493,14 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
 
   // Read bytes from UART until CR, timeout or full buffer
   while (this->available()) {
-    // Just prevent the loop disruptions if it takes too long to read the response
+    // Just prevent blocking the loop if it takes too long to read the response
     if (millis() - started_millis > 30) {
       ESP_LOGD(TAG, "Partially read the message, [%d] bytes.", read_index);
       return HLINK_RESPONSE_PARTIAL;
     }
     if (read_index >= HLINK_MSG_READ_BUFFER_SIZE) {
-      ESP_LOGE(TAG, "H-link response buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE, response_buf.c_str());
+      ESP_LOGE(TAG, "H-link response buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE,
+               response_buf.c_str());
       return HLINK_RESPONSE_INVALID;
     }
     if (!this->read_byte(reinterpret_cast<uint8_t *>(&response_buf[read_index]))) {
@@ -535,7 +536,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
     }
   }
   if (response_tokens.size() == 1 && response_tokens[0] == HLINK_MSG_OK_TOKEN) {
-    // Ack frame
+    // ACK frame
     return HLINK_RESPONSE_ACK_OK;
   }
   if (response_tokens.size() != 3) {
@@ -571,7 +572,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
     calculated_checksum -= p_value[i];
   }
   if (calculated_checksum != checksum) {
-    ESP_LOGW(TAG, "Invalid checksum in H-link response: expected %04X, got %04X", calculated_checksum, checksum);
+    ESP_LOGW(TAG, "Invalid checksum in the response frame: expected %04X, got %04X", calculated_checksum, checksum);
     return HLINK_RESPONSE_INVALID;
   }
   return {status, p_value, checksum};
@@ -929,6 +930,15 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
 }
 #endif
 
+std::unique_ptr<HlinkRequest> HlinkAc::create_request_(
+    HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback,
+    std::function<void()> ng_callback, std::function<void()> invalid_callback, std::function<void()> timeout_callback) {
+  {
+    return std::unique_ptr<HlinkRequest>(
+        new HlinkRequest{request_frame, ok_callback, ng_callback, invalid_callback, timeout_callback});
+  }
+}
+
 int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequest> request) {
   if (this->is_full()) {
     ESP_LOGE(TAG, "Action requests queue is full");
@@ -962,14 +972,5 @@ bool CircularRequestsQueue::is_empty() { return front_ == -1; }
 bool CircularRequestsQueue::is_full() { return (rear_ + 1) % REQUESTS_QUEUE_SIZE == front_; }
 
 uint8_t CircularRequestsQueue::size() { return size_; }
-
-std::unique_ptr<HlinkRequest> HlinkAc::create_request_(
-    HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback,
-    std::function<void()> ng_callback, std::function<void()> invalid_callback, std::function<void()> timeout_callback) {
-  {
-    return std::unique_ptr<HlinkRequest>(
-        new HlinkRequest{request_frame, ok_callback, ng_callback, invalid_callback, timeout_callback});
-  }
-}
 }  // namespace hlink_ac
 }  // namespace esphome
