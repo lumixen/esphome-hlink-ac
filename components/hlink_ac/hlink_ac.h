@@ -203,10 +203,10 @@ struct ComponentStatus {
     this->non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
   }
 
-  bool reached_timeout_thereshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
+  bool reached_timeout_threshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
 
   bool can_send_next_frame() {
-    // Min interval received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC
+    // Min interval between received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC
     // will return NG
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }

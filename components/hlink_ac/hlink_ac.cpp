@@ -186,13 +186,13 @@ void HlinkAc::request_status_update_() {
 /*
  * Main loop implements a state machine with the following states:
  * 1. IDLE - does nothing.
- * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature, the list of requested features is
- * stored in the polling_features list.
- * 3. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low priority feature if any.
+ * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature; the list of requested features is
+ *    stored in the polling_features list.
+ * 3. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low-priority feature, if any.
  * 4. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
  * 5. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
  * 6. APPLY_REQUEST - applies the requested climate controls from the queue.
- * 7. ACK_APPLIED_REQUEST - confirms successful applied control reqeuest.
+ * 7. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
@@ -224,7 +224,7 @@ void HlinkAc::loop() {
     HlinkRequest requested_feature = *this->status_.current_request;
     if (this->handle_hlink_request_response_(requested_feature, response)) {
       if (this->status_.requested_feature_index == -1) {
-        // Requested feature index is -1 means that we handling low priority request
+        // Requested feature index is -1 means that we are handling low priority request
         this->status_.state = IDLE;
       } else if (this->status_.requested_feature_index + 1 < this->status_.polling_features.size()) {
         this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
@@ -278,7 +278,7 @@ void HlinkAc::loop() {
   }
 
   // Reset status to IDLE if we reached timeout deadline
-  if (this->status_.state != IDLE && this->status_.reached_timeout_thereshold()) {
+  if (this->status_.state != IDLE && this->status_.reached_timeout_threshold()) {
     ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Resetting state to IDLE.",
              this->status_.state == REQUEST_NEXT_STATUS_FEATURE    ? "REQUEST_NEXT_STATUS_FEATURE"
              : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
