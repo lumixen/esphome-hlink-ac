@@ -215,7 +215,7 @@ void HlinkAc::loop() {
   }
 
   if (this->status_.state == READ_FEATURE_RESPONSE) {
-    HlinkResponseFrame response = this->read_hlink_frame_(50);
+    HlinkResponseFrame response = this->read_hlink_frame_();
     if (this->status_.current_request == nullptr) {
       ESP_LOGW(TAG, "Received response for unknown feature");
       this->status_.reset_state();
@@ -261,7 +261,7 @@ void HlinkAc::loop() {
   }
 
   if (this->status_.state == ACK_APPLIED_REQUEST) {
-    HlinkResponseFrame response = this->read_hlink_frame_(50);
+    HlinkResponseFrame response = this->read_hlink_frame_();
     if (this->handle_hlink_request_response_(*this->status_.current_request, response)) {
       if (this->status_.requests_left_to_apply > 0) {
         this->status_.state = APPLY_REQUEST;
@@ -485,24 +485,25 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
 
 // Returns PARTIAL state if the response is not finished yet
 // Returns NOTHING state if nothing available on UART input yet
-HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
+HlinkResponseFrame HlinkAc::read_hlink_frame_() {
   auto &response_buf = this->status_.hlink_response_buffer;
   auto &read_index = this->status_.hlink_response_buffer_index;
   uint32_t started_millis = millis();
 
   // Read bytes from UART until CR, timeout or full buffer
   while (this->available()) {
-    if (millis() - started_millis > timeout_ms) {
-      ESP_LOGW(TAG, "Timeout while reading H-link response frame. Read %d bytes.", read_index);
+    // Just prevent the loop disruptions if it takes too long to read the response
+    if (millis() - started_millis > 30) {
+      ESP_LOGD(TAG, "Partially read the message, [%d] bytes.", read_index);
       return HLINK_RESPONSE_PARTIAL;
     }
     if (read_index >= HLINK_MSG_READ_BUFFER_SIZE) {
-      ESP_LOGE(TAG, "H-link response buffer overflow (>%d bytes).", HLINK_MSG_READ_BUFFER_SIZE);
+      ESP_LOGE(TAG, "H-link response buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE, response_buf.c_str());
       return HLINK_RESPONSE_INVALID;
     }
     if (!this->read_byte(reinterpret_cast<uint8_t *>(&response_buf[read_index]))) {
       ESP_LOGW(TAG, "Failed to read byte at index %d from H-link UART", read_index);
-      return HLINK_RESPONSE_PARTIAL;
+      return HLINK_RESPONSE_INVALID;
     }
     if (response_buf[read_index] == ASCII_CR) {
       if (!this->available()) {

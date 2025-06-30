@@ -319,7 +319,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
+  HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
   std::unique_ptr<HlinkRequest> create_request_(
       HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
