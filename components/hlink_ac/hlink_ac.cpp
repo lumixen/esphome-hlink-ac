@@ -521,7 +521,8 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
 
   if (read_index == 0) {
     return HLINK_RESPONSE_NOTHING;
-  } else if (read_index < HLINK_MSG_READ_BUFFER_SIZE && response_buf[read_index] != ASCII_CR) {
+  }
+  if (read_index < HLINK_MSG_READ_BUFFER_SIZE && response_buf[read_index] != ASCII_CR) {
     return HLINK_RESPONSE_PARTIAL;
   }
 
