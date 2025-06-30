@@ -224,6 +224,7 @@ void HlinkAc::loop() {
     HlinkRequest requested_feature = *this->status_.current_request;
     if (this->handle_hlink_request_response_(requested_feature, response)) {
       if (this->status_.requested_feature_index == -1) {
+        // Requested feature index is -1 means that we are reading low priority feature
         this->status_.state = IDLE;
       } else if (this->status_.requested_feature_index + 1 < this->status_.polling_features.size()) {
         this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
