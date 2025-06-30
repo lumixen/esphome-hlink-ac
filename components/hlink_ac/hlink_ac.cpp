@@ -294,21 +294,21 @@ void HlinkAc::loop() {
              this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
              this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
-    if (this->status_.state == READ_FEATURE_RESPONSE || this->status_.state == ACK_APPLIED_REQUEST) {
-      ESP_LOGW(TAG, "RX buffer: %s, read size: %d", this->status_.hlink_response_buffer.c_str(),
-               this->status_.hlink_response_buffer_index);
-    }
     if (this->status_.current_request != nullptr) {
       ESP_LOGW(TAG, "Unsuccessful timed out request: [%s - %04X,%s]",
-           this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
-           this->status_.current_request->request_frame.p.address,
-           this->status_.current_request->request_frame.p.data.has_value()
-           ? esphome::format_hex_pretty(this->status_.current_request->request_frame.p.data.value()).c_str()
-           : "none");
+               this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
+               this->status_.current_request->request_frame.p.address,
+               this->status_.current_request->request_frame.p.data.has_value()
+                   ? esphome::format_hex_pretty(this->status_.current_request->request_frame.p.data.value()).c_str()
+                   : "none");
       auto timeout_callback = this->status_.current_request->timeout_callback;
       if (timeout_callback != nullptr) {
         timeout_callback();
       }
+    }
+    if (this->status_.state == READ_FEATURE_RESPONSE || this->status_.state == ACK_APPLIED_REQUEST) {
+      ESP_LOGW(TAG, "RX buffer: %s, read size: %d", this->status_.hlink_response_buffer.c_str(),
+               this->status_.hlink_response_buffer_index);
     }
     // Reset pending requests queue to avoid the infinite loop
     while (!this->pending_action_requests.is_empty()) {
@@ -563,6 +563,15 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_(uint32_t timeout_ms) {
     p_value.push_back(static_cast<uint8_t>(std::stoi(response_tokens[1].substr(i, 2), nullptr, 16)));
   }
   uint16_t checksum = std::stoi(response_tokens[2], nullptr, 16);
+  // Validate checksum
+  uint16_t calculated_checksum = 0xFFFF;
+  for (size_t i = 0; i < p_value.size(); i++) {
+    calculated_checksum -= p_value[i];
+  }
+  if (calculated_checksum != checksum) {
+    ESP_LOGW(TAG, "Invalid checksum in H-link response: expected %04X, got %04X", calculated_checksum, checksum);
+    return HLINK_RESPONSE_INVALID;
+  }
   return {status, p_value, checksum};
 }
 
