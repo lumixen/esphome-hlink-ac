@@ -96,7 +96,7 @@ switch:
 sensor:
   - platform: hlink_ac
     outdoor_temperature:
-      name: Outdoor temperature
+      name: Outdoor temperature # Available only when device is active
 
 text_sensor:
   - platform: hlink_ac

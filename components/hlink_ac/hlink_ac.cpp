@@ -37,13 +37,13 @@ HlinkAc::HlinkAc() {
          } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_FAN) {
            this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_FAN_ONLY;
          } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
-           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL;
          } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL;
          } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_DRY_AUTO) {
-           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL;
          } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO) {
-           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_AUTO;
+           this->hlink_entity_status_.mode = esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL;
          }
        }});
   this->status_.polling_features.push_back(
@@ -617,7 +617,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
       case climate::ClimateMode::CLIMATE_MODE_FAN_ONLY:
         h_link_mode = HLINK_MODE_FAN;
         break;
-      case climate::ClimateMode::CLIMATE_MODE_AUTO:
+      case climate::ClimateMode::CLIMATE_MODE_HEAT_COOL:
         h_link_mode = HLINK_MODE_AUTO;
         break;
       default:
