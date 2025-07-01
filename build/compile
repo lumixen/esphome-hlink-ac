@@ -1,10 +1,18 @@
+#!/bin/bash
+
+# Usage: ./compile [config_file.yml]
+
+CONFIG_FILE="$1"
+
+if [ -z "$CONFIG_FILE" ]; then
+  CONFIG_FILE="*.yml"
+fi
+
+docker pull esphome/esphome:stable
+
 docker run --rm \
   -v "$(pwd)":/config \
   -v "$(pwd)/../components":/components \
-  -it esphome/esphome \
+  -it esphome/esphome:stable \
   compile \
-  hlink.yml \
-  hlink_switch.yml \
-  hlink_all.yml \
-  hlink_all_arduino.yml \
-  hlink_actions.yml
+  $CONFIG_FILE

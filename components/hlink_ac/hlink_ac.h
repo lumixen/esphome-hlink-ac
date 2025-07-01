@@ -21,11 +21,10 @@ namespace esphome {
 namespace hlink_ac {
 
 constexpr uint32_t STATUS_UPDATE_INTERVAL = 5000;
-constexpr uint32_t STATUS_UPDATE_TIMEOUT = 2000;
 constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
 
-constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 35;
-constexpr uint8_t HLINK_MSG_TERMINATION_SYMBOL = 0x0D;
+constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 64;
+constexpr uint8_t ASCII_CR = 0x0D;
 
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
@@ -74,7 +73,7 @@ enum FeatureType : uint16_t {
   CURRENT_INDOOR_TEMP = 0x0100,
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
   LEAVE_HOME_STATUS_WRITE = 0x0300,
-  ACTIVITY_STATUS = 0x0301,       // 0000=Stand-by FFFF=Active
+  ACTIVITY_STATUS = 0x0301,  // 0000=Stand-by FFFF=Active
   LEAVE_HOME_STATUS_READ = 0x0304,
   BEEPER = 0x0800,  // Triggers beeper sound
   MODEL_NAME = 0x0900,
@@ -141,7 +140,7 @@ struct HlinkRequestFrame {
   }
 };
 struct HlinkResponseFrame {
-  enum class Status { NOTHING, OK, NG, INVALID };
+  enum class Status { NOTHING, PARTIAL, OK, NG, INVALID };
   Status status;
   optional<std::vector<uint8_t>> p_value;
   uint16_t checksum;
@@ -187,6 +186,8 @@ struct HlinkRequest {
 
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
+  std::string hlink_response_buffer = std::string(HLINK_MSG_READ_BUFFER_SIZE, '\0');
+  uint8_t hlink_response_buffer_index = 0;
   std::unique_ptr<HlinkRequest> current_request = nullptr;
   std::vector<HlinkRequest> polling_features = {};
   optional<HlinkRequest> low_priority_hlink_request = {};
@@ -202,11 +203,11 @@ struct ComponentStatus {
     this->non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
   }
 
-  bool reached_timeout_thereshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
+  bool reached_timeout_threshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
 
   bool can_send_next_frame() {
-    // Min interval received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS ms or AC
-    // will return NG
+    // Min interval between received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS
+    // ms or AC will return NG
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
 
@@ -220,6 +221,11 @@ struct ComponentStatus {
     requested_feature_index = -1;
     requests_left_to_apply = 0;
     current_request = nullptr;
+  }
+
+  void reset_response_buffer() {
+    hlink_response_buffer_index = 0;
+    hlink_response_buffer.assign(HLINK_MSG_READ_BUFFER_SIZE, '\0');
   }
 };
 
@@ -311,9 +317,9 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests;
   void request_status_update_();
-  void handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
+  bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  HlinkResponseFrame read_hlink_frame_(uint32_t timeout_ms);
+  HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
   std::unique_ptr<HlinkRequest> create_request_(
       HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,

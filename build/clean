@@ -1,10 +1,8 @@
+#!/bin/bash
+
 docker run --rm \
   -v "$(pwd)":/config \
   -v "$(pwd)/../components":/components \
-  -it esphome/esphome \
+  -it esphome/esphome:stable \
   clean \
-  hlink.yml \
-  hlink_switch.yml \
-  hlink_all.yml \
-  hlink_all_arduino.yml \
-  hlink_actions.yml
+  *.yml
