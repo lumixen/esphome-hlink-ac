@@ -499,12 +499,12 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
       return HLINK_RESPONSE_PARTIAL;
     }
     if (read_index >= HLINK_MSG_READ_BUFFER_SIZE) {
-      ESP_LOGE(TAG, "H-link response buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE,
+      ESP_LOGE(TAG, "RX buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE,
                response_buf.c_str());
       return HLINK_RESPONSE_INVALID;
     }
     if (!this->read_byte(reinterpret_cast<uint8_t *>(&response_buf[read_index]))) {
-      ESP_LOGW(TAG, "Failed to read byte at index %d from H-link UART", read_index);
+      ESP_LOGW(TAG, "Failed to read frame byte at index %d from UART", read_index);
       return HLINK_RESPONSE_INVALID;
     }
     if (response_buf[read_index] == ASCII_CR) {
@@ -526,7 +526,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
     return HLINK_RESPONSE_PARTIAL;
   }
 
-  // Update the timestamp of the last frame received
+  // Update the timestamp of the last successfully received frame
   this->status_.last_frame_received_at_ms = millis();
   std::vector<std::string> response_tokens;
   for (int i = 0, last_space_i = 0; i <= read_index; i++) {
