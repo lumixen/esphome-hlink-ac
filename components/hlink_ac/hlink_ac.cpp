@@ -112,13 +112,12 @@ HlinkAc::HlinkAc() {
 }
 
 void HlinkAc::setup() {
-  constexpr uint32_t restore_settings_version = 0xA7C3B2E4;
   this->rtc_ =
-      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ restore_settings_version);
+      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ HlinkAcSettings::version);
   HlinkAcSettings recovered_settings;
   if (this->rtc_.load(&recovered_settings)) {
 #ifdef USE_SWITCH
-    if (this->beeper_switch_ != nullptr) {
+    if (this->beeper_switch_ != nullptr && recovered_settings.beeper_enabled != this->beeper_switch_->state) {
       this->beeper_switch_->publish_state(recovered_settings.beeper_enabled);
     }
 #endif
