@@ -637,8 +637,9 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           this->mode = mode;
           this->publish_state();
         }));
-    if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
-      // Apply target auto offset value if the mode is set to HEAT_COOL
+#ifdef USE_NUMBER
+    if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL && this->temperature_offset_number_ != nullptr) {
+      // Apply target auto offset value if the mode is set to AUTO
       uint16_t offset_temp = this->hlink_entity_status_.hlink_auto_offset_temperature();
       this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
@@ -648,6 +649,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
             ;
           }));
     }
+#endif
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
