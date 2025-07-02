@@ -1,7 +1,6 @@
 #pragma once
 
 #include "esphome/components/number/number.h"
-#include "esphome/core/preferences.h"
 #include "../hlink_ac.h"
 
 namespace esphome {
