@@ -95,6 +95,9 @@ switch:
 
 sensor:
   - platform: hlink_ac
+    auto_target_temp_offset:
+      name: Auto Mode Temp Offset
+  - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
 

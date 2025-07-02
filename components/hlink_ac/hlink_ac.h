@@ -237,6 +237,7 @@ struct ComponentStatus {
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
+  AUTO_TARGET_TEMP_OFFSET = 1,
   // Used to count the number of sensors in the enum
   COUNT,
 };
@@ -287,6 +288,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
+  sensor::Sensor *auto_target_temp_offset_sensor_{nullptr};
 #endif
 #ifdef USE_TEXT_SENSOR
  public:

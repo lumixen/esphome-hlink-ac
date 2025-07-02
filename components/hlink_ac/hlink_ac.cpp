@@ -113,8 +113,7 @@ HlinkAc::HlinkAc() {
 
 void HlinkAc::setup() {
   constexpr uint32_t settings_version = 0xA7C3B2E4;
-  this->rtc_ =
-      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ settings_version);
+  this->rtc_ = global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ settings_version);
   HlinkAcSettings recovered_settings;
   if (this->rtc_.load(&recovered_settings)) {
 #ifdef USE_SWITCH
@@ -433,6 +432,10 @@ void HlinkAc::publish_updates_if_any_() {
       this->publish_state();
     }
   }
+#ifdef USE_SENSOR
+  this->update_sensor_state_(this->auto_target_temp_offset_sensor_,
+                             this->hlink_entity_status_.current_temperature_auto_offset.value_or(NAN));
+#endif
 #ifdef USE_SWITCH
   if (this->remote_lock_switch_ != nullptr && this->hlink_entity_status_.remote_control_lock.has_value() &&
       this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value()) {
@@ -854,6 +857,8 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
                                                   this->update_sensor_state_(s, sensor_value);
                                                 }});
       break;
+    case SensorType::AUTO_TARGET_TEMP_OFFSET:
+      this->auto_target_temp_offset_sensor_ = s;
     default:
       break;
   }
