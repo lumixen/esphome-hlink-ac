@@ -255,7 +255,7 @@ void HlinkAc::loop() {
 
   if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame()) {
     if (this->status_.requests_left_to_apply > 0) {
-      std::unique_ptr<HlinkRequest> request_msg = this->pending_action_requests.dequeue();
+      std::unique_ptr<HlinkRequest> request_msg = this->pending_action_requests_.dequeue();
       if (request_msg != nullptr) {
         this->write_hlink_frame_(request_msg->request_frame);
         this->status_.current_request = std::move(request_msg);
@@ -303,7 +303,7 @@ void HlinkAc::loop() {
              this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
              this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
-             this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
+             this->pending_action_requests_.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
       ESP_LOGW(TAG, "Request time out: [%s - %04X,%s]",
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
@@ -321,15 +321,15 @@ void HlinkAc::loop() {
                this->status_.hlink_response_buffer_index);
     }
     // Reset pending requests queue to avoid the infinite loop
-    while (!this->pending_action_requests.is_empty()) {
-      this->pending_action_requests.dequeue();
+    while (!this->pending_action_requests_.is_empty()) {
+      this->pending_action_requests_.dequeue();
     }
     this->status_.reset_state();
   }
 
   // If there are any pending requests - apply them ASAP
   if ((this->status_.state == IDLE || this->status_.state == REQUEST_NEXT_STATUS_FEATURE) &&
-      this->pending_action_requests.size() > 0) {
+      this->pending_action_requests_.size() > 0) {
     this->status_.reset_state();
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
@@ -338,7 +338,7 @@ void HlinkAc::loop() {
           HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
     }
 #endif
-    this->status_.requests_left_to_apply = this->pending_action_requests.size();
+    this->status_.requests_left_to_apply = this->pending_action_requests_.size();
     this->status_.state = APPLY_REQUEST;
     this->status_.refresh_non_idle_timeout(2000);
   }
@@ -390,7 +390,7 @@ bool HlinkAc::handle_hlink_request_response_(const HlinkRequest &request, const 
 void HlinkAc::publish_updates_if_any_() {
   if (this->hlink_entity_status_.has_hvac_status()) {
     bool should_publish_climate_state = false;
-    if (!is_nanable_equal(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
+    if (!is_nanable_equal_(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
@@ -586,7 +586,7 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
     ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
     return;
   }
-  this->pending_action_requests.enqueue(this->create_request_(
+  this->pending_action_requests_.enqueue(this->create_request_(
       HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
                                      static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
       [address, data](const HlinkResponseFrame &response) {
@@ -622,9 +622,9 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         power_state = 0x0000;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, power_state)));
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, h_link_mode),
         [this, power_state, mode](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.power_state = power_state;
@@ -635,7 +635,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
     if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
       // Apply target auto offset value if the mode is set to HEAT_COOL
       uint16_t offset_temp = this->hlink_entity_status_.hlink_auto_offset_temperature();
-      this->pending_action_requests.enqueue(this->create_request_(
+      this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
           [this](const HlinkResponseFrame &response) {
             this->hlink_entity_status_.current_temperature_auto_offset =
@@ -664,7 +664,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_fan_speed = HLINK_FAN_QUIET;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::FAN_MODE, h_link_fan_speed),
         [this, fan_mode](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.fan_mode = fan_mode;
@@ -674,7 +674,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   }
   if (call.get_target_temperature().has_value()) {
     float target_temperature = *call.get_target_temperature();
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, target_temperature),
         [this, target_temperature](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.target_temperature = target_temperature;
@@ -699,7 +699,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         h_link_swing_mode = HLINK_SWING_BOTH;
         break;
     }
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::SWING_MODE, h_link_swing_mode),
         [this, swing_mode](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.swing_mode = swing_mode;
@@ -710,11 +710,11 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   if (call.get_preset().has_value()) {
     climate::ClimatePreset preset = *call.get_preset();
     if (preset == climate::ClimatePreset::CLIMATE_PRESET_AWAY) {
-      this->pending_action_requests.enqueue(this->create_request_(
+      this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT)));
-      this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
+      this->pending_action_requests_.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
           HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_ENABLE_LEAVE_HOME)));
-      this->pending_action_requests.enqueue(this->create_request_(
+      this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01),
           [this](const HlinkResponseFrame &response) {
             this->hlink_entity_status_.power_state = true;
@@ -729,9 +729,9 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           }));
     }
     if (preset == climate::ClimatePreset::CLIMATE_PRESET_NONE) {
-      this->pending_action_requests.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
+      this->pending_action_requests_.enqueue(this->create_request_(HlinkRequestFrame::with_uint16(
           HlinkRequestFrame::Type::ST, FeatureType::LEAVE_HOME_STATUS_WRITE, HLINK_DISABLE_LEAVE_HOME)));
-      this->pending_action_requests.enqueue(this->create_request_(
+      this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01)));
     }
   }
@@ -860,7 +860,7 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
 void HlinkAc::update_sensor_state_(sensor::Sensor *sensor, float value) {
   if (sensor != nullptr) {
     float current_state = sensor->raw_state;
-    if (is_nanable_equal(current_state, value)) {
+    if (is_nanable_equal_(current_state, value)) {
       return;
     }
     sensor->publish_state(value);
@@ -929,7 +929,7 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
   this->hlink_entity_status_.target_temperature_auto_offset = static_cast<int8_t>(offset);
   if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
     auto hlink_offset_temperature = this->hlink_entity_status_.hlink_auto_offset_temperature();
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_offset_temperature),
         [this](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.current_temperature_auto_offset =

@@ -325,7 +325,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
-  CircularRequestsQueue pending_action_requests;
+  CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
@@ -337,7 +337,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
       std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
       std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
-  bool is_nanable_equal(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
+  bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
   void save_settings_();
 };
 }  // namespace hlink_ac
