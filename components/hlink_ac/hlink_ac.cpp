@@ -646,9 +646,15 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           this->publish_state();
         }));
     if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
-      // If the mode is OFF, we should reset the target temperature to NaN
-      this->target_temperature = NAN;
-      this->hlink_entity_status_.target_temperature = NAN;
+      // Apply target auto offset value if the mode is set to HEAT_COOL
+      uint16_t offset_temp = this->hlink_entity_status_.hlink_auto_offset_temperature();
+      this->pending_action_requests.enqueue(this->create_request_(
+          HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
+          [this](const HlinkResponseFrame &response) {
+            this->hlink_entity_status_.current_temperature_auto_offset =
+                this->hlink_entity_status_.target_temperature_auto_offset.value();
+            ;
+          }));
     }
   }
   if (call.get_fan_mode().has_value()) {
@@ -935,11 +941,12 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
 void HlinkAc::set_auto_temperature_offset(float offset) {
   this->hlink_entity_status_.target_temperature_auto_offset = static_cast<int8_t>(offset);
   if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
-    uint16_t offset_temp = static_cast<uint8_t>(this->hlink_entity_status_.target_temperature_auto_offset.value_or(0)) + 0xFF00;
+    auto hlink_offset_temperature = this->hlink_entity_status_.hlink_auto_offset_temperature();
     this->pending_action_requests.enqueue(this->create_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
-        [this, offset](const HlinkResponseFrame &response) {
-          this->hlink_entity_status_.current_temperature_auto_offset = offset;
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_offset_temperature),
+        [this](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.current_temperature_auto_offset =
+              this->hlink_entity_status_.target_temperature_auto_offset.value();
         }));
   }
   this->temperature_offset_number_->publish_state(offset);

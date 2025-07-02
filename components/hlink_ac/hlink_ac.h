@@ -62,6 +62,10 @@ struct HlinkEntityStatus {
     return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() &&
            mode.has_value();
   }
+
+  uint16_t hlink_auto_offset_temperature() {
+    return static_cast<uint8_t>(target_temperature_auto_offset.value_or(0)) + 0xFF00;
+  }
 };
 
 enum FeatureType : uint16_t {
