@@ -124,7 +124,8 @@ void HlinkAc::setup() {
 #endif
 #ifdef USE_NUMBER
     if (this->temperature_offset_number_ != nullptr) {
-      this->temperature_offset_number_->publish_state(recovered_settings.auto_temperature_offset);
+      this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
+      this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset);
     }
 #endif
   }
@@ -657,7 +658,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
           [this](const HlinkResponseFrame &response) {
             this->hlink_entity_status_.current_temperature_auto_offset =
-                this->hlink_entity_status_.target_temperature_auto_offset.value();
+                this->hlink_entity_status_.target_temperature_auto_offset.value_or(0);
             ;
           }));
     }
