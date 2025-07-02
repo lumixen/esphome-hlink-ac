@@ -125,20 +125,10 @@ void HlinkAc::setup() {
 #ifdef USE_NUMBER
     if (this->temperature_offset_number_ != nullptr) {
       this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
-      this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset);
+      this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
     }
 #endif
   }
-  // #ifdef USE_SWITCH
-  //   // Restore beeper switch state from memory if available
-  //   if (this->beeper_switch_ != nullptr) {
-  //     auto beeper_switch_restored_state = this->beeper_switch_->get_initial_state_with_restore_mode();
-  //     if (beeper_switch_restored_state.has_value() &&
-  //         beeper_switch_restored_state.value() != this->beeper_switch_->state) {
-  //       this->beeper_switch_->publish_state(beeper_switch_restored_state.value());
-  //     }
-  //   }
-  // #endif
   ESP_LOGI(TAG, "Component initialized.");
 }
 
