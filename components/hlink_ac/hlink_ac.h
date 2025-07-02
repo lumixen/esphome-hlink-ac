@@ -251,8 +251,6 @@ enum class TextSensorType {
 struct HlinkAcSettings {
   bool beeper_enabled;
   int8_t auto_temperature_offset;
-
-  static constexpr uint32_t version = 0xA7C3B2E4;
 };
 
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;

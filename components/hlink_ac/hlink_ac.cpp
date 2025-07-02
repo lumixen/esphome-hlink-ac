@@ -112,8 +112,9 @@ HlinkAc::HlinkAc() {
 }
 
 void HlinkAc::setup() {
+  constexpr uint32_t settings_version = 0xA7C3B2E4;
   this->rtc_ =
-      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ HlinkAcSettings::version);
+      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ settings_version);
   HlinkAcSettings recovered_settings;
   if (this->rtc_.load(&recovered_settings)) {
 #ifdef USE_SWITCH
