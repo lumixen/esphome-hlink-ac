@@ -168,6 +168,7 @@ climate:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
+    - Temperature offset in auto mode
 4. Text sensor
     - Model name
     - Debug
