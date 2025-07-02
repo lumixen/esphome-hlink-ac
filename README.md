@@ -71,7 +71,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.6.0
+      ref: main
     components: [hlink_ac]
 
 climate:
