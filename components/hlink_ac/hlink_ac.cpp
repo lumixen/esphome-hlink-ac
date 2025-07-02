@@ -125,7 +125,8 @@ void HlinkAc::setup() {
 #ifdef USE_NUMBER
     if (this->temperature_offset_number_ != nullptr) {
       this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
-      this->temperature_offset_number_->publish_state(this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
+      this->temperature_offset_number_->publish_state(
+          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
     }
 #endif
   }
@@ -303,7 +304,8 @@ void HlinkAc::loop() {
              this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
              this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
-             this->pending_action_requests_.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
+             this->pending_action_requests_.size(),
+             this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
       ESP_LOGW(TAG, "Request time out: [%s - %04X,%s]",
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
@@ -334,7 +336,7 @@ void HlinkAc::loop() {
 #ifdef USE_SWITCH
     // Makes beep sound if beeper switch is available and turned on
     if (this->beeper_switch_ != nullptr && this->beeper_switch_->state) {
-      this->pending_action_requests.enqueue(this->create_request_(
+      this->pending_action_requests_.enqueue(this->create_request_(
           HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
     }
 #endif
@@ -818,7 +820,7 @@ void HlinkAc::set_remote_lock_state(bool state) {
   auto publish_current_state = [this]() {
     this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
   };
-  this->pending_action_requests.enqueue(this->create_request_(
+  this->pending_action_requests_.enqueue(this->create_request_(
       HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::REMOTE_CONTROL_LOCK, state),
       [this, state](const HlinkResponseFrame &response) {
         this->hlink_entity_status_.remote_control_lock = state;
@@ -831,7 +833,7 @@ void HlinkAc::set_beeper_switch(switch_::Switch *sw) { this->beeper_switch_ = sw
 
 void HlinkAc::handle_beep_state_change(bool state) {
   if (state) {
-    this->pending_action_requests.enqueue(this->create_request_(
+    this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
   }
   this->save_settings_();
@@ -927,7 +929,9 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
 #ifdef USE_NUMBER
 void HlinkAc::set_auto_temperature_offset(float offset) {
   this->hlink_entity_status_.target_temperature_auto_offset = static_cast<int8_t>(offset);
-  if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
+  if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO ||
+      this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
+      this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
     auto hlink_offset_temperature = this->hlink_entity_status_.hlink_auto_offset_temperature();
     this->pending_action_requests_.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_offset_temperature),
