@@ -942,6 +942,7 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
           this->hlink_entity_status_.current_temperature_auto_offset = offset;
         }));
   }
+  this->temperature_offset_number_->publish_state(offset);
   this->save_settings_();
 }
 #endif
