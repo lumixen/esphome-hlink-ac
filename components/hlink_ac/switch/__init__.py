@@ -38,6 +38,7 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
+
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_HLINK_AC_ID])
 

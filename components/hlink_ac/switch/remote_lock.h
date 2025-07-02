@@ -7,10 +7,10 @@ namespace esphome {
 namespace hlink_ac {
 class RemoteLockSwitch : public switch_::Switch, public Parented<HlinkAc> {
  public:
- RemoteLockSwitch() = default;
+  RemoteLockSwitch() = default;
 
  protected:
-   void write_state(bool state) override;
+  void write_state(bool state) override;
 };
-}
-}
+}  // namespace hlink_ac
+}  // namespace esphome
