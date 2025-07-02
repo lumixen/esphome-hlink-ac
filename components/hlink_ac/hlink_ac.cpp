@@ -151,7 +151,8 @@ void HlinkAc::dump_config() {
       "  Swing mode: %s\n"
       "  Current temperature: %s\n"
       "  Target temperature: %s\n"
-      "  Auto target temperature offset: %s\n"
+      "  Target auto temperature offset: %s\n"
+      "  Current auto temperature offset: %s\n"
       "  Model: %s",
       this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
                                                          : "N/A",
@@ -170,6 +171,10 @@ void HlinkAc::dump_config() {
       this->hlink_entity_status_.target_temperature.has_value() &&
               !std::isnan(this->hlink_entity_status_.target_temperature.value())
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
+          : "N/A",
+      this->hlink_entity_status_.target_temperature_auto_offset.has_value()
+          ? std::to_string(static_cast<int8_t>(this->hlink_entity_status_.target_temperature_auto_offset.value()))
+                .c_str()
           : "N/A",
       this->hlink_entity_status_.current_temperature_auto_offset.has_value() &&
               !std::isnan(this->hlink_entity_status_.current_temperature_auto_offset.value())
