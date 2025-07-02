@@ -33,7 +33,7 @@ CONFIG_SCHEMA = cv.Schema(
             BeeperSwitch,
             icon=ICON_MUTE,
             entity_category=ENTITY_CATEGORY_CONFIG,
-            default_restore_mode="RESTORE_DEFAULT_OFF",
+            default_restore_mode="DISABLED",
         ),
     }
 )

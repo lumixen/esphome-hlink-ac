@@ -63,19 +63,19 @@ HlinkAc::HlinkAc() {
              // Needs testing, it's not clear if offset makes any difference in real life
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
              if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
-               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp - 2;
+               this->hlink_entity_status_.current_temperature_auto_offset = offset_temp - 2;
              } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-               this->hlink_entity_status_.target_temperature_auto_offset = offset_temp + 2;
+               this->hlink_entity_status_.current_temperature_auto_offset = offset_temp + 2;
              } else {
-               this->hlink_entity_status_.target_temperature_auto_offset = {};
+               this->hlink_entity_status_.current_temperature_auto_offset = {};
              }
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              this->hlink_entity_status_.target_temperature = target_temperature;
-             this->hlink_entity_status_.target_temperature_auto_offset = {};
+             this->hlink_entity_status_.current_temperature_auto_offset = {};
            } else {
              this->hlink_entity_status_.target_temperature = NAN;
-             this->hlink_entity_status_.target_temperature_auto_offset = {};
+             this->hlink_entity_status_.current_temperature_auto_offset = {};
            }
          }
        }});
@@ -112,59 +112,72 @@ HlinkAc::HlinkAc() {
 }
 
 void HlinkAc::setup() {
+  constexpr uint32_t restore_settings_version = 0xA7C3B2E4;
+  this->rtc_ =
+      global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ restore_settings_version);
+  HlinkAcSettings recovered_settings;
+  if (this->rtc_.load(&recovered_settings)) {
 #ifdef USE_SWITCH
-  // Restore beeper switch state from memory if available
-  if (this->beeper_switch_ != nullptr) {
-    auto beeper_switch_restored_state = this->beeper_switch_->get_initial_state_with_restore_mode();
-    if (beeper_switch_restored_state.has_value() &&
-        beeper_switch_restored_state.value() != this->beeper_switch_->state) {
-      this->beeper_switch_->publish_state(beeper_switch_restored_state.value());
+    if (this->beeper_switch_ != nullptr) {
+      this->beeper_switch_->publish_state(recovered_settings.beeper_enabled);
     }
-  }
 #endif
-  ESP_LOGI(TAG, "Hlink AC component initialized.");
+#ifdef USE_NUMBER
+    if (this->temperature_offset_number_ != nullptr) {
+      this->temperature_offset_number_->publish_state(recovered_settings.auto_temperature_offset);
+    }
+#endif
+  }
+  // #ifdef USE_SWITCH
+  //   // Restore beeper switch state from memory if available
+  //   if (this->beeper_switch_ != nullptr) {
+  //     auto beeper_switch_restored_state = this->beeper_switch_->get_initial_state_with_restore_mode();
+  //     if (beeper_switch_restored_state.has_value() &&
+  //         beeper_switch_restored_state.value() != this->beeper_switch_->state) {
+  //       this->beeper_switch_->publish_state(beeper_switch_restored_state.value());
+  //     }
+  //   }
+  // #endif
+  ESP_LOGI(TAG, "Component initialized.");
 }
 
 void HlinkAc::dump_config() {
-  ESP_LOGCONFIG(TAG, "Hlink AC:");
-  ESP_LOGCONFIG(TAG, "  Power state: %s",
-                this->hlink_entity_status_.power_state.has_value()
-                    ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
-                    : "N/A");
-  ESP_LOGCONFIG(TAG, "  Mode: %s",
-                this->hlink_entity_status_.mode.has_value()
-                    ? LOG_STR_ARG(climate_mode_to_string(this->hlink_entity_status_.mode.value()))
-                    : "N/A");
-  ESP_LOGCONFIG(TAG, "  Fan mode: %s",
-                this->hlink_entity_status_.fan_mode.has_value()
-                    ? LOG_STR_ARG(climate_fan_mode_to_string(this->hlink_entity_status_.fan_mode.value()))
-                    : "N/A");
-  ESP_LOGCONFIG(TAG, "  Swing mode: %s",
-                this->hlink_entity_status_.swing_mode.has_value()
-                    ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value()))
-                    : "N/A");
   ESP_LOGCONFIG(
-      TAG, "  Current temperature: %s",
+      TAG,
+      "Hlink AC:\n"
+      "  Power state: %s\n"
+      "  Mode: %s\n"
+      "  Fan mode: %s\n"
+      "  Swing mode: %s\n"
+      "  Current temperature: %s\n"
+      "  Target temperature: %s\n"
+      "  Auto target temperature offset: %s\n"
+      "  Model: %s",
+      this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
+                                                         : "N/A",
+      this->hlink_entity_status_.mode.has_value()
+          ? LOG_STR_ARG(climate_mode_to_string(this->hlink_entity_status_.mode.value()))
+          : "N/A",
+      this->hlink_entity_status_.fan_mode.has_value()
+          ? LOG_STR_ARG(climate_fan_mode_to_string(this->hlink_entity_status_.fan_mode.value()))
+          : "N/A",
+      this->hlink_entity_status_.swing_mode.has_value()
+          ? LOG_STR_ARG(climate_swing_mode_to_string(this->hlink_entity_status_.swing_mode.value()))
+          : "N/A",
       this->hlink_entity_status_.current_temperature.has_value()
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str()
-          : "N/A");
-  ESP_LOGCONFIG(
-      TAG, "  Target temperature: %s",
+          : "N/A",
       this->hlink_entity_status_.target_temperature.has_value() &&
               !std::isnan(this->hlink_entity_status_.target_temperature.value())
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
-          : "N/A");
-  ESP_LOGCONFIG(
-      TAG, "  Auto target temperature offset: %s",
-      this->hlink_entity_status_.target_temperature_auto_offset.has_value() &&
-              !std::isnan(this->hlink_entity_status_.target_temperature_auto_offset.value())
-          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature_auto_offset.value()))
+          : "N/A",
+      this->hlink_entity_status_.current_temperature_auto_offset.has_value() &&
+              !std::isnan(this->hlink_entity_status_.current_temperature_auto_offset.value())
+          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature_auto_offset.value()))
                 .c_str()
-          : "N/A");
-  ESP_LOGCONFIG(TAG, "  Model: %s",
-                this->hlink_entity_status_.model_name.has_value()
-                    ? this->hlink_entity_status_.model_name.value().c_str()
-                    : "N/A");
+          : "N/A",
+      this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str()
+                                                        : "N/A");
 #ifdef USE_SWITCH
   ESP_LOGCONFIG(TAG, "  Remote lock: %s",
                 this->hlink_entity_status_.remote_control_lock.has_value()
@@ -279,7 +292,7 @@ void HlinkAc::loop() {
 
   // Reset status to IDLE if we reached timeout deadline
   if (this->status_.state != IDLE && this->status_.reached_timeout_threshold()) {
-    ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Resetting state to IDLE.",
+    ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Go to IDLE.",
              this->status_.state == REQUEST_NEXT_STATUS_FEATURE    ? "REQUEST_NEXT_STATUS_FEATURE"
              : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
              : this->status_.state == READ_FEATURE_RESPONSE        ? "READ_FEATURE_RESPONSE"
@@ -296,7 +309,7 @@ void HlinkAc::loop() {
              this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
              this->pending_action_requests.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
-      ESP_LOGW(TAG, "Unsuccessful timed out request: [%s - %04X,%s]",
+      ESP_LOGW(TAG, "Request time out: [%s - %04X,%s]",
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                this->status_.current_request->request_frame.p.address,
                this->status_.current_request->request_frame.p.data.has_value()
@@ -437,9 +450,9 @@ void HlinkAc::publish_updates_if_any_() {
 #ifdef USE_NUMBER
   if (this->temperature_offset_number_ != nullptr) {
     if (!is_nanable_equal(this->temperature_offset_number_->state,
-                          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f))) {
+                          this->hlink_entity_status_.current_temperature_auto_offset.value_or(0.0f))) {
       this->temperature_offset_number_->publish_state(
-          this->hlink_entity_status_.target_temperature_auto_offset.value());
+          this->hlink_entity_status_.current_temperature_auto_offset.value());
     }
   }
 #endif
@@ -499,12 +512,11 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
       return HLINK_RESPONSE_PARTIAL;
     }
     if (read_index >= HLINK_MSG_READ_BUFFER_SIZE) {
-      ESP_LOGE(TAG, "RX buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE,
-               response_buf.c_str());
+      ESP_LOGE(TAG, "RX buffer overflow (>%d bytes). Buffer: [%s]", HLINK_MSG_READ_BUFFER_SIZE, response_buf.c_str());
       return HLINK_RESPONSE_INVALID;
     }
     if (!this->read_byte(reinterpret_cast<uint8_t *>(&response_buf[read_index]))) {
-      ESP_LOGW(TAG, "Failed to read frame byte at index %d from UART", read_index);
+      ESP_LOGW(TAG, "Failed to read frame byte at index %d", read_index);
       return HLINK_RESPONSE_INVALID;
     }
     if (response_buf[read_index] == ASCII_CR) {
@@ -512,8 +524,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
         break;  // If we reached CR and there is no more data available, we can stop reading
       } else {
         // If there is more data available after CR, we should continue and log a warning
-        ESP_LOGW(TAG, "There is more data available after CR, normally this shouldn't happen. Buffer: %s",
-                 response_buf.c_str());
+        ESP_LOGW(TAG, "There is more data available after CR. Buffer: %s", response_buf.c_str());
       }
     }
     read_index++;
@@ -541,7 +552,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
     return HLINK_RESPONSE_ACK_OK;
   }
   if (response_tokens.size() != 3) {
-    ESP_LOGW(TAG, "Invalid H-link response: %s", response_buf.c_str());
+    ESP_LOGW(TAG, "Invalid response: %s", response_buf.c_str());
     return HLINK_RESPONSE_INVALID;
   }
 
@@ -634,6 +645,11 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           this->mode = mode;
           this->publish_state();
         }));
+    if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
+      // If the mode is OFF, we should reset the target temperature to NaN
+      this->target_temperature = NAN;
+      this->hlink_entity_status_.target_temperature = NAN;
+    }
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
@@ -825,6 +841,7 @@ void HlinkAc::handle_beep_state_change(bool state) {
     this->pending_action_requests.enqueue(this->create_request_(
         HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::BEEPER, HLINK_BEEP_ACTION)));
   }
+  this->save_settings_();
 }
 #endif
 
@@ -916,18 +933,16 @@ void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sens
 #endif
 #ifdef USE_NUMBER
 void HlinkAc::set_auto_temperature_offset(float offset) {
-  uint16_t offset_temp = static_cast<uint8_t>(static_cast<int8_t>(offset)) + 0xFF00;
-  auto publish_current_state = [this]() {
-    this->temperature_offset_number_->publish_state(
-        this->hlink_entity_status_.target_temperature_auto_offset.value_or(0.0f));
-  };
-  this->pending_action_requests.enqueue(this->create_request_(
-      HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
-      [this, offset](const HlinkResponseFrame &response) {
-        this->hlink_entity_status_.target_temperature_auto_offset = offset;
-        this->temperature_offset_number_->publish_state(offset);
-      },
-      publish_current_state, publish_current_state, publish_current_state));
+  this->hlink_entity_status_.target_temperature_auto_offset = static_cast<int8_t>(offset);
+  if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
+    uint16_t offset_temp = static_cast<uint8_t>(this->hlink_entity_status_.target_temperature_auto_offset.value_or(0)) + 0xFF00;
+    this->pending_action_requests.enqueue(this->create_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
+        [this, offset](const HlinkResponseFrame &response) {
+          this->hlink_entity_status_.current_temperature_auto_offset = offset;
+        }));
+  }
+  this->save_settings_();
 }
 #endif
 
@@ -937,6 +952,20 @@ std::unique_ptr<HlinkRequest> HlinkAc::create_request_(
   {
     return std::unique_ptr<HlinkRequest>(
         new HlinkRequest{request_frame, ok_callback, ng_callback, invalid_callback, timeout_callback});
+  }
+}
+
+void HlinkAc::save_settings_() {
+  bool beeper_enabled = false;
+#ifdef USE_SWITCH
+  if (this->beeper_switch_ != nullptr) {
+    beeper_enabled = this->beeper_switch_->state;
+  }
+#endif
+  int8_t auto_temperature_offset = this->hlink_entity_status_.target_temperature_auto_offset.value_or(0);
+  HlinkAcSettings settings{beeper_enabled, auto_temperature_offset};
+  if (!this->rtc_.save(&settings)) {
+    ESP_LOGW(TAG, "Failed to save settings");
   }
 }
 
