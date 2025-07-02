@@ -89,14 +89,14 @@ climate:
 switch:
   - platform: hlink_ac
     remote_lock:
-      name: Remote lock
+      name: Remote Lock
     beeper:
       name: Beeper
 
 sensor:
   - platform: hlink_ac
     outdoor_temperature:
-      name: Outdoor temperature # Available only when device is active
+      name: Outdoor Temperature # Available only when device is active
 
 text_sensor:
   - platform: hlink_ac
@@ -106,7 +106,7 @@ text_sensor:
 number:
   - platform: hlink_ac
     auto_target_temperature_offset:
-      name: Auto mode temperature offset
+      name: Auto Mode Temp Offset
 ```
 
 without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
