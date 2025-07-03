@@ -115,20 +115,22 @@ void HlinkAc::setup() {
   constexpr uint32_t settings_version = 0xA7C3B2E4;
   this->rtc_ = global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ settings_version);
   HlinkAcSettings recovered_settings;
+  auto beeper_enabled = false;
   if (this->rtc_.load(&recovered_settings)) {
+    beeper_enabled = recovered_settings.beeper_enabled;
+    this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
+  }
 #ifdef USE_SWITCH
-    if (this->beeper_switch_ != nullptr && recovered_settings.beeper_enabled != this->beeper_switch_->state) {
-      this->beeper_switch_->publish_state(recovered_settings.beeper_enabled);
-    }
+  if (this->beeper_switch_ != nullptr && recovered_settings.beeper_enabled != this->beeper_switch_->state) {
+    this->beeper_switch_->publish_state(beeper_enabled);
+  }
 #endif
 #ifdef USE_NUMBER
-    if (this->temperature_offset_number_ != nullptr) {
-      this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
-      this->temperature_offset_number_->publish_state(
-          this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
-    }
-#endif
+  if (this->temperature_offset_number_ != nullptr) {
+    this->temperature_offset_number_->publish_state(
+        this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
   }
+#endif
   ESP_LOGI(TAG, "Component initialized.");
 }
 
