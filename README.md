@@ -71,7 +71,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2025.6.0
+      ref: 2025.7.0
     components: [hlink_ac]
 
 climate:
@@ -89,14 +89,17 @@ climate:
 switch:
   - platform: hlink_ac
     remote_lock:
-      name: Remote lock
+      name: Remote Lock
     beeper:
       name: Beeper
 
 sensor:
   - platform: hlink_ac
+    auto_target_temp_offset:
+      name: Auto Mode Temp Offset
+  - platform: hlink_ac
     outdoor_temperature:
-      name: Outdoor temperature # Available only when device is active
+      name: Outdoor Temperature # Available only when device is active
 
 text_sensor:
   - platform: hlink_ac
@@ -106,7 +109,7 @@ text_sensor:
 number:
   - platform: hlink_ac
     auto_target_temperature_offset:
-      name: Auto mode temperature offset
+      name: Auto Mode Temp Offset
 ```
 
 without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
@@ -130,6 +133,19 @@ climate:
     visual:
       min_temperature: 16.0
       max_temperature: 28.0
+```
+
+### LibreTiny configuration
+
+As of mid-2025, LibreTiny is known to have issues with its serial stack implementation that may [completely corrupt the UART RX buffer](https://github.com/lumixen/esphome-hlink-ac/issues/25). A possible workaround is to use the patched `RingBuffer` implementation:
+```yml
+esphome:
+  name: hitachi-ac
+  friendly_name: hitachi-ac
+  platformio_options:
+    platform_packages:
+      - framework-arduino-api @ https://github.com/hn/ArduinoCore-API#RingBufferFix
+      # https://github.com/libretiny-eu/libretiny/issues/154
 ```
 
 ### Supported features:
@@ -165,6 +181,7 @@ climate:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
+    - Temperature offset in auto mode
 4. Text sensor
     - Model name
     - Debug

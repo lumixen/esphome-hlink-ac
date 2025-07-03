@@ -49,7 +49,8 @@ struct HlinkEntityStatus {
   optional<esphome::climate::ClimateAction> action;
   optional<float> current_temperature;
   optional<float> target_temperature;
-  optional<float> target_temperature_auto_offset;
+  optional<int8_t> target_temperature_auto_offset;
+  optional<float> current_temperature_auto_offset;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
   optional<bool> leave_home_enabled;
@@ -60,6 +61,10 @@ struct HlinkEntityStatus {
   bool has_hvac_status() {
     return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() &&
            mode.has_value();
+  }
+
+  uint16_t hlink_auto_offset_temperature() {
+    return static_cast<uint8_t>(target_temperature_auto_offset.value_or(0)) + 0xFF00;
   }
 };
 
@@ -232,6 +237,7 @@ struct ComponentStatus {
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
+  AUTO_TARGET_TEMP_OFFSET = 1,
   // Used to count the number of sensors in the enum
   COUNT,
 };
@@ -242,6 +248,11 @@ enum class TextSensorType {
   COUNT,
 };
 #endif
+
+struct HlinkAcSettings {
+  bool beeper_enabled;
+  int8_t auto_temperature_offset;
+};
 
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
 class CircularRequestsQueue {
@@ -277,6 +288,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
+  sensor::Sensor *auto_target_temp_offset_sensor_{nullptr};
 #endif
 #ifdef USE_TEXT_SENSOR
  public:
@@ -315,7 +327,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
-  CircularRequestsQueue pending_action_requests;
+  CircularRequestsQueue pending_action_requests_;
+  ESPPreferenceObject rtc_;
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
@@ -326,7 +339,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
       std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
       std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
-  bool is_nanable_equal(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
+  bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
+  void save_settings_();
 };
 }  // namespace hlink_ac
 }  // namespace esphome

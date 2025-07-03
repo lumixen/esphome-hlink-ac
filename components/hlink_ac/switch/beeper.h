@@ -7,9 +7,10 @@ namespace esphome {
 namespace hlink_ac {
 class BeeperSwitch : public switch_::Switch, public Parented<HlinkAc> {
  public:
- BeeperSwitch() = default;
+  BeeperSwitch() = default;
+
  protected:
-   void write_state(bool state) override;
+  void write_state(bool state) override;
 };
-}
-}
+}  // namespace hlink_ac
+}  // namespace esphome
