@@ -135,6 +135,19 @@ climate:
       max_temperature: 28.0
 ```
 
+### LibreTiny configuration
+
+As of mid-2025, LibreTiny is known to have issues with its serial stack implementation that may [completely corrupt the UART RX buffer](https://github.com/lumixen/esphome-hlink-ac/issues/25). A possible workaround is to use the patched `RingBuffer` implementation:
+```yml
+esphome:
+  name: hitachi-ac
+  friendly_name: hitachi-ac
+  platformio_options:
+    platform_packages:
+      - framework-arduino-api @ https://github.com/hn/ArduinoCore-API#RingBufferFix
+      # https://github.com/libretiny-eu/libretiny/issues/154
+```
+
 ### Supported features:
 1. Climate
     - HVAC mode:
