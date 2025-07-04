@@ -156,7 +156,7 @@ esphome:
       - `COOL`
       - `DRY`
       - `FAN_ONLY`
-      - `AUTO`
+      - `HEAT_COOL`
     - Fan mode:
       - `QUIET`
       - `LOW`
