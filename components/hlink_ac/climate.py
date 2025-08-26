@@ -31,6 +31,7 @@ hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
+CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
 
 PROTOCOL_MIN_TEMPERATURE = 16.0
 PROTOCOL_MAX_TEMPERATURE = 32.0
@@ -168,6 +169,10 @@ CONFIG_SCHEMA = cv.All(
                 SUPPORT_HVAC_ACTIONS,
                 default=False,
             ): cv.boolean,
+            cv.Optional(
+                CONF_STATUS_UPDATE_INTERVAL,
+                default="5000",
+            ): cv.All(cv.uint32_t, cv.Range(min=1000, max=60000)),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -177,18 +182,20 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await uart.register_uart_device(var, config)
-    await climate.register_climate(var, config)
+    component = cg.new_Pvariable(config[CONF_ID])
+    await cg.register_component(component, config)
+    await uart.register_uart_device(component, config)
+    await climate.register_climate(component, config)
+
+    cg.add(component.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
 
     if CONF_SUPPORTED_MODES in config:
-        cg.add(var.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))
+        cg.add(component.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))
     if CONF_SUPPORTED_SWING_MODES in config:
-        cg.add(var.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
+        cg.add(component.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
     if CONF_SUPPORTED_FAN_MODES in config:
-        cg.add(var.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
+        cg.add(component.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
     if CONF_SUPPORTED_PRESETS in config:
-        cg.add(var.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
+        cg.add(component.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
     if SUPPORT_HVAC_ACTIONS in config:
-        cg.add(var.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))
+        cg.add(component.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))

@@ -185,6 +185,10 @@ void HlinkAc::dump_config() {
   this->check_uart_settings(9600, 1, uart::UART_CONFIG_PARITY_ODD, 8);
 }
 
+void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
+  this->status_.status_update_interval_ms = interval_ms;
+}
+
 void HlinkAc::request_status_update_() {
   if (this->status_.state == IDLE) {
     // Launch update sequence
@@ -347,8 +351,7 @@ void HlinkAc::loop() {
   }
 
   // Start polling cycle if we are in IDLE state and the status update interval is reached
-  if (this->status_.state == IDLE &&
-      this->status_.last_status_polling_finished_at_ms + STATUS_UPDATE_INTERVAL < millis()) {
+  if (this->status_.state == IDLE && this->status_.can_start_next_polling()) {
     this->request_status_update_();
   }
 
