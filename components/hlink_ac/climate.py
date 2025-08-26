@@ -172,7 +172,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_STATUS_UPDATE_INTERVAL,
                 default="5000",
-            ): cv.All(cv.uint32_t, cv.Range(min=1000, max=60000)),
+            ): cv.All(cv.uint32_t, cv.Range(min=100, max=60000)),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
