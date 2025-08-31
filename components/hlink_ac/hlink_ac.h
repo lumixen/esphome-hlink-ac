@@ -325,6 +325,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets);
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
+
   void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string address, std::string data);
 
@@ -339,10 +340,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequest> create_request_(
-      HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
-      std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
-      std::function<void()> timeout_callback = nullptr);
+  void enqueue_request_(HlinkRequestFrame request_frame,
+                        std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
+                        std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
+                        std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
   bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
   void save_settings_();
