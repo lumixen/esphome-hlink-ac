@@ -182,20 +182,20 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    component = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(component, config)
-    await uart.register_uart_device(component, config)
-    await climate.register_climate(component, config)
+    var = cg.new_Pvariable(config[CONF_ID])
+    await cg.register_component(var, config)
+    await uart.register_uart_device(var, config)
+    await climate.register_climate(var, config)
 
-    cg.add(component.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
+    cg.add(var.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
 
     if CONF_SUPPORTED_MODES in config:
-        cg.add(component.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))
+        cg.add(var.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))
     if CONF_SUPPORTED_SWING_MODES in config:
-        cg.add(component.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
+        cg.add(var.set_supported_swing_modes(config[CONF_SUPPORTED_SWING_MODES]))
     if CONF_SUPPORTED_FAN_MODES in config:
-        cg.add(component.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
+        cg.add(var.set_supported_fan_modes(config[CONF_SUPPORTED_FAN_MODES]))
     if CONF_SUPPORTED_PRESETS in config:
-        cg.add(component.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
+        cg.add(var.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
     if SUPPORT_HVAC_ACTIONS in config:
-        cg.add(component.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))
+        cg.add(var.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))
