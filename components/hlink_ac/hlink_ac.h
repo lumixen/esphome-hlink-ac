@@ -20,9 +20,6 @@
 namespace esphome {
 namespace hlink_ac {
 
-constexpr uint32_t STATUS_UPDATE_INTERVAL = 5000;
-constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
-
 constexpr uint8_t HLINK_MSG_READ_BUFFER_SIZE = 64;
 constexpr uint8_t ASCII_CR = 0x0D;
 
@@ -31,6 +28,10 @@ static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
+
+constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
+
+constexpr uint32_t DEFAULT_STATUS_UPDATE_INTERVAL = 5000;
 
 enum HlinkComponentState : uint8_t {
   IDLE,
@@ -197,6 +198,7 @@ struct ComponentStatus {
   std::vector<HlinkRequest> polling_features = {};
   optional<HlinkRequest> low_priority_hlink_request = {};
   int16_t requested_feature_index = -1;
+  uint32_t status_update_interval_ms = DEFAULT_STATUS_UPDATE_INTERVAL;
   uint32_t non_idle_timeout_limit_ms = 0;
   uint32_t last_status_polling_finished_at_ms = 0;
   uint32_t last_frame_received_at_ms = 0;
@@ -215,6 +217,8 @@ struct ComponentStatus {
     // ms or AC will return NG
     return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
   }
+
+  bool can_start_next_polling() { return (last_status_polling_finished_at_ms + status_update_interval_ms) < millis(); }
 
   HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
 
@@ -321,6 +325,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets);
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
+
+  void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string address, std::string data);
 
  protected:
@@ -334,10 +340,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void publish_updates_if_any_();
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
-  std::unique_ptr<HlinkRequest> create_request_(
-      HlinkRequestFrame request_frame, std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
-      std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
-      std::function<void()> timeout_callback = nullptr);
+  void enqueue_request_(HlinkRequestFrame request_frame,
+                        std::function<void(const HlinkResponseFrame &response)> ok_callback = nullptr,
+                        std::function<void()> ng_callback = nullptr, std::function<void()> invalid_callback = nullptr,
+                        std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
   bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
   void save_settings_();

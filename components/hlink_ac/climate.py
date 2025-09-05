@@ -31,6 +31,7 @@ hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
+CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
 
 PROTOCOL_MIN_TEMPERATURE = 16.0
 PROTOCOL_MAX_TEMPERATURE = 32.0
@@ -168,6 +169,10 @@ CONFIG_SCHEMA = cv.All(
                 SUPPORT_HVAC_ACTIONS,
                 default=False,
             ): cv.boolean,
+            cv.Optional(
+                CONF_STATUS_UPDATE_INTERVAL,
+                default="5000",
+            ): cv.All(cv.uint32_t, cv.Range(min=100, max=60000)),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -181,6 +186,8 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     await climate.register_climate(var, config)
+
+    cg.add(var.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
 
     if CONF_SUPPORTED_MODES in config:
         cg.add(var.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))
