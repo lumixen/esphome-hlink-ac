@@ -596,13 +596,21 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
     ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
     return;
   }
-  this->enqueue_request_(HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
-                                                        static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
-                         [this, address, data](const HlinkResponseFrame &response) {
-                           ESP_LOGD(TAG, "Successfully applied custom request [%s:%s]", address.c_str(), data.c_str());
-                           this->send_hlink_cmd_result_callback_.call(
-                               {HLINK_MSG_OK_TOKEN, address, data, response.p_value_as_string()});
-                         });
+  this->enqueue_request_(
+      HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
+                                     static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
+      [this, address, data](const HlinkResponseFrame &response) {
+        ESP_LOGD(TAG, "Successfully applied custom request [%s:%s]", address.c_str(), data.c_str());
+        this->send_hlink_cmd_result_callback_.call({HLINK_MSG_OK_TOKEN, address, data, response.p_value_as_string()});
+      },
+      [this, address, data]() {
+        ESP_LOGD(TAG, "Failed to apply custom request [%s:%s]", address.c_str(), data.c_str());
+        this->send_hlink_cmd_result_callback_.call({HLINK_MSG_NG_TOKEN, address, data, {}});
+      },
+      [this, address, data]() {
+        ESP_LOGD(TAG, "Timeout while applying a custom request [%s:%s]", address.c_str(), data.c_str());
+        this->send_hlink_cmd_result_callback_.call({TIMEOUT, address, data, {}});
+      });
 }
 
 void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback) {

@@ -29,6 +29,8 @@ constexpr uint8_t ASCII_CR = 0x0D;
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
 
+static const std::string TIMEOUT = "TIMEOUT";
+
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
 

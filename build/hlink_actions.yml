@@ -28,7 +28,7 @@ climate:
         - mqtt.publish:
             topic: hlink_ac/send_hlink_frame_result
             payload: !lambda |-
-              DynamicJsonDocument doc(128);
+              JsonDocument doc;
               doc["request_address"] = result.request_address;
               doc["result_status"] = result.result_status;
               if (result.request_data.has_value())
