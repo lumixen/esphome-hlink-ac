@@ -101,6 +101,11 @@ sensor:
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
 
+binary_sensor:
+  - platform: hlink_ac
+    air_filter_warning:
+      name: Air Filter Cleaning Required
+
 text_sensor:
   - platform: hlink_ac
     model_name:
@@ -182,11 +187,13 @@ esphome:
 3. Sensor
     - Outdoor temperature
     - Temperature offset in auto mode
-4. Text sensor
+4. Binary Sensor
+    - Indoor unit air filter cleaning reminder
+5. Text sensor
     - Model name
     - Debug
     - Debug discovery
-5. Number
+6. Number
     - Temperature offset in auto mode
 
 ## H-link protocol reverse engineering
