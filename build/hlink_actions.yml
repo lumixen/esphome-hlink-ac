@@ -23,6 +23,29 @@ climate:
   - platform: hlink_ac
     id: hitachi_ac
     name: "H-Link Test Climate Device"
+    on_send_hlink_cmd_result:
+      then:
+        - mqtt.publish:
+            topic: hlink_ac/send_hlink_frame_result
+            payload: !lambda |-
+              JsonDocument doc;
+              doc["cmd_type"] = result.cmd_type;
+              doc["request_address"] = result.request_address;
+              doc["result_status"] = result.result_status;
+              if (result.request_data.has_value())
+                doc["request_data"] = result.request_data.value();
+              if (result.response_data.has_value())
+                doc["response_data"] = result.response_data.value();
+              std::string out;
+              serializeJson(doc, out);
+              return out;
+button:
+  - platform: template
+    name: "Reset Air Filter Warning"
+    on_press:
+      then:
+        - hlink_ac.reset_air_filter_clean_warning:
+            id: hitachi_ac
 
 wifi:
   ssid: test
@@ -36,16 +59,20 @@ mqtt:
     topic: hlink_ac/send_hlink_frame
     then:
       - lambda: |-
-          if (x.containsKey("messages") && x["messages"].is<JsonArrayConst>()) {
+          if (x["messages"].is<JsonArrayConst>()) {
             for (auto message : x["messages"].as<JsonArrayConst>()) {
+              std::string cmd_type = "";
               std::string address = "";
-              std::string data = "";
-              if (message.containsKey("address")) {
+              optional<std::string> data = {};
+              if (message["cmd_type"].is<const char*>()) {
+                cmd_type = std::string(message["cmd_type"].as<const char*>());
+              }
+              if (message["address"].is<const char*>()) {
                 address = std::string(message["address"].as<const char*>());
               }
-              if (message.containsKey("data")) {
+              if (message["data"].is<const char*>()) {
                 data = std::string(message["data"].as<const char*>());
               }
-              id(hitachi_ac).send_hlink_cmd(address, data);
+              id(hitachi_ac).send_hlink_cmd(cmd_type, address, data);
             }
           }

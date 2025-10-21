@@ -7,6 +7,9 @@
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 #ifdef USE_SWITCH
 #include "esphome/components/switch/switch.h"
 #endif
@@ -25,6 +28,8 @@ constexpr uint8_t ASCII_CR = 0x0D;
 
 static const std::string HLINK_MSG_OK_TOKEN = "OK";
 static const std::string HLINK_MSG_NG_TOKEN = "NG";
+
+static const std::string TIMEOUT = "TIMEOUT";
 
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
@@ -75,11 +80,13 @@ enum FeatureType : uint16_t {
   FAN_MODE = 0x0002,
   TARGET_TEMP = 0x0003,
   REMOTE_CONTROL_LOCK = 0x0006,
+  CLEAN_FILTER_WARNING_RESET = 0x0007,
   SWING_MODE = 0x0014,
   CURRENT_INDOOR_TEMP = 0x0100,
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
   LEAVE_HOME_STATUS_WRITE = 0x0300,
   ACTIVITY_STATUS = 0x0301,  // 0000=Stand-by FFFF=Active
+  AIR_FILTER_WARNING = 0x302,
   LEAVE_HOME_STATUS_READ = 0x0304,
   BEEPER = 0x0800,  // Triggers beeper sound
   MODEL_NAME = 0x0900,
@@ -238,11 +245,25 @@ struct ComponentStatus {
   }
 };
 
+struct SendHlinkCmdResult {
+  std::string result_status;
+  std::string cmd_type;
+  std::string request_address;
+  optional<std::string> request_data;
+  optional<std::string> response_data;
+};
+
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
   AUTO_TARGET_TEMP_OFFSET = 1,
   // Used to count the number of sensors in the enum
+  COUNT,
+};
+#endif
+#ifdef USE_BINARY_SENSOR
+enum class BinarySensorType {
+  AIR_FILTER_WARNING = 0,
   COUNT,
 };
 #endif
@@ -294,6 +315,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void update_sensor_state_(sensor::Sensor *sensor, float value);
   sensor::Sensor *auto_target_temp_offset_sensor_{nullptr};
 #endif
+#ifdef USE_BINARY_SENSOR
+ public:
+  void set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *s);
+#endif
 #ifdef USE_TEXT_SENSOR
  public:
   void set_text_sensor(TextSensorType type, text_sensor::TextSensor *sens);
@@ -326,8 +351,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
 
+  void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
-  void send_hlink_cmd(std::string address, std::string data);
+  void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
+  void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult&)> &&callback);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -335,6 +362,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
+  CallbackManager<void(const SendHlinkCmdResult&)> send_hlink_cmd_result_callback_{};
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();

@@ -22,6 +22,7 @@ from esphome.const import (
     CONF_MAX_TEMPERATURE,
     CONF_TEMPERATURE_STEP,
     CONF_TARGET_TEMPERATURE,
+    CONF_TRIGGER_ID,
 )
 
 CODEOWNERS = ["@lumixen"]
@@ -29,9 +30,12 @@ DEPENDENCIES = ["climate", "uart"]
 
 hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
+SendHlinkCmdResult = hlink_ac_ns.struct("SendHlinkCmdResult")
+SendHlinkCmdResultConstRef = SendHlinkCmdResult.operator("ref").operator("const")
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
 CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
+CONF_ON_SEND_HLINK_CMD_RESULT = "on_send_hlink_cmd_result"
 
 PROTOCOL_MIN_TEMPERATURE = 16.0
 PROTOCOL_MAX_TEMPERATURE = 32.0
@@ -73,12 +77,24 @@ SUPPORTED_CLIMATE_PRESETS_OPTIONS = {
     "AWAY": ClimatePreset.CLIMATE_PRESET_AWAY,
 }
 
-HlinkAcSendHlinkCmd = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+# Actions
+
+HlinkAcSendHlinkCmdAction = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+ResetAirFilterCleanWarning = hlink_ac_ns.class_(
+    "ResetAirFilterCleanWarning", automation.Action
+)
+
+# Triggers
+
+SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
+    "SendHlinkCmdResultTrigger",
+    automation.Trigger.template(SendHlinkCmdResultConstRef),
+)
 
 
 @automation.register_action(
     "hlink_ac.send_hlink_cmd",
-    HlinkAcSendHlinkCmd,
+    HlinkAcSendHlinkCmdAction,
     cv.Schema(
         {
             cv.GenerateID(): cv.use_id(HlinkAc),
@@ -97,6 +113,21 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     cg.add(var.set_address(address_template))
     cg.add(var.set_data(data_template))
 
+    return var
+
+
+@automation.register_action(
+    "hlink_ac.reset_air_filter_clean_warning",
+    ResetAirFilterCleanWarning,
+    automation.maybe_simple_id(
+        {
+            cv.GenerateID(): cv.use_id(HlinkAc),
+        }
+    ),
+)
+async def reset_air_filter_clean_warning_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
     return var
 
 
@@ -173,6 +204,13 @@ CONFIG_SCHEMA = cv.All(
                 CONF_STATUS_UPDATE_INTERVAL,
                 default="5000",
             ): cv.All(cv.uint32_t, cv.Range(min=100, max=60000)),
+            cv.Optional(CONF_ON_SEND_HLINK_CMD_RESULT): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        SendHlinkCmdResultTrigger
+                    ),
+                }
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -199,3 +237,9 @@ async def to_code(config):
         cg.add(var.set_supported_climate_presets(config[CONF_SUPPORTED_PRESETS]))
     if SUPPORT_HVAC_ACTIONS in config:
         cg.add(var.set_support_hvac_actions(config[SUPPORT_HVAC_ACTIONS]))
+
+    for conf in config.get(CONF_ON_SEND_HLINK_CMD_RESULT, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(
+            trigger, [(SendHlinkCmdResultConstRef, "result")], conf
+        )

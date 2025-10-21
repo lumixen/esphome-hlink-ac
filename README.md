@@ -1,6 +1,6 @@
 ## Overview
 
-This component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. Tested with Hitachi RAK-25PEC AC.
+This ESPHome component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. The list of supported AC units appears to be quite extensive. Several examples of this project's adoption can be found in the [hardware implementation examples list](#hardware-implementation-examples).
 
 ## H-link protocol
 
@@ -23,7 +23,7 @@ where `P=XXXX,XX(XX)` specifies the function to modify and the new value, `C=YYY
 
 ## Hardware
 
-For PoC project I used the Lolin D32 ESP32 dev board.
+For my Hitachi RAK-25PEC, I used the Lolin D32 ESP32 dev board.
 
 The H-Link port, often referred to as `CN7` in Hitachi manuals, operates at 5V logic levels and provides a 12V power line. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
 
@@ -100,6 +100,16 @@ sensor:
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
+
+binary_sensor:
+  - platform: hlink_ac
+    air_filter_warning:
+      name: Air Filter Cleaning Required
+
+button:
+  - platform: hlink_ac
+    reset_air_filter_warning:
+      name: "Reset Air Filter Warning"
 
 text_sensor:
   - platform: hlink_ac
@@ -182,12 +192,16 @@ esphome:
 3. Sensor
     - Outdoor temperature
     - Temperature offset in auto mode
-4. Text sensor
+4. Binary Sensor
+    - Indoor unit air filter cleaning reminder
+5. Text sensor
     - Model name
     - Debug
     - Debug discovery
-5. Number
+6. Number
     - Temperature offset in auto mode
+7. Button
+    - Reset indoor unit air filter cleaning reminder
 
 ## H-link protocol reverse engineering
 
@@ -219,7 +233,18 @@ text_sensor:
       name: H-link addresses scanner
 ```
 
-Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `ST P=address,value C=XXXX` control frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink command upon receiving a JSON MQTT message `{"address":"XXXX","data":"DD" | "DDDD"}` in the `hlink_ac/send_hlink_frame` topic:
+### Actions and triggers
+
+Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `MT P=address C=XXXX` or `ST P=address,value C=XXXX` frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink commands upon receiving a JSON MQTT messages like
+```json
+{
+  "messages": [
+    {"cmd_type": "ST", "address": "0006", "data": "01"},
+    {"cmd_type": "MT", "address": "0006"}
+  ]
+}
+```
+ in the `hlink_ac/send_hlink_frame` topic:
 ```yaml
 mqtt:
   broker: 1.1.1.1
@@ -227,17 +252,46 @@ mqtt:
   on_json_message:
     topic: hlink_ac/send_hlink_frame
     then:
-      - hlink_ac.send_hlink_cmd:
-          address: !lambda |-
-            if (x.containsKey("address")) {
-              return x["address"];
+      - lambda: |-
+          if (x["messages"].is<JsonArrayConst>()) {
+            for (auto message : x["messages"].as<JsonArrayConst>()) {
+              std::string cmd_type = "";
+              std::string address = "";
+              optional<std::string> data = {};
+              if (message["cmd_type"].is<const char*>()) {
+                cmd_type = std::string(message["cmd_type"].as<const char*>());
+              }
+              if (message["address"].is<const char*>()) {
+                address = std::string(message["address"].as<const char*>());
+              }
+              if (message["data"].is<const char*>()) {
+                data = std::string(message["data"].as<const char*>());
+              }
+              id(hitachi_ac).send_hlink_cmd(cmd_type, address, data);
             }
-            return "";
-          data: !lambda |-
-            if (x.containsKey("data")) {
-              return x["data"];
-            }
-            return "";
+          }
+```
+
+The `send_hlink_cmd` results can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the hlink device essentially as a low level proxy for h-link communication:
+```yaml
+climate:
+  - platform: hlink_ac
+    ...
+    on_send_hlink_cmd_result:
+      then:
+        - mqtt.publish:
+            topic: hlink_ac/send_hlink_frame_result
+            payload: !lambda |-
+              JsonDocument doc;
+              doc["result_status"] = result.result_status;
+              doc["request_address"] = result.request_address;
+              if (result.request_data.has_value())
+                doc["request_data"] = result.request_data.value();
+              if (result.response_data.has_value())
+                doc["response_data"] = result.response_data.value();
+              std::string out;
+              serializeJson(doc, out);
+              return out;
 ```
 
 H-link UART serial communication could be monitored using this snippet:
@@ -277,3 +331,7 @@ cd build/
 - [RAS-70YHA2](https://github.com/shardshunt/H-Link-Docks)
 - [RAK-DJ18RHAE](https://github.com/lumixen/esphome-hlink-ac/discussions/10#discussioncomment-13095591)
 - [Flashing native Hitachi AirHome 400 module RAK-DJ18RH/RAK-DJ50RH](https://github.com/clsergent/hitachi_altwifi)
+- [RAK-25PEC](#hardware)
+- [RAK-18RPD](https://github.com/lumixen/esphome-hlink-ac/discussions/24)
+- [RAK-18RPE](https://community.home-assistant.io/t/hitachi-ac-h-link-with-esphome/869303/11)
+- [RAF-50RXE](https://community.home-assistant.io/t/hitachi-ac-h-link-with-esphome/869303/12)

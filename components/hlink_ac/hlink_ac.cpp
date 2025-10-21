@@ -587,21 +587,54 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
   return {status, p_value, checksum};
 }
 
-void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
+void HlinkAc::reset_air_filter_clean_warning() {
+  this->enqueue_request_(
+      HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::CLEAN_FILTER_WARNING_RESET, 0x01));
+}
+
+void HlinkAc::send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data) {
   if (address.size() != 4) {
     ESP_LOGW(TAG, "Invalid address length: %s", address.c_str());
     return;
   }
-  if (data.size() % 2 != 0) {
-    ESP_LOGW(TAG, "Invalid data length: %s", data.c_str());
+  if (cmd_type != "ST" && cmd_type != "MT") {
+    ESP_LOGW(TAG, "Invalid command type: %s", cmd_type.c_str());
     return;
   }
-  this->enqueue_request_(HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
-                                                        static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
-                         [address, data](const HlinkResponseFrame &response) {
-                           ESP_LOGD(TAG, "Successfully applied custom ST request [%s:%s]", address.c_str(),
-                                    data.c_str());
-                         });
+  if (cmd_type == "MT" && data.has_value()) {
+    ESP_LOGW(TAG, "MT command should not have data: %s", data->c_str());
+    return;
+  }
+  if (data.has_value() && data->size() % 2 != 0) {
+    ESP_LOGW(TAG, "Invalid data length: %s", data->c_str());
+    return;
+  }
+  auto ok_callback = [this, cmd_type, address, data](const HlinkResponseFrame &response) {
+    ESP_LOGD(TAG, "Successfully applied custom request [%s:%s:%s]", cmd_type.c_str(), address.c_str(),
+             data.has_value() ? data->c_str() : "no data");
+    this->send_hlink_cmd_result_callback_.call(
+        {HLINK_MSG_OK_TOKEN, cmd_type, address, data, response.p_value_as_string()});
+  };
+  auto ng_callback = [this, cmd_type, address, data]() {
+    ESP_LOGD(TAG, "Failed to apply custom request [%s:%s]", cmd_type.c_str(), address.c_str());
+    this->send_hlink_cmd_result_callback_.call({HLINK_MSG_NG_TOKEN, cmd_type, address, data, {}});
+  };
+  auto timeout_callback = [this, cmd_type, address, data]() {
+    ESP_LOGD(TAG, "Timeout while applying a custom request [%s:%s]", cmd_type.c_str(), address.c_str());
+    this->send_hlink_cmd_result_callback_.call({TIMEOUT, cmd_type, address, data, {}});
+  };
+  if (cmd_type == "MT") {
+    this->enqueue_request_({HlinkRequestFrame::Type::MT, {static_cast<uint16_t>(std::stoi(address, nullptr, 16))}},
+                           ok_callback, ng_callback, timeout_callback);
+  } else if (cmd_type == "ST") {
+    this->enqueue_request_(HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
+                                                          static_cast<uint16_t>(std::stoi(address, nullptr, 16)),
+                                                          data.value()), ok_callback, ng_callback, timeout_callback);
+  }
+}
+
+void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback) {
+  this->send_hlink_cmd_result_callback_.add(std::move(callback));
 }
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
@@ -876,6 +909,24 @@ void HlinkAc::update_sensor_state_(sensor::Sensor *sensor, float value) {
       return;
     }
     sensor->publish_state(value);
+  }
+}
+#endif
+#ifdef USE_BINARY_SENSOR
+void HlinkAc::set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *bs) {
+  switch (type) {
+    case BinarySensorType::AIR_FILTER_WARNING:
+      this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::AIR_FILTER_WARNING}},
+                                                [this, bs](const HlinkResponseFrame &response) {
+                                                  optional<int8_t> raw_sensor_value = response.p_value_as_int8();
+                                                  if (raw_sensor_value.has_value()) {
+                                                    bool sensor_value = raw_sensor_value.value() != 0;
+                                                    bs->publish_state(sensor_value);
+                                                  }
+                                                }});
+      break;
+    default:
+      break;
   }
 }
 #endif
