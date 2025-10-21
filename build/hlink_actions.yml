@@ -39,6 +39,13 @@ climate:
               std::string out;
               serializeJson(doc, out);
               return out;
+button:
+  - platform: template
+    name: "Reset Air Filter Warning"
+    on_press:
+      then:
+        - hlink_ac.reset_air_filter_clean_warning:
+            id: hitachi_ac
 
 wifi:
   ssid: test

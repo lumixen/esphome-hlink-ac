@@ -77,12 +77,24 @@ SUPPORTED_CLIMATE_PRESETS_OPTIONS = {
     "AWAY": ClimatePreset.CLIMATE_PRESET_AWAY,
 }
 
-HlinkAcSendHlinkCmd = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+# Actions
+
+HlinkAcSendHlinkCmdAction = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
+ResetAirFilterCleanWarning = hlink_ac_ns.class_(
+    "ResetAirFilterCleanWarning", automation.Action
+)
+
+# Triggers
+
+SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
+    "SendHlinkCmdResultTrigger",
+    automation.Trigger.template(SendHlinkCmdResultConstRef),
+)
 
 
 @automation.register_action(
     "hlink_ac.send_hlink_cmd",
-    HlinkAcSendHlinkCmd,
+    HlinkAcSendHlinkCmdAction,
     cv.Schema(
         {
             cv.GenerateID(): cv.use_id(HlinkAc),
@@ -104,10 +116,19 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     return var
 
 
-SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
-    "SendHlinkCmdResultTrigger",
-    automation.Trigger.template(SendHlinkCmdResultConstRef),
+@automation.register_action(
+    "hlink_ac.reset_air_filter_clean_warning",
+    ResetAirFilterCleanWarning,
+    automation.maybe_simple_id(
+        {
+            cv.GenerateID(): cv.use_id(HlinkAc),
+        }
+    ),
 )
+async def reset_air_filter_clean_warning_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+    return var
 
 
 def validate_visual(config):
@@ -219,4 +240,6 @@ async def to_code(config):
 
     for conf in config.get(CONF_ON_SEND_HLINK_CMD_RESULT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(SendHlinkCmdResultConstRef, "result")], conf)
+        await automation.build_automation(
+            trigger, [(SendHlinkCmdResultConstRef, "result")], conf
+        )

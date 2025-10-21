@@ -19,7 +19,12 @@ template<typename... Ts> class HlinkAcSendHlinkCmd : public Action<Ts...>, publi
   }
 };
 
-class SendHlinkCmdResultTrigger : public Trigger<const SendHlinkCmdResult&> {
+template<typename... Ts> class ResetAirFilterCleanWarning : public Action<Ts...>, public Parented<HlinkAc> {
+ public:
+  void play(Ts... x) override { this->parent_->reset_air_filter_clean_warning(); }
+};
+
+class SendHlinkCmdResultTrigger : public Trigger<const SendHlinkCmdResult &> {
  public:
   explicit SendHlinkCmdResultTrigger(HlinkAc *parent) {
     parent->add_send_hlink_cmd_result_callback([this](const SendHlinkCmdResult &result) { this->trigger(result); });

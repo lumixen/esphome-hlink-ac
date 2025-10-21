@@ -587,6 +587,11 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
   return {status, p_value, checksum};
 }
 
+void HlinkAc::reset_air_filter_clean_warning() {
+  this->enqueue_request_(
+      HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::CLEAN_FILTER_WARNING_RESET, 0x01));
+}
+
 void HlinkAc::send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data) {
   if (address.size() != 4) {
     ESP_LOGW(TAG, "Invalid address length: %s", address.c_str());

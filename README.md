@@ -228,7 +228,16 @@ text_sensor:
 
 ### Actions and triggers
 
-Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `ST P=address,value C=XXXX` control frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink command upon receiving a JSON MQTT message `{"address":"XXXX","data":"DD" | "DDDD"}` in the `hlink_ac/send_hlink_frame` topic:
+Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `MT P=address C=XXXX` or `ST P=address,value C=XXXX` frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink commands upon receiving a JSON MQTT message 
+```json
+{
+  "messages": [
+    {"cmd_type": "ST", "address": "0006", "data": "01"},
+    {"cmd_type": "MT", "address": "0006"}
+  ]
+}
+```
+ in the `hlink_ac/send_hlink_frame` topic:
 ```yaml
 mqtt:
   broker: 1.1.1.1
@@ -249,7 +258,7 @@ mqtt:
             return "";
 ```
 
-The `send_hlink_cmd` result can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the hlink device essentially as a low level proxy for h-link communication:
+The `send_hlink_cmd` results can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the hlink device essentially as a low level proxy for h-link communication:
 ```yaml
 climate:
   - platform: hlink_ac

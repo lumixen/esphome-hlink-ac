@@ -80,6 +80,7 @@ enum FeatureType : uint16_t {
   FAN_MODE = 0x0002,
   TARGET_TEMP = 0x0003,
   REMOTE_CONTROL_LOCK = 0x0006,
+  CLEAN_FILTER_WARNING_RESET = 0x0007,
   SWING_MODE = 0x0014,
   CURRENT_INDOOR_TEMP = 0x0100,
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
@@ -350,6 +351,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
 
+  void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult&)> &&callback);
