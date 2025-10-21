@@ -7,6 +7,9 @@
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 #ifdef USE_SWITCH
 #include "esphome/components/switch/switch.h"
 #endif
@@ -80,6 +83,7 @@ enum FeatureType : uint16_t {
   CURRENT_OUTDOOR_TEMP = 0x0102,  // Available only when unit is working, otherwise might return 7E value
   LEAVE_HOME_STATUS_WRITE = 0x0300,
   ACTIVITY_STATUS = 0x0301,  // 0000=Stand-by FFFF=Active
+  AIR_FILTER_WARNING = 0x302,
   LEAVE_HOME_STATUS_READ = 0x0304,
   BEEPER = 0x0800,  // Triggers beeper sound
   MODEL_NAME = 0x0900,
@@ -246,6 +250,12 @@ enum class SensorType {
   COUNT,
 };
 #endif
+#ifdef USE_BINARY_SENSOR
+enum class BinarySensorType {
+  AIR_FILTER_WARNING = 0,
+  COUNT,
+};
+#endif
 #ifdef USE_TEXT_SENSOR
 enum class TextSensorType {
   MODEL_NAME,
@@ -293,6 +303,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
   sensor::Sensor *auto_target_temp_offset_sensor_{nullptr};
+#endif
+#ifdef USE_BINARY_SENSOR
+ public:
+  void set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *s);
 #endif
 #ifdef USE_TEXT_SENSOR
  public:

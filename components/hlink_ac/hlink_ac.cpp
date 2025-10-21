@@ -879,6 +879,24 @@ void HlinkAc::update_sensor_state_(sensor::Sensor *sensor, float value) {
   }
 }
 #endif
+#ifdef USE_BINARY_SENSOR
+void HlinkAc::set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *bs) {
+  switch (type) {
+    case BinarySensorType::AIR_FILTER_WARNING:
+      this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::AIR_FILTER_WARNING}},
+                                                [this, bs](const HlinkResponseFrame &response) {
+                                                  optional<int8_t> raw_sensor_value = response.p_value_as_int8();
+                                                  if (raw_sensor_value.has_value()) {
+                                                    bool sensor_value = raw_sensor_value.value() != 0;
+                                                    bs->publish_state(sensor_value);
+                                                  }
+                                                }});
+      break;
+    default:
+      break;
+  }
+}
+#endif
 #ifdef USE_TEXT_SENSOR
 void HlinkAc::set_text_sensor(TextSensorType type, text_sensor::TextSensor *text_sensor) {
   switch (type) {

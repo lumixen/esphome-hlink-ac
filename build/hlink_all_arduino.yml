@@ -29,7 +29,12 @@ sensor:
       name: Auto Mode Temp Offset
   - platform: hlink_ac
     outdoor_temperature:
-      name: Outdoor temperature
+      name: Outdoor Temperature
+
+binary_sensor:
+  - platform: hlink_ac
+    air_filter_warning:
+      name: Air Filter Warning
 
 text_sensor:
   - platform: hlink_ac
