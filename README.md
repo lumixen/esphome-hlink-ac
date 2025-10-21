@@ -1,6 +1,6 @@
 ## Overview
 
-This component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. Tested with Hitachi RAK-25PEC AC.
+This ESPHome component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. The list of supported AC units appears to be quite extensive. Several examples of this project's adoption can be found in the [hardware implementation examples list](#hardware-implementation-examples).
 
 ## H-link protocol
 
@@ -23,7 +23,7 @@ where `P=XXXX,XX(XX)` specifies the function to modify and the new value, `C=YYY
 
 ## Hardware
 
-For PoC project I used the Lolin D32 ESP32 dev board.
+For my Hitachi RAK-25PEC, I used the Lolin D32 ESP32 dev board.
 
 The H-Link port, often referred to as `CN7` in Hitachi manuals, operates at 5V logic levels and provides a 12V power line. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
 
@@ -105,6 +105,11 @@ binary_sensor:
   - platform: hlink_ac
     air_filter_warning:
       name: Air Filter Cleaning Required
+
+button:
+  - platform: hlink_ac
+    reset_air_filter_warning:
+      name: "Reset Air Filter Warning"
 
 text_sensor:
   - platform: hlink_ac
@@ -195,6 +200,8 @@ esphome:
     - Debug discovery
 6. Number
     - Temperature offset in auto mode
+7. Button
+    - Reset indoor unit air filter cleaning reminder
 
 ## H-link protocol reverse engineering
 
@@ -317,3 +324,7 @@ cd build/
 - [RAS-70YHA2](https://github.com/shardshunt/H-Link-Docks)
 - [RAK-DJ18RHAE](https://github.com/lumixen/esphome-hlink-ac/discussions/10#discussioncomment-13095591)
 - [Flashing native Hitachi AirHome 400 module RAK-DJ18RH/RAK-DJ50RH](https://github.com/clsergent/hitachi_altwifi)
+- [RAK-25PEC](#hardware)
+- [RAK-18RPD](https://github.com/lumixen/esphome-hlink-ac/discussions/24)
+- [RAK-18RPE](https://community.home-assistant.io/t/hitachi-ac-h-link-with-esphome/869303/11)
+- [RAF-50RXE](https://community.home-assistant.io/t/hitachi-ac-h-link-with-esphome/869303/12)
