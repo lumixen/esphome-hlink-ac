@@ -43,6 +43,11 @@ binary_sensor:
     air_filter_warning:
       name: Air Filter Cleaning Required
 
+button:
+  - platform: hlink_ac
+    reset_air_filter_warning:
+      name: "Reset Air Filter Warning"
+
 text_sensor:
   - platform: hlink_ac
     model_name:
