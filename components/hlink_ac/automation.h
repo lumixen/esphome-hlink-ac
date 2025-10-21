@@ -17,10 +17,10 @@ template<typename... Ts> class HlinkAcSendHlinkCmd : public Action<Ts...>, publi
   }
 };
 
-class SendHlinkCmdResultTrigger : public Trigger<std::string> {
+class SendHlinkCmdResultTrigger : public Trigger<const SendHlinkCmdResult&> {
  public:
   explicit SendHlinkCmdResultTrigger(HlinkAc *parent) {
-    parent->add_send_hlink_cmd_result_callback([this](std::string data) { this->trigger(data); });
+    parent->add_send_hlink_cmd_result_callback([this](const SendHlinkCmdResult &result) { this->trigger(result); });
   }
 };
 }  // namespace hlink_ac

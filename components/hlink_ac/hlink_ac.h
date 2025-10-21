@@ -242,6 +242,13 @@ struct ComponentStatus {
   }
 };
 
+struct SendHlinkCmdResult {
+  std::string result_status;
+  std::string request_address;
+  optional<std::string> request_data;
+  optional<std::string> response_data;
+};
+
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
@@ -342,7 +349,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
   void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string address, std::string data);
-  void add_send_hlink_cmd_result_callback(std::function<void(std::string)> &&callback);
+  void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult&)> &&callback);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -350,7 +357,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
-  CallbackManager<void(std::string)> send_hlink_cmd_result_callback_{};
+  CallbackManager<void(const SendHlinkCmdResult&)> send_hlink_cmd_result_callback_{};
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();

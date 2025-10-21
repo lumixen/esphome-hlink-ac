@@ -28,7 +28,16 @@ climate:
         - mqtt.publish:
             topic: hlink_ac/send_hlink_frame_result
             payload: !lambda |-
-              return data;
+              DynamicJsonDocument doc(128);
+              doc["request_address"] = result.request_address;
+              doc["result_status"] = result.result_status;
+              if (result.request_data.has_value())
+                doc["request_data"] = result.request_data.value();
+              if (result.response_data.has_value())
+                doc["response_data"] = result.response_data.value();
+              std::string out;
+              serializeJson(doc, out);
+              return out;
 
 wifi:
   ssid: test

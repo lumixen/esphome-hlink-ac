@@ -600,11 +600,12 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
                                                         static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
                          [this, address, data](const HlinkResponseFrame &response) {
                            ESP_LOGD(TAG, "Successfully applied custom request [%s:%s]", address.c_str(), data.c_str());
-                           this->send_hlink_cmd_result_callback_.call("Hello Trigger. Address: " + address + ", Data: " + data);
+                           this->send_hlink_cmd_result_callback_.call(
+                               {HLINK_MSG_OK_TOKEN, address, data, response.p_value_as_string()});
                          });
 }
 
-void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(std::string)> &&callback) {
+void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback) {
   this->send_hlink_cmd_result_callback_.add(std::move(callback));
 }
 

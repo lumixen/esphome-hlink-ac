@@ -30,6 +30,8 @@ DEPENDENCIES = ["climate", "uart"]
 
 hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
+SendHlinkCmdResult = hlink_ac_ns.struct("SendHlinkCmdResult")
+SendHlinkCmdResultConstRef = SendHlinkCmdResult.operator("ref").operator("const")
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
 CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
@@ -104,7 +106,7 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
 
 SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
     "SendHlinkCmdResultTrigger",
-    automation.Trigger.template(cg.std_string),
+    automation.Trigger.template(SendHlinkCmdResultConstRef),
 )
 
 
@@ -217,4 +219,4 @@ async def to_code(config):
 
     for conf in config.get(CONF_ON_SEND_HLINK_CMD_RESULT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(cg.std_string, "data")], conf)
+        await automation.build_automation(trigger, [(SendHlinkCmdResultConstRef, "result")], conf)
