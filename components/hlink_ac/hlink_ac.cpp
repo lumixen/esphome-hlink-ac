@@ -598,10 +598,14 @@ void HlinkAc::send_hlink_cmd(std::string address, std::string data) {
   }
   this->enqueue_request_(HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
                                                         static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data),
-                         [address, data](const HlinkResponseFrame &response) {
-                           ESP_LOGD(TAG, "Successfully applied custom ST request [%s:%s]", address.c_str(),
-                                    data.c_str());
+                         [this, address, data](const HlinkResponseFrame &response) {
+                           ESP_LOGD(TAG, "Successfully applied custom request [%s:%s]", address.c_str(), data.c_str());
+                           this->send_hlink_cmd_result_callback_.call("Hello Trigger. Address: " + address + ", Data: " + data);
                          });
+}
+
+void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(std::string)> &&callback) {
+  this->send_hlink_cmd_result_callback_.add(std::move(callback));
 }
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {

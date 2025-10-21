@@ -342,6 +342,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
   void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string address, std::string data);
+  void add_send_hlink_cmd_result_callback(std::function<void(std::string)> &&callback);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -349,6 +350,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
+  CallbackManager<void(std::string)> send_hlink_cmd_result_callback_{};
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
