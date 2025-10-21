@@ -246,6 +246,7 @@ struct ComponentStatus {
 
 struct SendHlinkCmdResult {
   std::string result_status;
+  std::string cmd_type;
   std::string request_address;
   optional<std::string> request_data;
   optional<std::string> response_data;
@@ -350,7 +351,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   // ----- END CLIMATE -----
 
   void set_status_update_interval(uint32_t interval_ms);
-  void send_hlink_cmd(std::string address, std::string data);
+  void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult&)> &&callback);
 
  protected:

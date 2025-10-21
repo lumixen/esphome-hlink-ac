@@ -219,6 +219,8 @@ text_sensor:
       name: H-link addresses scanner
 ```
 
+### Actions and triggers
+
 Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `ST P=address,value C=XXXX` control frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink command upon receiving a JSON MQTT message `{"address":"XXXX","data":"DD" | "DDDD"}` in the `hlink_ac/send_hlink_frame` topic:
 ```yaml
 mqtt:
@@ -238,6 +240,28 @@ mqtt:
               return x["data"];
             }
             return "";
+```
+
+The `send_hlink_cmd` can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the esphome device as a low level proxy h-link communication:
+```yaml
+climate:
+  - platform: hlink_ac
+    ...
+    on_send_hlink_cmd_result:
+      then:
+        - mqtt.publish:
+            topic: hlink_ac/send_hlink_frame_result
+            payload: !lambda |-
+              JsonDocument doc;
+              doc["result_status"] = result.result_status;
+              doc["request_address"] = result.request_address;
+              if (result.request_data.has_value())
+                doc["request_data"] = result.request_data.value();
+              if (result.response_data.has_value())
+                doc["response_data"] = result.response_data.value();
+              std::string out;
+              serializeJson(doc, out);
+              return out;
 ```
 
 H-link UART serial communication could be monitored using this snippet:
