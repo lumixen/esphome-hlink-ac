@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 from esphome.components import button
 import esphome.config_validation as cv
+from esphome.const import ENTITY_CATEGORY_CONFIG
 
 from ..climate import (
     CONF_HLINK_AC_ID,
@@ -23,6 +24,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_HLINK_AC_ID): cv.use_id(HlinkAc),
         cv.Optional(CONF_RESET_AIR_FILTER_CLEAN_WARNING): button.button_schema(
             ResetAirFilterCleanWarningButton,
+            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_AIR_FILTER,
         ),
     }
