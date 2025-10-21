@@ -252,17 +252,24 @@ mqtt:
   on_json_message:
     topic: hlink_ac/send_hlink_frame
     then:
-      - hlink_ac.send_hlink_cmd:
-          address: !lambda |-
-            if (x.containsKey("address")) {
-              return x["address"];
+      - lambda: |-
+          if (x["messages"].is<JsonArrayConst>()) {
+            for (auto message : x["messages"].as<JsonArrayConst>()) {
+              std::string cmd_type = "";
+              std::string address = "";
+              optional<std::string> data = {};
+              if (message["cmd_type"].is<const char*>()) {
+                cmd_type = std::string(message["cmd_type"].as<const char*>());
+              }
+              if (message["address"].is<const char*>()) {
+                address = std::string(message["address"].as<const char*>());
+              }
+              if (message["data"].is<const char*>()) {
+                data = std::string(message["data"].as<const char*>());
+              }
+              id(hitachi_ac).send_hlink_cmd(cmd_type, address, data);
             }
-            return "";
-          data: !lambda |-
-            if (x.containsKey("data")) {
-              return x["data"];
-            }
-            return "";
+          }
 ```
 
 The `send_hlink_cmd` results can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the hlink device essentially as a low level proxy for h-link communication:
