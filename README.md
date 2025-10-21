@@ -242,7 +242,7 @@ mqtt:
             return "";
 ```
 
-The `send_hlink_cmd` can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the esphome device as a low level proxy h-link communication:
+The `send_hlink_cmd` result can be handled using the `on_send_hlink_cmd_result` trigger. For example with MQTT you can use the hlink device essentially as a low level proxy for h-link communication:
 ```yaml
 climate:
   - platform: hlink_ac
