@@ -967,6 +967,10 @@ void HlinkAc::start_debug_discovery() {
     ESP_LOGW(TAG, "Debug discovery text sensor is not set.");
     return;
   }
+  if (this->debug_discovery_running_) {
+    ESP_LOGI(TAG, "Debug discovery is already running.");
+    return;
+  }
   auto create_discovery_request = std::make_shared<std::function<HlinkRequest(uint16_t)>>();
   *create_discovery_request = [this, create_discovery_request](uint16_t address) {
     return HlinkRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}},
