@@ -1010,7 +1010,7 @@ void HlinkAc::stop_debug_discovery() {
     return;
   }
   debug_discovery_running_ = false;
-  this->debug_discovery_text_sensor_->publish_state(nullptr);
+  this->debug_discovery_text_sensor_->publish_state("Stopped");
 }
 
 #endif
