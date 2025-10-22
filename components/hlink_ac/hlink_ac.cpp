@@ -627,9 +627,10 @@ void HlinkAc::send_hlink_cmd(std::string cmd_type, std::string address, optional
     this->enqueue_request_({HlinkRequestFrame::Type::MT, {static_cast<uint16_t>(std::stoi(address, nullptr, 16))}},
                            ok_callback, ng_callback, timeout_callback);
   } else if (cmd_type == "ST") {
-    this->enqueue_request_(HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
-                                                          static_cast<uint16_t>(std::stoi(address, nullptr, 16)),
-                                                          data.value()), ok_callback, ng_callback, timeout_callback);
+    this->enqueue_request_(
+        HlinkRequestFrame::with_string(HlinkRequestFrame::Type::ST,
+                                       static_cast<uint16_t>(std::stoi(address, nullptr, 16)), data.value()),
+        ok_callback, ng_callback, timeout_callback);
   }
 }
 
@@ -959,33 +960,59 @@ void HlinkAc::set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *t
        }});
 }
 
-void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *text_sensor) {
-  this->set_timeout(20000, [this, text_sensor]() {
-    auto create_discovery_request = std::make_shared<std::function<HlinkRequest(uint16_t)>>();
-    *create_discovery_request = [this, text_sensor, create_discovery_request](uint16_t address) {
-      return HlinkRequest{
-          HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}},
-          [this, text_sensor, address, create_discovery_request](const HlinkResponseFrame &response) mutable {
-            char address_str[5];
-            sprintf(address_str, "%04X", address);
-            std::string sensor_value = std::string(address_str) + ":" + response.p_value_as_string().value();
-            text_sensor->publish_state(sensor_value);
-            this->status_.low_priority_hlink_request = (*create_discovery_request)(address + 1);
-          },
-          [this, address, create_discovery_request]() mutable {
-            this->status_.low_priority_hlink_request = (*create_discovery_request)(address + 1);
-          },
-          [this, address, create_discovery_request]() mutable {
-            this->status_.low_priority_hlink_request = (*create_discovery_request)(address);
-          },
-          [this, address, create_discovery_request]() mutable {
-            this->status_.low_priority_hlink_request = (*create_discovery_request)(address);
-          }};
-    };
+void HlinkAc::set_debug_discovery_text_sensor(text_sensor::TextSensor *ts) { this->debug_discovery_text_sensor_ = ts; }
 
-    this->status_.low_priority_hlink_request = (*create_discovery_request)(0x0000);
-  });
+void HlinkAc::start_debug_discovery() {
+  if (this->debug_discovery_text_sensor_ == nullptr) {
+    ESP_LOGW(TAG, "Debug discovery text sensor is not set.");
+    return;
+  }
+  if (this->debug_discovery_running_) {
+    ESP_LOGI(TAG, "Debug discovery is already running.");
+    return;
+  }
+  auto create_discovery_request = std::make_shared<std::function<HlinkRequest(uint16_t)>>();
+  *create_discovery_request = [this, create_discovery_request](uint16_t address) {
+    return HlinkRequest{HlinkRequestFrame{HlinkRequestFrame::Type::MT, {address}},
+                        [this, address, create_discovery_request](const HlinkResponseFrame &response) mutable {
+                          char address_str[5];
+                          sprintf(address_str, "%04X", address);
+                          std::string sensor_value =
+                              std::string(address_str) + ":" + response.p_value_as_string().value();
+                          this->debug_discovery_text_sensor_->publish_state(sensor_value);
+                          if (this->debug_discovery_running_) {
+                            this->status_.low_priority_hlink_request = (*create_discovery_request)(address + 1);
+                          }
+                        },
+                        [this, address, create_discovery_request]() mutable {
+                          if (this->debug_discovery_running_) {
+                            this->status_.low_priority_hlink_request = (*create_discovery_request)(address + 1);
+                          }
+                        },
+                        [this, address, create_discovery_request]() mutable {
+                          if (this->debug_discovery_running_) {
+                            this->status_.low_priority_hlink_request = (*create_discovery_request)(address);
+                          }
+                        },
+                        [this, address, create_discovery_request]() mutable {
+                          if (this->debug_discovery_running_) {
+                            this->status_.low_priority_hlink_request = (*create_discovery_request)(address);
+                          }
+                        }};
+  };
+  this->status_.low_priority_hlink_request = (*create_discovery_request)(0x0000);
+  debug_discovery_running_ = true;
 }
+
+void HlinkAc::stop_debug_discovery() {
+  if (this->debug_discovery_text_sensor_ == nullptr) {
+    ESP_LOGW(TAG, "Debug discovery text sensor is not set.");
+    return;
+  }
+  debug_discovery_running_ = false;
+  this->debug_discovery_text_sensor_->publish_state("Stopped");
+}
+
 #endif
 #ifdef USE_NUMBER
 void HlinkAc::set_auto_temperature_offset(float offset) {

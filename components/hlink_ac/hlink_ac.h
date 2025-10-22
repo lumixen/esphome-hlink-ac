@@ -325,8 +325,13 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void set_debug_text_sensor(uint16_t address, text_sensor::TextSensor *sens);
   void set_debug_discovery_text_sensor(text_sensor::TextSensor *sens);
 
+  void start_debug_discovery();
+  void stop_debug_discovery();
+
  protected:
+  bool debug_discovery_running_{false};
   text_sensor::TextSensor *model_name_text_sensor_{nullptr};
+  text_sensor::TextSensor *debug_discovery_text_sensor_{nullptr};
 #endif
 #ifdef USE_NUMBER
   SUB_NUMBER(temperature_offset)
@@ -354,7 +359,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
-  void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult&)> &&callback);
+  void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
  protected:
   ComponentStatus status_ = ComponentStatus();
@@ -362,7 +367,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
-  CallbackManager<void(const SendHlinkCmdResult&)> send_hlink_cmd_result_callback_{};
+  CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();

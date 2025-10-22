@@ -39,13 +39,32 @@ climate:
               std::string out;
               serializeJson(doc, out);
               return out;
+
+text_sensor:
+  - platform: hlink_ac
+    debug_discovery:
+      id: debug_discovery_sensor
+      name: H-link addresses discovery
+
 button:
   - platform: template
     name: "Reset Air Filter Warning"
     on_press:
       then:
-        - hlink_ac.reset_air_filter_clean_warning:
+        - climate.hlink_ac.reset_air_filter_clean_warning:
             id: hitachi_ac
+  - platform: template
+    name: "Start debug discovery"
+    on_press:
+      then:
+        - text_sensor.hlink_ac.start_debug_discovery:
+            id: debug_discovery_sensor
+  - platform: template
+    name: "Stop debug discovery"
+    on_press:
+      then:
+        - text_sensor.hlink_ac.stop_debug_discovery:
+            id: debug_discovery_sensor
 
 wifi:
   ssid: test

@@ -1,7 +1,9 @@
+from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
 from esphome.const import (
+    CONF_ID,
     ENTITY_CATEGORY_DIAGNOSTIC,
 )
 from ..climate import (
@@ -46,6 +48,32 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_HLINK_AC_ID): cv.use_id(HlinkAc),
     }
 ).extend({cv.Optional(type): schema for type, schema in TEXT_SENSOR_TYPES.items()})
+
+TEXT_SENSOR_ACTION_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(CONF_HLINK_AC_ID): cv.use_id(HlinkAc),
+        cv.Required(CONF_ID): cv.use_id(text_sensor.TextSensor),
+    }
+)
+
+StartDebugDiscoveryAction = hlink_ac_ns.class_("StartDebugDiscovery", automation.Action)
+StopDebugDiscoveryAction = hlink_ac_ns.class_("StopDebugDiscovery", automation.Action)
+
+
+@automation.register_action(
+    "text_sensor.hlink_ac.start_debug_discovery",
+    StartDebugDiscoveryAction,
+    TEXT_SENSOR_ACTION_SCHEMA,
+)
+@automation.register_action(
+    "text_sensor.hlink_ac.stop_debug_discovery",
+    StopDebugDiscoveryAction,
+    TEXT_SENSOR_ACTION_SCHEMA,
+)
+async def debug_discovery_action_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_HLINK_AC_ID])
+    return var
 
 
 async def to_code(config):
