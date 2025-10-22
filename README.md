@@ -2,9 +2,24 @@
 
 This ESPHome component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. The list of supported AC units appears to be quite extensive. Several examples of this project's adoption can be found in the [hardware implementation examples list](#hardware-implementation-examples).
 
+# Table of Contents
+
+- [H-link protocol](#h-link-protocol)
+- [Hardware](#hardware)
+- [ESPHome configuration](#esphome-configuration)
+  - [LibreTiny configuration](#libretiny-configuration)
+  - [Supported features](#supported-features)
+- [H-link protocol reverse engineering](#h-link-protocol-reverse-engineering)
+  - [Debug sensors](#debug-sensors)
+  - [Debug discovery sensor](#debug-discovery-sensor)
+  - [Actions and triggers](#actions-and-triggers)
+- [Building locally](#building-locally)
+- [Credits](#credits)
+- [Hardware implementation examples](#hardware-implementation-examples)
+
 ## H-link protocol
 
-H-link is a serial protocol designed to enable communication between climate units and external adapters, such as a central station managing multiple climate devices in commercial buildings or SPX-WFGXX cloud adapters. It allows to read the status of a climate unit and send commands to control it.
+H-link is a serial protocol designed to enable communication between climate units and external adapters, such as a central station managing multiple climate devices in commercial buildings or SPX-WFGXX cloud adapters. It allows reading the status of a climate unit and send commands to control it.
 
 The protocol supports two types of communication frames:
 1. Status inquiry from adapter, initiated with the `MT` prefix:
@@ -12,7 +27,7 @@ The protocol supports two types of communication frames:
 >> MT P=XXXX C=YYYY
 << OK P=XXXX C=YYYY
 ```
-where `MT P=XXXX` is 16-bit numerical command and `C=YYYY` is a 16-bit XOR checksum. AC unit returns `OK P=XXXX`, where `XXXX` is the dynamic-length value of the requested "feature" (e.g. power state, climate mode, swing mode etc). 
+where `MT P=XXXX` is 16-bit numerical command and `C=YYYY` is a 16-bit XOR checksum. The AC unit returns `OK P=XXXX`, where `XXXX` is the dynamic-length value of the requested "feature" (e.g. power state, climate mode, swing mode etc).
 
 2. Status change request, initiated with the `ST` prefix:
 ```
@@ -25,7 +40,7 @@ where `P=XXXX,XX(XX)` specifies the function to modify and the new value, `C=YYY
 
 For my Hitachi RAK-25PEC, I used the Lolin D32 ESP32 dev board.
 
-The H-Link port, often referred to as `CN7` in Hitachi manuals, operates at 5V logic levels and provides a 12V power line. Therefore, we need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
+The H-Link port, often referred to as `CN7` in Hitachi manuals, operates at 5V logic levels and provides a 12V power line. Therefore, you need to step down the 12V power lane to 5V for the ESP dev board 5V input and use a 3.3V-to-5V logic level shifter for the Tx/Rx communication lines:
 
 <img width="350" alt="hlink_connector" src="https://github.com/user-attachments/assets/fbedf5c1-f7b6-42a3-8e0d-7b35d1b10b6c" />
 
@@ -122,7 +137,7 @@ number:
       name: Auto Mode Temp Offset
 ```
 
-without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some of the climate traits - you could adjust the esphome configuration explicitly:
+Without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some climate traits, you can adjust the ESPHome configuration explicitly:
 
 ```yml
 climate:
@@ -147,7 +162,7 @@ climate:
 
 ### LibreTiny configuration
 
-As of mid-2025, LibreTiny is known to have issues with its serial stack implementation that may [completely corrupt the UART RX buffer](https://github.com/lumixen/esphome-hlink-ac/issues/25). A possible workaround is to use the patched `RingBuffer` implementation:
+As of mid-2025, LibreTiny is known to have issues with its serial stack implementation, which may [completely corrupt the UART RX buffer](https://github.com/lumixen/esphome-hlink-ac/issues/25). A possible workaround is to use the patched `RingBuffer` implementation:
 ```yml
 esphome:
   name: hitachi-ac
@@ -239,7 +254,7 @@ text_sensor:
       name: H-link addresses scanner
 ```
 
-Since scanning should not begin before the device connects to Home Assistant, debug discovery must be started using the `text_sensor.hlink_ac.start_debug_discovery` action and can also be stopped with the `text_sensor.hlink_ac.stop_debug_discovery` action. You can tie these actions to Wi-Fi connection events or control them manually through template buttons, for example:
+Since scanning should not begin before the device connects to Home Assistant, debug discovery must be started using the `text_sensor.hlink_ac.start_debug_discovery` action and can be stopped with the `text_sensor.hlink_ac.stop_debug_discovery` action. You can tie these actions to Wi-Fi connection events or control them manually through template buttons, for example:
 
 ```yaml
 button:
@@ -259,7 +274,7 @@ button:
 
 ### Actions and triggers
 
-Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `MT P=address C=XXXX` or `ST P=address,value C=XXXX` frames to AC. Below is an example of an esphome configuration that connects to an MQTT broker and sends an hlink commands upon receiving a JSON MQTT messages like
+Debug sensors can be paired with the `hlink_ac.send_hlink_cmd` action, which allows you to directly send `MT P=address C=XXXX` or `ST P=address,value C=XXXX` frames to AC. Below is an example of an ESPHome configuration that connects to an MQTT broker and sends H-link commands upon receiving JSON MQTT messages like:
 ```json
 {
   "messages": [
