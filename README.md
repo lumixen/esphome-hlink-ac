@@ -235,7 +235,26 @@ Another helpful debug text sensor is called `debug_discovery`. It repeatedly sca
 text_sensor:
   - platform: hlink_ac
     debug_discovery:
+      id: debug_discovery_sensor
       name: H-link addresses scanner
+```
+
+Since scanning should not begin before the device connects to Home Assistant, debug discovery must be started using the `text_sensor.hlink_ac.start_debug_discovery` action and can also be stopped with the `text_sensor.hlink_ac.stop_debug_discovery` action. You can tie these actions to Wi-Fi connection events or control them manually through template buttons, for example:
+
+```yaml
+button:
+  - platform: template
+    name: "Start debug discovery"
+    on_press:
+      then:
+        - text_sensor.hlink_ac.start_debug_discovery:
+            id: debug_discovery_sensor
+  - platform: template
+    name: "Stop debug discovery"
+    on_press:
+      then:
+        - text_sensor.hlink_ac.stop_debug_discovery:
+            id: debug_discovery_sensor
 ```
 
 ### Actions and triggers
