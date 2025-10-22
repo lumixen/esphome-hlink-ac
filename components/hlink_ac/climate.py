@@ -80,8 +80,14 @@ SUPPORTED_CLIMATE_PRESETS_OPTIONS = {
 # Actions
 
 HlinkAcSendHlinkCmdAction = hlink_ac_ns.class_("HlinkAcSendHlinkCmd", automation.Action)
-ResetAirFilterCleanWarning = hlink_ac_ns.class_(
+ResetAirFilterCleanWarningAction = hlink_ac_ns.class_(
     "ResetAirFilterCleanWarning", automation.Action
+)
+
+HLINK_BASE_ACTION_SCHEMA = automation.maybe_simple_id(
+    {
+        cv.GenerateID(): cv.use_id(HlinkAc),
+    }
 )
 
 # Triggers
@@ -93,7 +99,7 @@ SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
 
 
 @automation.register_action(
-    "hlink_ac.send_hlink_cmd",
+    "climate.hlink_ac.send_hlink_cmd",
     HlinkAcSendHlinkCmdAction,
     cv.Schema(
         {
@@ -117,13 +123,9 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "hlink_ac.reset_air_filter_clean_warning",
-    ResetAirFilterCleanWarning,
-    automation.maybe_simple_id(
-        {
-            cv.GenerateID(): cv.use_id(HlinkAc),
-        }
-    ),
+    "climate.hlink_ac.reset_air_filter_clean_warning",
+    ResetAirFilterCleanWarningAction,
+    HLINK_BASE_ACTION_SCHEMA,
 )
 async def reset_air_filter_clean_warning_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
