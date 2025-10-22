@@ -2,7 +2,7 @@
 
 This ESPHome component is designed to control compatible Hitachi air conditioners using serial H-Link protocol. It serves as a replacement for proprietary cloud-based [SPX-WFGXX cloud adapters](https://www.hitachiaircon.com/ranges/iot-apps-controllers/ac-wifi-adapter-aircloud-home), enabling native Home Assistant climate integration through ESPHome. The list of supported AC units appears to be quite extensive. Several examples of this project's adoption can be found in the [hardware implementation examples list](#hardware-implementation-examples).
 
-# Table of Contents
+## Table of Contents
 
 - [H-link protocol](#h-link-protocol)
 - [Hardware](#hardware)
