@@ -781,25 +781,25 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   }
 }
 
-void HlinkAc::set_supported_climate_modes(const std::set<climate::ClimateMode> &modes) {
+void HlinkAc::set_supported_climate_modes(esphome::climate::ClimateModeMask modes) {
   this->traits_.add_supported_mode(climate::CLIMATE_MODE_OFF);
   this->traits_.set_supported_modes(modes);
 }
 
-void HlinkAc::set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes) {
+void HlinkAc::set_supported_swing_modes(esphome::climate::ClimateSwingModeMask modes) {
   this->traits_.set_supported_swing_modes(modes);
 }
 
-void HlinkAc::set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes) {
+void HlinkAc::set_supported_fan_modes(esphome::climate::ClimateFanModeMask modes) {
   this->traits_.set_supported_fan_modes(modes);
 }
 
-void HlinkAc::set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets) {
+void HlinkAc::set_supported_climate_presets(esphome::climate::ClimatePresetMask presets) {
   this->traits_.set_supported_presets(presets);
   if (!presets.empty()) {
     this->traits_.add_supported_preset(climate::ClimatePreset::CLIMATE_PRESET_NONE);
   }
-  if (presets.find(climate::ClimatePreset::CLIMATE_PRESET_AWAY) != presets.end()) {
+  if (presets.count(climate::ClimatePreset::CLIMATE_PRESET_AWAY)) {
     this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::LEAVE_HOME_STATUS_READ}},
                                               [this](const HlinkResponseFrame &response) {
                                                 this->hlink_entity_status_.leave_home_enabled =
