@@ -349,10 +349,10 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   // ----- CLIMATE -----
   void control(const climate::ClimateCall &call) override;
   climate::ClimateTraits traits() override;
-  void set_supported_climate_modes(const std::set<climate::ClimateMode> &modes);
-  void set_supported_swing_modes(const std::set<climate::ClimateSwingMode> &modes);
-  void set_supported_fan_modes(const std::set<climate::ClimateFanMode> &modes);
-  void set_supported_climate_presets(const std::set<climate::ClimatePreset> &presets);
+  void set_supported_climate_modes(esphome::climate::ClimateModeMask modes);
+  void set_supported_swing_modes(esphome::climate::ClimateSwingModeMask modes);
+  void set_supported_fan_modes(esphome::climate::ClimateFanModeMask modes);
+  void set_supported_climate_presets(esphome::climate::ClimatePresetMask presets);
   void set_support_hvac_actions(bool support_hvac_actions);
   // ----- END CLIMATE -----
 
