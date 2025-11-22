@@ -810,8 +810,8 @@ void HlinkAc::set_supported_climate_presets(esphome::climate::ClimatePresetMask 
 }
 
 void HlinkAc::set_support_hvac_actions(bool support_hvac_actions) {
-  this->traits_.set_supports_action(support_hvac_actions);
   if (support_hvac_actions) {
+    this->traits_.add_feature_flags(climate::CLIMATE_SUPPORTS_ACTION);
     this->status_.polling_features.push_back(
         {{HlinkRequestFrame::Type::MT, {FeatureType::ACTIVITY_STATUS}}, [this](const HlinkResponseFrame &response) {
            if (this->hlink_entity_status_.hlink_climate_mode.has_value() &&
@@ -841,7 +841,7 @@ void HlinkAc::set_support_hvac_actions(bool support_hvac_actions) {
 }
 
 esphome::climate::ClimateTraits HlinkAc::traits() {
-  this->traits_.set_supports_current_temperature(true);
+  this->traits_.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
   return this->traits_;
 }
 
