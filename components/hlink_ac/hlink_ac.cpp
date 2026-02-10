@@ -113,7 +113,7 @@ HlinkAc::HlinkAc() {
 
 void HlinkAc::setup() {
   constexpr uint32_t settings_version = 0xA7C3B2E4;
-  this->rtc_ = global_preferences->make_preference<HlinkAcSettings>(this->get_object_id_hash() ^ settings_version);
+  this->rtc_ = this->make_entity_preference<HlinkAcSettings>(settings_version);
   HlinkAcSettings recovered_settings;
   auto beeper_enabled = false;
   if (this->rtc_.load(&recovered_settings)) {
