@@ -64,11 +64,13 @@ StopDebugDiscoveryAction = hlink_ac_ns.class_("StopDebugDiscovery", automation.A
     "text_sensor.hlink_ac.start_debug_discovery",
     StartDebugDiscoveryAction,
     TEXT_SENSOR_ACTION_SCHEMA,
+    synchronous=True,
 )
 @automation.register_action(
     "text_sensor.hlink_ac.stop_debug_discovery",
     StopDebugDiscoveryAction,
     TEXT_SENSOR_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def debug_discovery_action_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
