@@ -14,9 +14,9 @@ HlinkAc::HlinkAc() {
   // Setup default polling features, ordering is important
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
-         auto value_opt = response.p_value_as_uint16();
-         if (value_opt.has_value()) {
-           this->hlink_entity_status_.power_state = static_cast<bool>(value_opt.value());
+         auto power_state = response.p_value_as_uint16();
+         if (power_state.has_value()) {
+           this->hlink_entity_status_.power_state = static_cast<bool>(power_state.value());
          } else {
            this->hlink_entity_status_.power_state = {};
          }
@@ -858,8 +858,13 @@ void HlinkAc::set_remote_lock_switch(switch_::Switch *sw) {
   }
   this->status_.polling_features.push_back({{HlinkRequestFrame::Type::MT, {FeatureType::REMOTE_CONTROL_LOCK}},
                                             [this, sw](const HlinkResponseFrame &response) {
-                                              this->hlink_entity_status_.remote_control_lock =
-                                                  response.p_value_as_uint16();
+                                              auto remote_control_lock = response.p_value_as_uint16();
+                                              if (remote_control_lock.has_value()) {
+                                                this->hlink_entity_status_.remote_control_lock =
+                                                    static_cast<bool>(remote_control_lock.value());
+                                              } else {
+                                                this->hlink_entity_status_.remote_control_lock = {};
+                                              }
                                             }});
 }
 
