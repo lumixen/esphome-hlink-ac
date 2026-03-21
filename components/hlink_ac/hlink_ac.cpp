@@ -14,7 +14,12 @@ HlinkAc::HlinkAc() {
   // Setup default polling features, ordering is important
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}}, [this](const HlinkResponseFrame &response) {
-         this->hlink_entity_status_.power_state = response.p_value_as_uint16();
+         auto value_opt = response.p_value_as_uint16();
+         if (value_opt.has_value()) {
+           this->hlink_entity_status_.power_state = static_cast<bool>(value_opt.value());
+         } else {
+           this->hlink_entity_status_.power_state = {};
+         }
        }});
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::MODE}}, [this](const HlinkResponseFrame &response) {

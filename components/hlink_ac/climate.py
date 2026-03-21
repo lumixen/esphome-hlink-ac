@@ -108,6 +108,7 @@ SendHlinkCmdResultTrigger = hlink_ac_ns.class_(
             cv.Required(CONF_DATA): cv.templatable(cv.string),
         }
     ),
+    synchronous=True,
 )
 async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -126,6 +127,7 @@ async def send_hlink_cmd_to_code(config, action_id, template_arg, args):
     "climate.hlink_ac.reset_air_filter_clean_warning",
     ResetAirFilterCleanWarningAction,
     HLINK_BASE_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def reset_air_filter_clean_warning_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
