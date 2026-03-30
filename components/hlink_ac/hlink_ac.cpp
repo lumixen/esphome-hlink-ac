@@ -89,18 +89,6 @@ HlinkAc::HlinkAc() {
          this->hlink_entity_status_.current_temperature = response.p_value_as_uint16();
        }});
   this->status_.polling_features.push_back(
-      {{HlinkRequestFrame::Type::MT, {FeatureType::SWING_MODE}}, [this](const HlinkResponseFrame &response) {
-         if (response.p_value_as_uint16() == HLINK_SWING_OFF) {
-           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
-         } else if (response.p_value_as_uint16() == HLINK_SWING_VERTICAL) {
-           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
-         } else if (response.p_value_as_uint16() == HLINK_SWING_HORIZONTAL) {
-           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_HORIZONTAL;
-         } else if (response.p_value_as_uint16() == HLINK_SWING_BOTH) {
-           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_BOTH;
-         }
-       }});
-  this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::FAN_MODE}}, [this](const HlinkResponseFrame &response) {
          if (response.p_value_as_uint16() == HLINK_FAN_AUTO) {
            this->hlink_entity_status_.fan_mode = esphome::climate::ClimateFanMode::CLIMATE_FAN_AUTO;
@@ -399,65 +387,45 @@ bool HlinkAc::handle_hlink_request_response_(const HlinkRequest &request, const 
 }
 
 void HlinkAc::publish_updates_if_any_() {
-  if (this->hlink_entity_status_.has_hvac_status()) {
+  if (this->hlink_entity_status_.has_minimal_hvac_status()) {
     bool should_publish_climate_state = false;
-    // Check Target Temp
-    if (this->hlink_entity_status_.target_temperature.has_value()) {
-      if (!is_nanable_equal_(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
-        this->target_temperature = this->hlink_entity_status_.target_temperature.value();
-        should_publish_climate_state = true;
-      }
-    } else {
-      ESP_LOGW(TAG, "Target Temperature not reported by AC. Your model may not support this feature.");
+    // Mode
+    if (this->mode != this->hlink_entity_status_.mode.value()) {
+      this->mode = this->hlink_entity_status_.mode.value();
+      should_publish_climate_state = true;
     }
-    // Check Current Temp
-    if (this->hlink_entity_status_.current_temperature.has_value()) {
-      if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
-        this->current_temperature = this->hlink_entity_status_.current_temperature.value();
-        should_publish_climate_state = true;
-      }
-    } else {
-      ESP_LOGW(TAG, "Current Temperature not reported by AC. Your model may not support this feature.");
+    // Target Temp
+    if (!is_nanable_equal_(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
+      this->target_temperature = this->hlink_entity_status_.target_temperature.value();
+      should_publish_climate_state = true;
     }
-    // Check Mode
-    if (this->hlink_entity_status_.mode.has_value()) {
-      if (this->mode != this->hlink_entity_status_.mode.value()) {
-        this->mode = this->hlink_entity_status_.mode.value();
-        should_publish_climate_state = true;
-      }
-    } else {
-      ESP_LOGW(TAG, "Mode not reported by AC. Your model may not support this feature.");
+    // Current Temp
+    if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
+      this->current_temperature = this->hlink_entity_status_.current_temperature.value();
+      should_publish_climate_state = true;
     }
-    // Check Fan Mode (The specific line that crashed your ESP32)
-    if (this->hlink_entity_status_.fan_mode.has_value()) {
-      if (this->fan_mode != this->hlink_entity_status_.fan_mode.value()) {
-        this->fan_mode = this->hlink_entity_status_.fan_mode.value();
-        should_publish_climate_state = true;
-      }
-    } else {
-      ESP_LOGW(TAG, "Fan Mode not reported by AC. Your model may not support this feature.");
+    // Fan Mode
+    if (this->hlink_entity_status_.fan_mode.has_value() &&
+        this->fan_mode != this->hlink_entity_status_.fan_mode.value()) {
+      this->fan_mode = this->hlink_entity_status_.fan_mode.value();
+      should_publish_climate_state = true;
     }
-    // Check Swing Mode
-    if (this->hlink_entity_status_.swing_mode.has_value()) {
-      if (this->swing_mode != this->hlink_entity_status_.swing_mode.value()) {
-        this->swing_mode = this->hlink_entity_status_.swing_mode.value();
-        should_publish_climate_state = true;
-      }
-    } else {
-      ESP_LOGW(TAG, "Swing Mode not reported by AC. Your model may not support this feature.");
+    // Swing Mode
+    if (this->hlink_entity_status_.swing_mode.has_value() &&
+        this->swing_mode != this->hlink_entity_status_.swing_mode.value()) {
+      this->swing_mode = this->hlink_entity_status_.swing_mode.value();
+      should_publish_climate_state = true;
     }
-
-    if (this->hlink_entity_status_.action.has_value()) {
-      if (this->hlink_entity_status_.action.value() != this->action) {
-        this->action = this->hlink_entity_status_.action.value();
-        should_publish_climate_state = true;
-      }
+    // HVAC Action (actively heating, cooling, etc.)
+    if (this->hlink_entity_status_.action.has_value() && this->hlink_entity_status_.action.value() != this->action) {
+      this->action = this->hlink_entity_status_.action.value();
+      should_publish_climate_state = true;
     }
+    // Leave home mode
     if (this->hlink_entity_status_.leave_home_enabled.has_value()) {
       esphome::climate::ClimatePreset climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_NONE;
-      if (this->hlink_entity_status_.leave_home_enabled.value() && 
-          this->hlink_entity_status_.power_state.value_or(false) &&
-          this->hlink_entity_status_.target_temperature.value_or(0) == 10) {
+      if (this->hlink_entity_status_.leave_home_enabled.value() && this->hlink_entity_status_.power_state.value() &&
+          this->hlink_entity_status_.target_temperature == 10) {
         climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_AWAY;
       }
       if (this->preset != climate_preset) {
@@ -820,6 +788,21 @@ void HlinkAc::set_supported_climate_modes(esphome::climate::ClimateModeMask mode
 
 void HlinkAc::set_supported_swing_modes(esphome::climate::ClimateSwingModeMask modes) {
   this->traits_.set_supported_swing_modes(modes);
+  if (modes.size() == 1 && modes.count(climate::ClimateSwingMode::CLIMATE_SWING_OFF)) {
+    return;  // If the only supported swing mode is OFF, we don't need to add polling for swing mode status
+  }
+  this->status_.polling_features.push_back(
+      {{HlinkRequestFrame::Type::MT, {FeatureType::SWING_MODE}}, [this](const HlinkResponseFrame &response) {
+         if (response.p_value_as_uint16() == HLINK_SWING_OFF) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_OFF;
+         } else if (response.p_value_as_uint16() == HLINK_SWING_VERTICAL) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_VERTICAL;
+         } else if (response.p_value_as_uint16() == HLINK_SWING_HORIZONTAL) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_HORIZONTAL;
+         } else if (response.p_value_as_uint16() == HLINK_SWING_BOTH) {
+           this->hlink_entity_status_.swing_mode = esphome::climate::ClimateSwingMode::CLIMATE_SWING_BOTH;
+         }
+       }});
 }
 
 void HlinkAc::set_supported_fan_modes(esphome::climate::ClimateFanModeMask modes) {
