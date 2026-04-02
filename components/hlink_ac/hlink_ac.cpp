@@ -401,36 +401,69 @@ bool HlinkAc::handle_hlink_request_response_(const HlinkRequest &request, const 
 void HlinkAc::publish_updates_if_any_() {
   if (this->hlink_entity_status_.has_hvac_status()) {
     bool should_publish_climate_state = false;
-    if (!is_nanable_equal_(this->target_temperature, this->hlink_entity_status_.target_temperature.value())) {
-      this->target_temperature = this->hlink_entity_status_.target_temperature.value();
-      should_publish_climate_state = true;
+
+    // Fix Target Temperature
+    if (this->hlink_entity_status_.target_temperature.has_value()) {
+      float new_target = this->hlink_entity_status_.target_temperature.value();
+      if (!is_nanable_equal_(this->target_temperature, new_target)) {
+        this->target_temperature = new_target;
+        should_publish_climate_state = true;
+      }
     }
-    if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
-      this->current_temperature = this->hlink_entity_status_.current_temperature.value();
-      should_publish_climate_state = true;
+
+    // Fix Current Temperature
+    if (this->hlink_entity_status_.current_temperature.has_value()) {
+      float new_current = this->hlink_entity_status_.current_temperature.value();
+      if (this->current_temperature != new_current) {
+        this->current_temperature = new_current;
+        should_publish_climate_state = true;
+      }
     }
-    if (this->mode != this->hlink_entity_status_.mode) {
-      this->mode = this->hlink_entity_status_.mode.value();
-      should_publish_climate_state = true;
+
+    // Fix Mode
+    if (this->hlink_entity_status_.mode.has_value()) {
+      auto new_mode = this->hlink_entity_status_.mode.value();
+      if (this->mode != new_mode) {
+        this->mode = new_mode;
+        should_publish_climate_state = true;
+      }
     }
-    if (this->fan_mode != this->hlink_entity_status_.fan_mode.value()) {
-      this->fan_mode = this->hlink_entity_status_.fan_mode.value();
-      should_publish_climate_state = true;
+
+    // Fix Fan Mode
+    if (this->hlink_entity_status_.fan_mode.has_value()) {
+      auto new_fan = this->hlink_entity_status_.fan_mode.value();
+      if (this->fan_mode != new_fan) {
+        this->fan_mode = new_fan;
+        should_publish_climate_state = true;
+      }
     }
-    if (this->swing_mode != this->hlink_entity_status_.swing_mode.value()) {
-      this->swing_mode = this->hlink_entity_status_.swing_mode.value();
-      should_publish_climate_state = true;
+
+    // Fix Swing Mode
+    if (this->hlink_entity_status_.swing_mode.has_value()) {
+      auto new_swing = this->hlink_entity_status_.swing_mode.value();
+      if (this->swing_mode != new_swing) {
+        this->swing_mode = new_swing;
+        should_publish_climate_state = true;
+      }
     }
+
+    // Fix Action
     if (this->hlink_entity_status_.action.has_value()) {
       if (this->hlink_entity_status_.action.value() != this->action) {
         this->action = this->hlink_entity_status_.action.value();
         should_publish_climate_state = true;
       }
     }
-    if (this->hlink_entity_status_.leave_home_enabled.has_value()) {
+
+    // Fix Presets / Leave Home
+    if (this->hlink_entity_status_.leave_home_enabled.has_value() && 
+        this->hlink_entity_status_.power_state.has_value() &&
+        this->hlink_entity_status_.target_temperature.has_value()) {
+      
       esphome::climate::ClimatePreset climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_NONE;
-      if (this->hlink_entity_status_.leave_home_enabled.value() && this->hlink_entity_status_.power_state.value() &&
-          this->hlink_entity_status_.target_temperature == 10) {
+      if (this->hlink_entity_status_.leave_home_enabled.value() && 
+          this->hlink_entity_status_.power_state.value() &&
+          this->hlink_entity_status_.target_temperature.value() == 10) {
         climate_preset = esphome::climate::ClimatePreset::CLIMATE_PRESET_AWAY;
       }
       if (this->preset != climate_preset) {
@@ -447,15 +480,17 @@ void HlinkAc::publish_updates_if_any_() {
                              this->hlink_entity_status_.current_temperature_auto_offset.value_or(NAN));
 #endif
 #ifdef USE_SWITCH
-  if (this->remote_lock_switch_ != nullptr && this->hlink_entity_status_.remote_control_lock.has_value() &&
-      this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value()) {
-    this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+  if (this->remote_lock_switch_ != nullptr && this->hlink_entity_status_.remote_control_lock.has_value()) {
+    if (this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value()) {
+        this->remote_lock_switch_->publish_state(this->hlink_entity_status_.remote_control_lock.value());
+    }
   }
 #endif
 #ifdef USE_TEXT_SENSOR
-  if (this->model_name_text_sensor_ != nullptr && this->hlink_entity_status_.model_name.has_value() &&
-      this->model_name_text_sensor_->state != this->hlink_entity_status_.model_name.value()) {
-    this->model_name_text_sensor_->publish_state(this->hlink_entity_status_.model_name.value());
+  if (this->model_name_text_sensor_ != nullptr && this->hlink_entity_status_.model_name.has_value()) {
+    if (this->model_name_text_sensor_->state != this->hlink_entity_status_.model_name.value()) {
+        this->model_name_text_sensor_->publish_state(this->hlink_entity_status_.model_name.value());
+    }
   }
 #endif
 }
