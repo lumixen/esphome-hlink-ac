@@ -64,7 +64,7 @@ struct HlinkEntityStatus {
 #ifdef USE_SWITCH
   optional<bool> remote_control_lock;
 #endif
-  bool has_hvac_status() {
+  bool has_minimal_hvac_status() {
     return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() &&
            mode.has_value();
   }
