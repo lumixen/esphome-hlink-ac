@@ -409,16 +409,6 @@ void HlinkAc::publish_updates_if_any_() {
       this->target_temperature = this->hlink_entity_status_.target_temperature.value();
       should_publish_climate_state = true;
     }
-    if (this->mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
-      if (!is_nanable_equal_(this->target_temperature_low, this->hlink_entity_status_.target_temperature.value())) {
-        this->target_temperature_low = this->hlink_entity_status_.target_temperature.value();
-        should_publish_climate_state = true;
-      }
-      if (!is_nanable_equal_(this->target_temperature_high, this->hlink_entity_status_.target_temperature.value())) {
-        this->target_temperature_high = this->hlink_entity_status_.target_temperature.value();
-        should_publish_climate_state = true;
-      }
-    }
     // Current Temp
     if (this->current_temperature != this->hlink_entity_status_.current_temperature.value()) {
       this->current_temperature = this->hlink_entity_status_.current_temperature.value();
@@ -660,9 +650,7 @@ void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(const SendHl
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
   optional<float> requested_temperature = this->resolve_requested_temperature_(call);
-  bool has_requested_temperature = call.get_target_temperature().has_value() ||
-                                   call.get_target_temperature_low().has_value() ||
-                                   call.get_target_temperature_high().has_value();
+  bool has_requested_temperature = call.get_target_temperature().has_value();
   climate::ClimateMode requested_mode = call.get_mode().value_or(this->mode);
   if (call.get_mode().has_value()) {
     climate::ClimateMode mode = *call.get_mode();
@@ -723,8 +711,6 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
           this->hlink_entity_status_.current_temperature_auto_offset =
               this->hlink_entity_status_.target_temperature_auto_offset.value();
           this->target_temperature = requested_or_current_temperature;
-          this->target_temperature_low = requested_or_current_temperature;
-          this->target_temperature_high = requested_or_current_temperature;
           this->publish_state();
         });
   }
@@ -1089,8 +1075,6 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
           this->hlink_entity_status_.current_temperature_auto_offset =
               this->hlink_entity_status_.target_temperature_auto_offset.value();
           this->target_temperature = target_temperature;
-          this->target_temperature_low = target_temperature;
-          this->target_temperature_high = target_temperature;
           this->publish_state();
         });
   }

@@ -398,15 +398,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
   optional<float> resolve_requested_temperature_(const climate::ClimateCall &call) const {
-    if (call.get_target_temperature_low().has_value() && call.get_target_temperature_high().has_value()) {
-      return (*call.get_target_temperature_low() + *call.get_target_temperature_high()) / 2.0f;
-    }
-    if (call.get_target_temperature_low().has_value()) {
-      return call.get_target_temperature_low().value();
-    }
-    if (call.get_target_temperature_high().has_value()) {
-      return call.get_target_temperature_high().value();
-    }
     return call.get_target_temperature();
   }
   void save_settings_();
