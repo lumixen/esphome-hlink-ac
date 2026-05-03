@@ -68,10 +68,6 @@ struct HlinkEntityStatus {
     return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() &&
            mode.has_value();
   }
-
-  uint16_t hlink_auto_offset_temperature() {
-    return static_cast<uint8_t>(target_temperature_auto_offset.value_or(0)) + 0xFF00;
-  }
 };
 
 enum FeatureType : uint16_t {
@@ -358,6 +354,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
+  void set_reference_temperature(float reference_temperature);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
@@ -365,6 +362,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
+  float reference_temperature_{24.0f};
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
@@ -379,6 +377,25 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
                         std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
   bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
+  bool is_auto_temperature_mode_(uint16_t mode) const {
+    return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO;
+  }
+  uint16_t encode_auto_temperature_(float temperature) const {
+    int8_t offset = static_cast<int8_t>(temperature - this->reference_temperature_);
+    return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
+  }
+  optional<float> resolve_requested_temperature_(const climate::ClimateCall &call) const {
+    if (call.get_target_temperature_low().has_value() && call.get_target_temperature_high().has_value()) {
+      return (*call.get_target_temperature_low() + *call.get_target_temperature_high()) / 2.0f;
+    }
+    if (call.get_target_temperature_low().has_value()) {
+      return call.get_target_temperature_low().value();
+    }
+    if (call.get_target_temperature_high().has_value()) {
+      return call.get_target_temperature_high().value();
+    }
+    return call.get_target_temperature();
+  }
   void save_settings_();
 };
 }  // namespace hlink_ac

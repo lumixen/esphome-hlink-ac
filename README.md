@@ -93,6 +93,7 @@ climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
     hvac_actions: true # Remove or set to false if you don't need HVAC actions.
+    reference_temperature: 24.0 # Absolute temperature used as the center point for HEAT_COOL offset mapping.
     supported_presets: # Presets are disabled by default. Remove this if your AC does not support Leave Home mode.
       - AWAY
     supported_swing_modes: # Could be removed if your AC does not support horizontal swinging. By default only vertical mode is exposed.
