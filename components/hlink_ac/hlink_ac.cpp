@@ -190,8 +190,6 @@ void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
 
 void HlinkAc::set_reference_temperature(float reference_temperature) {
   this->reference_temperature_ = reference_temperature;
-  this->traits_.set_visual_min_temperature(this->auto_min_temperature_());
-  this->traits_.set_visual_max_temperature(this->auto_max_temperature_());
 }
 
 void HlinkAc::request_status_update_() {
