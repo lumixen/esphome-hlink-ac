@@ -33,6 +33,8 @@ static const std::string TIMEOUT = "TIMEOUT";
 
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
+constexpr float AUTO_TARGET_TEMP_OFFSET_MIN = -3.0f;
+constexpr float AUTO_TARGET_TEMP_OFFSET_MAX = 3.0f;
 
 constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
 
@@ -362,7 +364,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
-  float reference_temperature_{24.0f};
+  float reference_temperature_{25.0f};
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
@@ -380,8 +382,19 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   bool is_auto_temperature_mode_(uint16_t mode) const {
     return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO;
   }
+  float auto_min_temperature_() const { return this->reference_temperature_ + AUTO_TARGET_TEMP_OFFSET_MIN; }
+  float auto_max_temperature_() const { return this->reference_temperature_ + AUTO_TARGET_TEMP_OFFSET_MAX; }
+  float clamp_auto_temperature_(float temperature) const {
+    if (temperature < this->auto_min_temperature_()) {
+      return this->auto_min_temperature_();
+    }
+    if (temperature > this->auto_max_temperature_()) {
+      return this->auto_max_temperature_();
+    }
+    return temperature;
+  }
   uint16_t encode_auto_temperature_(float temperature) const {
-    int8_t offset = static_cast<int8_t>(temperature - this->reference_temperature_);
+    int8_t offset = static_cast<int8_t>(this->clamp_auto_temperature_(temperature) - this->reference_temperature_);
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
   optional<float> resolve_requested_temperature_(const climate::ClimateCall &call) const {

@@ -71,9 +71,11 @@ HlinkAc::HlinkAc() {
             } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
               adjusted_offset = offset_temp + 2;
             }
-            this->hlink_entity_status_.target_temperature = this->reference_temperature_ + adjusted_offset;
-            this->hlink_entity_status_.target_temperature_auto_offset = adjusted_offset;
-            this->hlink_entity_status_.current_temperature_auto_offset = adjusted_offset;
+            float visible_temperature = this->clamp_auto_temperature_(this->reference_temperature_ + adjusted_offset);
+            int8_t visible_offset = static_cast<int8_t>(visible_temperature - this->reference_temperature_);
+            this->hlink_entity_status_.target_temperature = visible_temperature;
+            this->hlink_entity_status_.target_temperature_auto_offset = visible_offset;
+            this->hlink_entity_status_.current_temperature_auto_offset = visible_offset;
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              this->hlink_entity_status_.target_temperature = target_temperature;
@@ -188,6 +190,8 @@ void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
 
 void HlinkAc::set_reference_temperature(float reference_temperature) {
   this->reference_temperature_ = reference_temperature;
+  this->traits_.set_visual_min_temperature(this->auto_min_temperature_());
+  this->traits_.set_visual_max_temperature(this->auto_max_temperature_());
 }
 
 void HlinkAc::request_status_update_() {
@@ -709,13 +713,15 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                !std::isnan(this->hlink_entity_status_.target_temperature.value())) {
       requested_or_current_temperature = this->hlink_entity_status_.target_temperature.value();
     }
+    requested_or_current_temperature = this->clamp_auto_temperature_(requested_or_current_temperature);
     uint16_t offset_temp = this->encode_auto_temperature_(requested_or_current_temperature);
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
         [this, requested_or_current_temperature](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.target_temperature = requested_or_current_temperature;
           this->hlink_entity_status_.target_temperature_auto_offset =
-              static_cast<int8_t>(requested_or_current_temperature - this->reference_temperature_);
+              static_cast<int8_t>(this->clamp_auto_temperature_(requested_or_current_temperature) -
+                                  this->reference_temperature_);
           this->hlink_entity_status_.current_temperature_auto_offset =
               this->hlink_entity_status_.target_temperature_auto_offset.value();
           this->target_temperature = requested_or_current_temperature;
@@ -1076,11 +1082,11 @@ void HlinkAc::set_auto_temperature_offset(float offset) {
   if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO ||
       this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
       this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-    auto hlink_offset_temperature = this->encode_auto_temperature_(this->reference_temperature_ + offset);
+    float target_temperature = this->clamp_auto_temperature_(this->reference_temperature_ + offset);
+    auto hlink_offset_temperature = this->encode_auto_temperature_(target_temperature);
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_offset_temperature),
-        [this, offset](const HlinkResponseFrame &response) {
-          float target_temperature = this->reference_temperature_ + offset;
+        [this, target_temperature](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.target_temperature = target_temperature;
           this->hlink_entity_status_.current_temperature_auto_offset =
               this->hlink_entity_status_.target_temperature_auto_offset.value();
