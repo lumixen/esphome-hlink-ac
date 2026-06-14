@@ -25,9 +25,6 @@ climate:
 
 sensor:
   - platform: hlink_ac
-    auto_target_temp_offset:
-      name: Auto Mode Temp Offset
-  - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor Temperature
 
@@ -56,8 +53,3 @@ text_sensor:
   - platform: hlink_ac
     debug_discovery:
       name: H-link addresses discovery
-
-number:
-  - platform: hlink_ac
-    auto_target_temperature_offset:
-      name: Auto offset

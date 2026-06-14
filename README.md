@@ -93,7 +93,6 @@ climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
     hvac_actions: true # Remove or set to false if you don't need HVAC actions.
-    reference_temperature: 24.0 # Center point for HEAT_COOL offset mapping. The AC clamps to reference_temperature +/- 3.
     supported_presets: # Presets are disabled by default. Remove this if your AC does not support Leave Home mode.
       - AWAY
     supported_swing_modes: # Could be removed if your AC does not support horizontal swinging. By default only vertical mode is exposed.
@@ -110,9 +109,6 @@ switch:
       name: Beeper
 
 sensor:
-  - platform: hlink_ac
-    auto_target_temp_offset:
-      name: Auto Mode Temp Offset
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
@@ -131,11 +127,6 @@ text_sensor:
   - platform: hlink_ac
     model_name:
       name: Model
-
-number:
-  - platform: hlink_ac
-    auto_target_temperature_offset:
-      name: Auto Mode Temp Offset
 ```
 
 Without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some climate traits, you can adjust the ESPHome configuration explicitly:
@@ -207,16 +198,13 @@ esphome:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
-    - Temperature offset in auto mode
 4. Binary Sensor
     - Indoor unit air filter cleaning reminder
 5. Text sensor
     - Model name
     - Debug
     - Debug discovery
-6. Number
-    - Temperature offset in auto mode
-7. Button
+6. Button
     - Reset indoor unit air filter cleaning reminder
 
 ## H-link protocol reverse engineering
