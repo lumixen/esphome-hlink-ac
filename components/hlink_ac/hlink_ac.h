@@ -370,6 +370,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   bool is_auto_temperature_mode_(uint16_t mode) const {
     return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO;
   }
+  std::string format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const;
   float auto_min_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN; }
   float auto_max_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX; }
   float clamp_auto_temperature_(float temperature) const {
