@@ -118,6 +118,19 @@ void HlinkAc::setup() {
 }
 
 void HlinkAc::dump_config() {
+  std::string target_temperature_log = "N/A";
+  if (this->hlink_entity_status_.target_temperature.has_value() &&
+      !std::isnan(this->hlink_entity_status_.target_temperature.value())) {
+    target_temperature_log =
+        std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value()));
+    if (this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value_or(HLINK_MODE_AUTO))) {
+      int8_t auto_offset = static_cast<int8_t>(this->hlink_entity_status_.target_temperature.value() -
+                                               this->reference_temperature_);
+      target_temperature_log += " (auto offset ";
+      target_temperature_log += std::to_string(auto_offset);
+      target_temperature_log += ")";
+    }
+  }
   ESP_LOGCONFIG(
       TAG,
       "Hlink AC:\n"
@@ -127,7 +140,6 @@ void HlinkAc::dump_config() {
       "  Swing mode: %s\n"
       "  Current temperature: %s\n"
       "  Target temperature: %s\n"
-      "  Reference temperature: %.1f\n"
       "  Model: %s",
       this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
                                                          : "N/A",
@@ -143,11 +155,7 @@ void HlinkAc::dump_config() {
       this->hlink_entity_status_.current_temperature.has_value()
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str()
           : "N/A",
-      this->hlink_entity_status_.target_temperature.has_value() &&
-              !std::isnan(this->hlink_entity_status_.target_temperature.value())
-          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
-          : "N/A",
-      this->reference_temperature_,
+      target_temperature_log.c_str(),
       this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str()
                                                         : "N/A");
 #ifdef USE_SWITCH
