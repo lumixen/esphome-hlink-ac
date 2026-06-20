@@ -374,12 +374,12 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   float auto_min_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN; }
   float auto_max_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX; }
   float clamp_auto_temperature_(float temperature) const {
-    if (temperature < this->auto_min_temperature_()) {
-      return this->auto_min_temperature_();
-    }
-    if (temperature > this->auto_max_temperature_()) {
-      return this->auto_max_temperature_();
-    }
+    const float lo = this->auto_min_temperature_();
+    const float hi = this->auto_max_temperature_();
+    if (temperature < lo)
+      return lo;
+    if (temperature > hi)
+      return hi;
     return temperature;
   }
   // Expects a value already clamped to the auto-mode range.
