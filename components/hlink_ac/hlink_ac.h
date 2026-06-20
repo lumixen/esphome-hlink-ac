@@ -381,8 +381,9 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
     }
     return temperature;
   }
+  // Expects a value already clamped to the auto-mode range.
   uint16_t encode_auto_temperature_(float temperature) const {
-    int8_t offset = static_cast<int8_t>(this->clamp_auto_temperature_(temperature) - this->reference_temperature_);
+    int8_t offset = static_cast<int8_t>(temperature - this->reference_temperature_);
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
   void save_settings_();
