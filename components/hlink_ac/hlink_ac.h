@@ -368,7 +368,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   // ----- Utils -----
   bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
   bool is_auto_temperature_mode_(uint16_t mode) const {
-    return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO;
+    return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO ||
+           mode == HLINK_MODE_DRY_AUTO;
   }
   float auto_min_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN; }
   float auto_max_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX; }
