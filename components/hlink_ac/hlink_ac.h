@@ -16,9 +16,6 @@
 #ifdef USE_TEXT_SENSOR
 #include "esphome/components/text_sensor/text_sensor.h"
 #endif
-#ifdef USE_NUMBER
-#include "esphome/components/number/number.h"
-#endif
 
 namespace esphome {
 namespace hlink_ac {
@@ -33,6 +30,8 @@ static const std::string TIMEOUT = "TIMEOUT";
 
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MIN = 10;
 constexpr uint8_t PROTOCOL_TARGET_TEMP_MAX = 32;
+constexpr float AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN = -3.0f;
+constexpr float AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX = 3.0f;
 
 constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
 
@@ -55,8 +54,6 @@ struct HlinkEntityStatus {
   optional<esphome::climate::ClimateAction> action;
   optional<float> current_temperature;
   optional<float> target_temperature;
-  optional<int8_t> target_temperature_auto_offset;
-  optional<float> current_temperature_auto_offset;
   optional<esphome::climate::ClimateFanMode> fan_mode;
   optional<esphome::climate::ClimateSwingMode> swing_mode;
   optional<bool> leave_home_enabled;
@@ -67,10 +64,6 @@ struct HlinkEntityStatus {
   bool has_minimal_hvac_status() {
     return power_state.has_value() && current_temperature.has_value() && target_temperature.has_value() &&
            mode.has_value();
-  }
-
-  uint16_t hlink_auto_offset_temperature() {
-    return static_cast<uint8_t>(target_temperature_auto_offset.value_or(0)) + 0xFF00;
   }
 };
 
@@ -256,7 +249,6 @@ struct SendHlinkCmdResult {
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
-  AUTO_TARGET_TEMP_OFFSET = 1,
   // Used to count the number of sensors in the enum
   COUNT,
 };
@@ -276,7 +268,8 @@ enum class TextSensorType {
 
 struct HlinkAcSettings {
   bool beeper_enabled;
-  int8_t auto_temperature_offset;
+  // Preserve the preference layout from releases that stored a second settings byte.
+  uint8_t reserved;
 };
 
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
@@ -313,7 +306,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
-  sensor::Sensor *auto_target_temp_offset_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
  public:
@@ -332,12 +324,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   bool debug_discovery_running_{false};
   text_sensor::TextSensor *model_name_text_sensor_{nullptr};
   text_sensor::TextSensor *debug_discovery_text_sensor_{nullptr};
-#endif
-#ifdef USE_NUMBER
-  SUB_NUMBER(temperature_offset)
-
- public:
-  void set_auto_temperature_offset(float offset);
 #endif
  public:
   HlinkAc();
@@ -358,6 +344,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
+  void set_reference_temperature(float reference_temperature);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
@@ -365,6 +352,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   ComponentStatus status_ = ComponentStatus();
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
+  float reference_temperature_{25.0f};
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
@@ -379,6 +367,26 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
                         std::function<void()> timeout_callback = nullptr);
   // ----- Utils -----
   bool is_nanable_equal_(float a, float b) { return (std::isnan(a) && std::isnan(b)) || (a == b); }
+  bool is_auto_temperature_mode_(uint16_t mode) const {
+    return mode == HLINK_MODE_AUTO || mode == HLINK_MODE_HEAT_AUTO || mode == HLINK_MODE_COOL_AUTO ||
+           mode == HLINK_MODE_DRY_AUTO;
+  }
+  float auto_min_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN; }
+  float auto_max_temperature_() const { return this->reference_temperature_ + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX; }
+  float clamp_auto_temperature_(float temperature) const {
+    const float lo = this->auto_min_temperature_();
+    const float hi = this->auto_max_temperature_();
+    if (temperature < lo)
+      return lo;
+    if (temperature > hi)
+      return hi;
+    return temperature;
+  }
+  // Expects a value already clamped to the auto-mode range.
+  uint16_t encode_auto_temperature_(float temperature) const {
+    int8_t offset = static_cast<int8_t>(temperature - this->reference_temperature_);
+    return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
+  }
   void save_settings_();
 };
 }  // namespace hlink_ac
