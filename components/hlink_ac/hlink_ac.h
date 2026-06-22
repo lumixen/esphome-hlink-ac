@@ -387,6 +387,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
     int8_t offset = static_cast<int8_t>(temperature - this->reference_temperature_);
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
+  std::string format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const;
   void save_settings_();
 };
 }  // namespace hlink_ac

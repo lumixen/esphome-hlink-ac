@@ -127,6 +127,7 @@ void HlinkAc::dump_config() {
       "  Fan mode: %s\n"
       "  Swing mode: %s\n"
       "  Current temperature: %s\n"
+      "  Target temperature: %s\n"
       "  Model: %s",
       this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
                                                          : "N/A",
@@ -142,10 +143,11 @@ void HlinkAc::dump_config() {
       this->hlink_entity_status_.current_temperature.has_value()
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str()
           : "N/A",
-      this->hlink_entity_status_.target_temperature.has_value() &&
-              !std::isnan(this->hlink_entity_status_.target_temperature.value())
-          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
-          : "N/A",
+      this->format_target_temperature_log_(
+              this->hlink_entity_status_.target_temperature,
+              this->hlink_entity_status_.hlink_climate_mode.has_value() &&
+                  this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value()))
+          .c_str(),
       this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str()
                                                         : "N/A");
 #ifdef USE_SWITCH
@@ -1023,6 +1025,20 @@ void HlinkAc::save_settings_() {
   if (!this->rtc_.save(&settings)) {
     ESP_LOGW(TAG, "Failed to save settings");
   }
+}
+
+std::string HlinkAc::format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const {
+  if (!target_temperature.has_value() || std::isnan(target_temperature.value())) {
+    return "N/A";
+  }
+  std::string log = std::to_string(static_cast<int16_t>(target_temperature.value()));
+  if (show_auto_offset) {
+    int8_t offset = static_cast<int8_t>(target_temperature.value() - this->reference_temperature_);
+    log += " (auto offset ";
+    log += std::to_string(offset);
+    log += ")";
+  }
+  return log;
 }
 
 int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequest> request) {
