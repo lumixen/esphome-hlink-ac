@@ -55,7 +55,8 @@ HlinkAc::HlinkAc() {
        {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
          if (response.p_value_as_uint16().has_value()) {
            uint16_t target_temperature = response.p_value_as_uint16().value();
-           if (this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value_or(HLINK_MODE_AUTO)) &&
+           if (this->hlink_entity_status_.hlink_climate_mode.has_value() &&
+               this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value()) &&
                target_temperature >= 0xFF00) {
              // In auto mode the target temperature control is not available
              // Instead, AC expects temperature offset in range [-3;+3] C
