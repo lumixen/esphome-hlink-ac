@@ -207,8 +207,8 @@ CONFIG_SCHEMA = cv.All(
             ): cv.boolean,
             cv.Optional(
                 CONF_REFERENCE_TEMPERATURE,
-                default=25.0,
-            ): cv.All(cv.float_, cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE)),
+                default=25,
+            ): cv.All(cv.int_, cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE)),
             cv.Optional(
                 CONF_STATUS_UPDATE_INTERVAL,
                 default="5000",
