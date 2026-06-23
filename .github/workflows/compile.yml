@@ -1,0 +1,30 @@
+name: Compile
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - hlink.yml
+          - hlink_actions.yml
+          - hlink_all.yml
+          - hlink_all_arduino.yml
+          - hlink_all_libretiny.yml
+          - hlink_switch.yml
+    name: ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile ${{ matrix.config }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/build":/config \
+            -v "${{ github.workspace }}/components":/components \
+            esphome/esphome:stable \
+            compile ${{ matrix.config }}
