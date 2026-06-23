@@ -5,18 +5,26 @@ on:
   pull_request:
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.list.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List configs
+        id: list
+        run: |
+          configs=$(ls build/*.yml | xargs -n1 basename | jq -R . | jq -sc .)
+          echo "configs=$configs" >> "$GITHUB_OUTPUT"
+
   compile:
+    needs: discover
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - hlink.yml
-          - hlink_actions.yml
-          - hlink_all.yml
-          - hlink_all_arduino.yml
-          - hlink_all_libretiny.yml
-          - hlink_switch.yml
+        config: ${{ fromJson(needs.discover.outputs.configs) }}
     name: ${{ matrix.config }}
     steps:
       - uses: actions/checkout@v4
