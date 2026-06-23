@@ -28,7 +28,7 @@ climate:
       - "HORIZONTAL"
       - "BOTH"
     status_update_interval: 1000
-    reference_temperature: 23
+    reference_temperature: 20
 
 sensor:
   - platform: hlink_ac
