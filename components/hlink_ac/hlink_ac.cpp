@@ -662,6 +662,10 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              this->hlink_entity_status_.power_state = power_state;
                              this->hlink_entity_status_.mode = mode;
                              this->mode = mode;
+                             if (!power_state) {
+                               this->hlink_entity_status_.target_temperature = NAN;
+                               this->target_temperature = NAN;
+                             }
                              this->publish_state();
                            });
   }
