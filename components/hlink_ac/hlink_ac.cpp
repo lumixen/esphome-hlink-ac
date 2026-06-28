@@ -52,17 +52,16 @@ HlinkAc::HlinkAc() {
          }
        }});
   this->status_.polling_features.push_back(
-      {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
+       {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
          if (this->hlink_entity_status_.power_state.has_value() && !this->hlink_entity_status_.power_state.value()) {
            this->hlink_entity_status_.target_temperature = NAN;
            return;
          }
          if (response.p_value_as_uint16().has_value()) {
            uint16_t target_temperature = response.p_value_as_uint16().value();
-           if ((this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
-                this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) &&
+           if (this->hlink_entity_status_.hlink_climate_mode.has_value() &&
+               this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value()) &&
                target_temperature >= 0xFF00) {
-             this->hlink_entity_status_.target_temperature = NAN;
              // In auto mode the target temperature control is not available
              // Instead, AC expects temperature offset in range [-3;+3] C
              // AUTO HEATING: FFFD -> FFFF, FFFE -> FF00, FFFF -> FF01, FF00 -> FF02, FF01 -> FF03, FF02 -> FF04, FF03
@@ -71,20 +70,19 @@ HlinkAc::HlinkAc() {
              // FF00, FF03 -> FF01
              // Needs testing, it's not clear if offset makes any difference in real life
              int8_t offset_temp = static_cast<int8_t>(target_temperature - 0xFF00);
+             int8_t adjusted_offset = offset_temp;
              if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO) {
-               this->hlink_entity_status_.current_temperature_auto_offset = offset_temp - 2;
+               adjusted_offset = offset_temp - 2;
              } else if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-               this->hlink_entity_status_.current_temperature_auto_offset = offset_temp + 2;
-             } else {
-               this->hlink_entity_status_.current_temperature_auto_offset = {};
+               adjusted_offset = offset_temp + 2;
              }
+             this->hlink_entity_status_.target_temperature =
+                 this->clamp_auto_temperature_(this->reference_temperature_ + adjusted_offset);
            } else if (target_temperature >= PROTOCOL_TARGET_TEMP_MIN &&
                       target_temperature <= PROTOCOL_TARGET_TEMP_MAX) {
              this->hlink_entity_status_.target_temperature = target_temperature;
-             this->hlink_entity_status_.current_temperature_auto_offset = {};
            } else {
              this->hlink_entity_status_.target_temperature = NAN;
-             this->hlink_entity_status_.current_temperature_auto_offset = {};
            }
          }
        }});
@@ -111,21 +109,14 @@ HlinkAc::HlinkAc() {
 void HlinkAc::setup() {
   constexpr uint32_t settings_version = 0xA7C3B2E4;
   this->rtc_ = this->make_entity_preference<HlinkAcSettings>(settings_version);
-  HlinkAcSettings recovered_settings;
+  HlinkAcSettings recovered_settings{};
   auto beeper_enabled = false;
   if (this->rtc_.load(&recovered_settings)) {
     beeper_enabled = recovered_settings.beeper_enabled;
-    this->hlink_entity_status_.target_temperature_auto_offset = recovered_settings.auto_temperature_offset;
   }
 #ifdef USE_SWITCH
-  if (this->beeper_switch_ != nullptr && recovered_settings.beeper_enabled != this->beeper_switch_->state) {
+  if (this->beeper_switch_ != nullptr && beeper_enabled != this->beeper_switch_->state) {
     this->beeper_switch_->publish_state(beeper_enabled);
-  }
-#endif
-#ifdef USE_NUMBER
-  if (this->temperature_offset_number_ != nullptr) {
-    this->temperature_offset_number_->publish_state(
-        this->hlink_entity_status_.target_temperature_auto_offset.value_or(0));
   }
 #endif
   ESP_LOGI(TAG, "Component initialized.");
@@ -141,8 +132,6 @@ void HlinkAc::dump_config() {
       "  Swing mode: %s\n"
       "  Current temperature: %s\n"
       "  Target temperature: %s\n"
-      "  Target auto temperature offset: %s\n"
-      "  Current auto temperature offset: %s\n"
       "  Model: %s",
       this->hlink_entity_status_.power_state.has_value() ? this->hlink_entity_status_.power_state.value() ? "ON" : "OFF"
                                                          : "N/A",
@@ -158,19 +147,11 @@ void HlinkAc::dump_config() {
       this->hlink_entity_status_.current_temperature.has_value()
           ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature.value())).c_str()
           : "N/A",
-      this->hlink_entity_status_.target_temperature.has_value() &&
-              !std::isnan(this->hlink_entity_status_.target_temperature.value())
-          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.target_temperature.value())).c_str()
-          : "N/A",
-      this->hlink_entity_status_.target_temperature_auto_offset.has_value()
-          ? std::to_string(static_cast<int8_t>(this->hlink_entity_status_.target_temperature_auto_offset.value()))
-                .c_str()
-          : "N/A",
-      this->hlink_entity_status_.current_temperature_auto_offset.has_value() &&
-              !std::isnan(this->hlink_entity_status_.current_temperature_auto_offset.value())
-          ? std::to_string(static_cast<int16_t>(this->hlink_entity_status_.current_temperature_auto_offset.value()))
-                .c_str()
-          : "N/A",
+      this->format_target_temperature_log_(
+              this->hlink_entity_status_.target_temperature,
+              this->hlink_entity_status_.hlink_climate_mode.has_value() &&
+                  this->is_auto_temperature_mode_(this->hlink_entity_status_.hlink_climate_mode.value()))
+          .c_str(),
       this->hlink_entity_status_.model_name.has_value() ? this->hlink_entity_status_.model_name.value().c_str()
                                                         : "N/A");
 #ifdef USE_SWITCH
@@ -184,6 +165,10 @@ void HlinkAc::dump_config() {
 
 void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
   this->status_.status_update_interval_ms = interval_ms;
+}
+
+void HlinkAc::set_reference_temperature(float reference_temperature) {
+  this->reference_temperature_ = reference_temperature;
 }
 
 void HlinkAc::request_status_update_() {
@@ -444,10 +429,6 @@ void HlinkAc::publish_updates_if_any_() {
       this->publish_state();
     }
   }
-#ifdef USE_SENSOR
-  this->update_sensor_state_(this->auto_target_temp_offset_sensor_,
-                             this->hlink_entity_status_.current_temperature_auto_offset.value_or(NAN));
-#endif
 #ifdef USE_SWITCH
   if (this->remote_lock_switch_ != nullptr && this->hlink_entity_status_.remote_control_lock.has_value() &&
       this->remote_lock_switch_->state != this->hlink_entity_status_.remote_control_lock.value()) {
@@ -646,6 +627,7 @@ void HlinkAc::add_send_hlink_cmd_result_callback(std::function<void(const SendHl
 }
 
 void HlinkAc::control(const esphome::climate::ClimateCall &call) {
+  climate::ClimateMode requested_mode = call.get_mode().value_or(this->mode);
   if (call.get_mode().has_value()) {
     climate::ClimateMode mode = *call.get_mode();
     uint16_t power_state = 0x0001;
@@ -682,19 +664,6 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              this->mode = mode;
                              this->publish_state();
                            });
-#ifdef USE_NUMBER
-    if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL && this->temperature_offset_number_ != nullptr) {
-      // Apply target auto offset value if the mode is set to AUTO
-      uint16_t offset_temp = this->hlink_entity_status_.hlink_auto_offset_temperature();
-      this->enqueue_request_(
-          HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, offset_temp),
-          [this](const HlinkResponseFrame &response) {
-            this->hlink_entity_status_.current_temperature_auto_offset =
-                this->hlink_entity_status_.target_temperature_auto_offset.value_or(0);
-            ;
-          });
-    }
-#endif
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
@@ -725,9 +694,14 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         });
   }
   if (call.get_target_temperature().has_value()) {
-    float target_temperature = *call.get_target_temperature();
+    float target_temperature = call.get_target_temperature().value();
+    uint16_t hlink_target_temperature = static_cast<uint16_t>(target_temperature);
+    if (requested_mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
+      target_temperature = this->clamp_auto_temperature_(target_temperature);
+      hlink_target_temperature = this->encode_auto_temperature_(target_temperature);
+    }
     this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, target_temperature),
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_target_temperature),
         [this, target_temperature](const HlinkResponseFrame &response) {
           this->hlink_entity_status_.target_temperature = target_temperature;
           this->target_temperature = target_temperature;
@@ -923,8 +897,6 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
                                                   this->update_sensor_state_(s, sensor_value);
                                                 }});
       break;
-    case SensorType::AUTO_TARGET_TEMP_OFFSET:
-      this->auto_target_temp_offset_sensor_ = s;
     default:
       break;
   }
@@ -932,7 +904,7 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
 
 void HlinkAc::update_sensor_state_(sensor::Sensor *sensor, float value) {
   if (sensor != nullptr) {
-    float current_state = sensor->raw_state;
+    float current_state = sensor->get_raw_state();
     if (is_nanable_equal_(current_state, value)) {
       return;
     }
@@ -1041,25 +1013,6 @@ void HlinkAc::stop_debug_discovery() {
 }
 
 #endif
-#ifdef USE_NUMBER
-void HlinkAc::set_auto_temperature_offset(float offset) {
-  this->hlink_entity_status_.target_temperature_auto_offset = static_cast<int8_t>(offset);
-  if (this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_AUTO ||
-      this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_HEAT_AUTO ||
-      this->hlink_entity_status_.hlink_climate_mode == HLINK_MODE_COOL_AUTO) {
-    auto hlink_offset_temperature = this->hlink_entity_status_.hlink_auto_offset_temperature();
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_offset_temperature),
-        [this](const HlinkResponseFrame &response) {
-          this->hlink_entity_status_.current_temperature_auto_offset =
-              this->hlink_entity_status_.target_temperature_auto_offset.value();
-        });
-  }
-  this->temperature_offset_number_->publish_state(offset);
-  this->save_settings_();
-}
-#endif
-
 void HlinkAc::enqueue_request_(HlinkRequestFrame request_frame,
                                std::function<void(const HlinkResponseFrame &response)> ok_callback,
                                std::function<void()> ng_callback, std::function<void()> invalid_callback,
@@ -1075,11 +1028,24 @@ void HlinkAc::save_settings_() {
     beeper_enabled = this->beeper_switch_->state;
   }
 #endif
-  int8_t auto_temperature_offset = this->hlink_entity_status_.target_temperature_auto_offset.value_or(0);
-  HlinkAcSettings settings{beeper_enabled, auto_temperature_offset};
+  HlinkAcSettings settings{beeper_enabled, 0};
   if (!this->rtc_.save(&settings)) {
     ESP_LOGW(TAG, "Failed to save settings");
   }
+}
+
+std::string HlinkAc::format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const {
+  if (!target_temperature.has_value() || std::isnan(target_temperature.value())) {
+    return "N/A";
+  }
+  std::string log = std::to_string(static_cast<int16_t>(target_temperature.value()));
+  if (show_auto_offset) {
+    int8_t offset = static_cast<int8_t>(target_temperature.value() - this->reference_temperature_);
+    log += " (auto offset ";
+    log += std::to_string(offset);
+    log += ")";
+  }
+  return log;
 }
 
 int8_t CircularRequestsQueue::enqueue(std::unique_ptr<HlinkRequest> request) {

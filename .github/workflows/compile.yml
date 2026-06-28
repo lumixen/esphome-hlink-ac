@@ -1,0 +1,37 @@
+name: Compile
+
+on:
+  push:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.list.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List configs
+        id: list
+        run: |
+          configs=$(ls build/*.yml | xargs -n1 basename | jq -R . | jq -sc .)
+          echo "configs=$configs" >> "$GITHUB_OUTPUT"
+
+  compile:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.discover.outputs.configs) }}
+    name: ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile ${{ matrix.config }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/build":/config \
+            -v "${{ github.workspace }}/components":/components \
+            esphome/esphome:stable \
+            compile ${{ matrix.config }}

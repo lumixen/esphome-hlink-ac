@@ -35,6 +35,7 @@ SendHlinkCmdResultConstRef = SendHlinkCmdResult.operator("ref").operator("const"
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
 CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
+CONF_REFERENCE_TEMPERATURE = "reference_temperature"
 CONF_ON_SEND_HLINK_CMD_RESULT = "on_send_hlink_cmd_result"
 
 PROTOCOL_MIN_TEMPERATURE = 16.0
@@ -205,6 +206,10 @@ CONFIG_SCHEMA = cv.All(
                 default=False,
             ): cv.boolean,
             cv.Optional(
+                CONF_REFERENCE_TEMPERATURE,
+                default=25,
+            ): cv.All(cv.int_, cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE)),
+            cv.Optional(
                 CONF_STATUS_UPDATE_INTERVAL,
                 default="5000",
             ): cv.All(cv.uint32_t, cv.Range(min=100, max=60000)),
@@ -230,6 +235,7 @@ async def to_code(config):
     await climate.register_climate(var, config)
 
     cg.add(var.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
+    cg.add(var.set_reference_temperature(config[CONF_REFERENCE_TEMPERATURE]))
 
     if CONF_SUPPORTED_MODES in config:
         cg.add(var.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))

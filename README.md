@@ -86,20 +86,21 @@ external_components:
   - source:
       type: git
       url: https://github.com/lumixen/esphome-hlink-ac.git
-      ref: 2026.4.0
+      ref: 2026.6.0
     components: [hlink_ac]
 
 climate:
   - platform: hlink_ac
     name: "SNXXXXXX"
-    hvac_actions: true # Remove or set to false if you don't need HVAC actions.
-    supported_presets: # Presets are disabled by default. Remove this if your AC does not support Leave Home mode.
+    hvac_actions: true # Optional. Enables HVAC actions. Defaults to false.
+    supported_presets: # Optional. Disabled by default. Remove this if your AC does not support Leave Home mode.
       - AWAY
-    supported_swing_modes: # Could be removed if your AC does not support horizontal swinging. By default only vertical mode is exposed.
+    supported_swing_modes: # Optional. By default only vertical mode is exposed. Remove if your AC does not support horizontal swinging.
       - "OFF"
       - VERTICAL
       - HORIZONTAL
       - BOTH
+    reference_temperature: 25 # Optional. Center point (°C) for target temperature in HEAT_COOL (auto) mode. Settable range is ±3°C around this value. Defaults to 25.
 
 switch:
   - platform: hlink_ac
@@ -109,9 +110,6 @@ switch:
       name: Beeper
 
 sensor:
-  - platform: hlink_ac
-    auto_target_temp_offset:
-      name: Auto Mode Temp Offset
   - platform: hlink_ac
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
@@ -130,11 +128,6 @@ text_sensor:
   - platform: hlink_ac
     model_name:
       name: Model
-
-number:
-  - platform: hlink_ac
-    auto_target_temperature_offset:
-      name: Auto Mode Temp Offset
 ```
 
 Without additional configuration the `hlink_ac` climate device provides all features supported by h-link protocol. If your device does not support some climate traits, you can adjust the ESPHome configuration explicitly:
@@ -206,16 +199,13 @@ esphome:
     - Beeper sounds
 3. Sensor
     - Outdoor temperature
-    - Temperature offset in auto mode
 4. Binary Sensor
     - Indoor unit air filter cleaning reminder
 5. Text sensor
     - Model name
     - Debug
     - Debug discovery
-6. Number
-    - Temperature offset in auto mode
-7. Button
+6. Button
     - Reset indoor unit air filter cleaning reminder
 
 ## H-link protocol reverse engineering
