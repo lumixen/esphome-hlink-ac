@@ -53,6 +53,10 @@ HlinkAc::HlinkAc() {
        }});
   this->status_.polling_features.push_back(
        {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
+         if (this->hlink_entity_status_.power_state.has_value() && !this->hlink_entity_status_.power_state.value()) {
+           this->hlink_entity_status_.target_temperature = NAN;
+           return;
+         }
          if (response.p_value_as_uint16().has_value()) {
            uint16_t target_temperature = response.p_value_as_uint16().value();
            if (this->hlink_entity_status_.hlink_climate_mode.has_value() &&
@@ -377,6 +381,9 @@ void HlinkAc::publish_updates_if_any_() {
     // Mode
     if (this->mode != this->hlink_entity_status_.mode.value()) {
       this->mode = this->hlink_entity_status_.mode.value();
+      if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_OFF) {
+        this->hlink_entity_status_.target_temperature = NAN;
+      }
       should_publish_climate_state = true;
     }
     // Target Temp
@@ -655,6 +662,10 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              this->hlink_entity_status_.power_state = power_state;
                              this->hlink_entity_status_.mode = mode;
                              this->mode = mode;
+                             if (!power_state) {
+                               this->hlink_entity_status_.target_temperature = NAN;
+                               this->target_temperature = NAN;
+                             }
                              this->publish_state();
                            });
   }
