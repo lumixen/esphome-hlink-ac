@@ -25,6 +25,8 @@ climate:
 
 sensor:
   - platform: hlink_ac
+    indoor_temperature:
+      name: Indoor Temperature
     outdoor_temperature:
       name: Outdoor Temperature
 

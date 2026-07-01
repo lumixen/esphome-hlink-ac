@@ -249,8 +249,9 @@ struct SendHlinkCmdResult {
 #ifdef USE_SENSOR
 enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
+  INDOOR_TEMPERATURE = 1,
   // Used to count the number of sensors in the enum
-  COUNT,
+  COUNT = 2,
 };
 #endif
 #ifdef USE_BINARY_SENSOR
@@ -306,6 +307,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
+  sensor::Sensor *indoor_temperature_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
  public:
