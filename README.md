@@ -111,6 +111,8 @@ switch:
 
 sensor:
   - platform: hlink_ac
+    indoor_temperature:
+      name: Indoor Temperature # Available when the climate reports room temperature
     outdoor_temperature:
       name: Outdoor Temperature # Available only when device is active
 
@@ -198,6 +200,7 @@ esphome:
     - Remote IR control lock
     - Beeper sounds
 3. Sensor
+    - Indoor temperature
     - Outdoor temperature
 4. Binary Sensor
     - Indoor unit air filter cleaning reminder

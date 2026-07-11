@@ -5,6 +5,7 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     ENTITY_CATEGORY_DIAGNOSTIC,
     ICON_RADIATOR,
+    ICON_THERMOMETER,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
 )
@@ -18,8 +19,16 @@ CODEOWNERS = ["@lumixen"]
 SensorTypeEnum = hlink_ac_ns.enum("SensorType", True)
 
 OUTDOOR_TEMPERATURE = "outdoor_temperature"
+INDOOR_TEMPERATURE = "indoor_temperature"
 
 SENSOR_TYPES = {
+    INDOOR_TEMPERATURE: sensor.sensor_schema(
+        unit_of_measurement=UNIT_CELSIUS,
+        icon=ICON_THERMOMETER,
+        accuracy_decimals=0,
+        device_class=DEVICE_CLASS_TEMPERATURE,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
     OUTDOOR_TEMPERATURE: sensor.sensor_schema(
         unit_of_measurement=UNIT_CELSIUS,
         icon=ICON_RADIATOR,

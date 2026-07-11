@@ -89,6 +89,10 @@ HlinkAc::HlinkAc() {
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::CURRENT_INDOOR_TEMP}}, [this](const HlinkResponseFrame &response) {
          this->hlink_entity_status_.current_temperature = response.p_value_as_uint16();
+#ifdef USE_SENSOR
+         this->update_sensor_state_(this->indoor_temperature_sensor_,
+                                    this->hlink_entity_status_.current_temperature.value_or(NAN));
+#endif
        }});
   this->status_.polling_features.push_back(
       {{HlinkRequestFrame::Type::MT, {FeatureType::FAN_MODE}}, [this](const HlinkResponseFrame &response) {
@@ -900,6 +904,13 @@ void HlinkAc::set_sensor(SensorType type, sensor::Sensor *s) {
                                                           : NAN;
                                                   this->update_sensor_state_(s, sensor_value);
                                                 }});
+      break;
+    case SensorType::INDOOR_TEMPERATURE:
+      this->indoor_temperature_sensor_ = s;
+      if (this->hlink_entity_status_.current_temperature.has_value()) {
+        this->update_sensor_state_(this->indoor_temperature_sensor_,
+                                   this->hlink_entity_status_.current_temperature.value());
+      }
       break;
     default:
       break;
