@@ -251,7 +251,7 @@ enum class SensorType {
   OUTDOOR_TEMPERATURE = 0,
   INDOOR_TEMPERATURE = 1,
   // Used to count the number of sensors in the enum
-  COUNT = 2,
+  COUNT,
 };
 #endif
 #ifdef USE_BINARY_SENSOR
