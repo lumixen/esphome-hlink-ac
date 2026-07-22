@@ -29,6 +29,9 @@ climate:
       - "VERTICAL"
       - "HORIZONTAL"
       - "BOTH"
+    initial_target_temperatures:
+      cool: 22
+      heat: 24
 
 sensor:
   - platform: hlink_ac
