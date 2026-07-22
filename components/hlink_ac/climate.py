@@ -2,6 +2,7 @@ from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uart
+from esphome.codegen import StructInitializer
 from esphome.components.climate import (
     CONF_CURRENT_TEMPERATURE,
     ClimateMode,
@@ -32,16 +33,20 @@ hlink_ac_ns = cg.esphome_ns.namespace("hlink_ac")
 HlinkAc = hlink_ac_ns.class_("HlinkAc", cg.Component, uart.UARTDevice, climate.Climate)
 SendHlinkCmdResult = hlink_ac_ns.struct("SendHlinkCmdResult")
 SendHlinkCmdResultConstRef = SendHlinkCmdResult.operator("ref").operator("const")
+InitialTargetTemperatures = hlink_ac_ns.struct("InitialTargetTemperatures")
 
 CONF_HLINK_AC_ID = "hlink_ac_id"
 CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
 CONF_REFERENCE_TEMPERATURE = "reference_temperature"
+CONF_INITIAL_TARGET_TEMPERATURES = "initial_target_temperatures"
 CONF_ON_SEND_HLINK_CMD_RESULT = "on_send_hlink_cmd_result"
 
 PROTOCOL_MIN_TEMPERATURE = 16.0
 PROTOCOL_MAX_TEMPERATURE = 32.0
 PROTOCOL_TARGET_TEMPERATURE_STEP = 1.0
 PROTOCOL_CURRENT_TEMPERATURE_STEP = 1.0
+AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN = -3.0
+AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX = 3.0
 
 SUPPORT_HVAC_ACTIONS = "hvac_actions"
 
@@ -180,6 +185,22 @@ def validate_visual(config):
     return config
 
 
+def validate_initial_target_temperatures(config):
+    if CONF_INITIAL_TARGET_TEMPERATURES in config:
+        ref_temp = config.get(CONF_REFERENCE_TEMPERATURE, 25)
+        boot = config[CONF_INITIAL_TARGET_TEMPERATURES]
+        if "auto" in boot:
+            auto_temp = boot["auto"]
+            min_temp = ref_temp + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MIN
+            max_temp = ref_temp + AUTO_MODE_TARGET_TEMPERATURE_DELTA_MAX
+            if auto_temp < min_temp or auto_temp > max_temp:
+                raise cv.Invalid(
+                    f"Auto temperature {auto_temp} must be within {min_temp}-{max_temp} "
+                    f"relative to reference_temperature ({ref_temp})"
+                )
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     climate.climate_schema(HlinkAc)
     .extend(
@@ -213,6 +234,19 @@ CONFIG_SCHEMA = cv.All(
                 CONF_STATUS_UPDATE_INTERVAL,
                 default="5000",
             ): cv.All(cv.uint32_t, cv.Range(min=100, max=60000)),
+            cv.Optional(CONF_INITIAL_TARGET_TEMPERATURES): cv.Schema(
+                {
+                    cv.Optional("cool"): cv.All(
+                        cv.temperature,
+                        cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE),
+                    ),
+                    cv.Optional("heat"): cv.All(
+                        cv.temperature,
+                        cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE),
+                    ),
+                    cv.Optional("auto"): cv.temperature,
+                }
+            ),
             cv.Optional(CONF_ON_SEND_HLINK_CMD_RESULT): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -225,6 +259,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA),
     validate_visual,
+    validate_initial_target_temperatures,
 )
 
 
@@ -236,6 +271,18 @@ async def to_code(config):
 
     cg.add(var.set_status_update_interval(config[CONF_STATUS_UPDATE_INTERVAL]))
     cg.add(var.set_reference_temperature(config[CONF_REFERENCE_TEMPERATURE]))
+
+    if CONF_INITIAL_TARGET_TEMPERATURES in config:
+        boot = config[CONF_INITIAL_TARGET_TEMPERATURES]
+        boot_init = []
+        if "heat" in boot:
+            boot_init.append(("heat_target_temperature", boot["heat"]))
+        if "cool" in boot:
+            boot_init.append(("cool_target_temperature", boot["cool"]))
+        if "auto" in boot:
+            boot_init.append(("heat_cool_target_temperature", boot["auto"]))
+        if boot_init:
+            cg.add(var.set_initial_target_temperatures(StructInitializer(InitialTargetTemperatures, *boot_init)))
 
     if CONF_SUPPORTED_MODES in config:
         cg.add(var.set_supported_climate_modes(config[CONF_SUPPORTED_MODES]))

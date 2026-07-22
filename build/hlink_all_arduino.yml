@@ -22,6 +22,10 @@ uart:
 climate:
   - platform: hlink_ac
     name: "H-Link Test Climate Device"
+    initial_target_temperatures:
+      cool: 22
+      heat: 24
+      auto: 23
 
 sensor:
   - platform: hlink_ac

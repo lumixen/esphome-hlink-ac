@@ -123,6 +123,35 @@ void HlinkAc::setup() {
     this->beeper_switch_->publish_state(beeper_enabled);
   }
 #endif
+  if (this->initial_target_temperatures_.heat_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial heat target temperature: %.1f",
+             this->initial_target_temperatures_.heat_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.heat_target_temperature.value())));
+  }
+  if (this->initial_target_temperatures_.cool_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial cool target temperature: %.1f",
+             this->initial_target_temperatures_.cool_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_COOL));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.cool_target_temperature.value())));
+  }
+  if (this->initial_target_temperatures_.heat_cool_target_temperature.has_value()) {
+    float target = this->clamp_auto_temperature_(
+        this->initial_target_temperatures_.heat_cool_target_temperature.value());
+    uint16_t encoded = this->encode_auto_temperature_(target);
+    ESP_LOGI(TAG, "Setting initial heat_cool target temperature: %.1f (encoded: %04X)",
+             this->initial_target_temperatures_.heat_cool_target_temperature.value(), encoded);
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_AUTO));
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, encoded));
+  }
   ESP_LOGI(TAG, "Component initialized.");
 }
 
@@ -173,6 +202,10 @@ void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
 
 void HlinkAc::set_reference_temperature(float reference_temperature) {
   this->reference_temperature_ = reference_temperature;
+}
+
+void HlinkAc::set_initial_target_temperatures(const InitialTargetTemperatures &config) {
+  this->initial_target_temperatures_ = config;
 }
 
 void HlinkAc::request_status_update_() {

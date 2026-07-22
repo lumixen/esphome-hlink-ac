@@ -267,6 +267,12 @@ enum class TextSensorType {
 };
 #endif
 
+struct InitialTargetTemperatures {
+  optional<float> heat_target_temperature;
+  optional<float> cool_target_temperature;
+  optional<float> heat_cool_target_temperature;
+};
+
 struct HlinkAcSettings {
   bool beeper_enabled;
   // Preserve the preference layout from releases that stored a second settings byte.
@@ -347,6 +353,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
   void set_reference_temperature(float reference_temperature);
+  void set_initial_target_temperatures(const InitialTargetTemperatures &config);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
@@ -355,6 +362,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   float reference_temperature_{25.0f};
+  InitialTargetTemperatures initial_target_temperatures_;
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
