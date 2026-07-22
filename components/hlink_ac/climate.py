@@ -245,6 +245,10 @@ CONFIG_SCHEMA = cv.All(
                         cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE),
                     ),
                     cv.Optional("auto"): cv.temperature,
+                    cv.Optional("dry"): cv.All(
+                        cv.temperature,
+                        cv.Range(min=PROTOCOL_MIN_TEMPERATURE, max=PROTOCOL_MAX_TEMPERATURE),
+                    ),
                 }
             ),
             cv.Optional(CONF_ON_SEND_HLINK_CMD_RESULT): automation.validate_automation(
@@ -281,6 +285,8 @@ async def to_code(config):
             boot_init.append(("cool_target_temperature", boot["cool"]))
         if "auto" in boot:
             boot_init.append(("heat_cool_target_temperature", boot["auto"]))
+        if "dry" in boot:
+            boot_init.append(("dry_target_temperature", boot["dry"]))
         if boot_init:
             cg.add(var.set_initial_target_temperatures(StructInitializer(InitialTargetTemperatures, *boot_init)))
 

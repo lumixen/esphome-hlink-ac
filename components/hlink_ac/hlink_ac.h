@@ -271,6 +271,7 @@ struct InitialTargetTemperatures {
   optional<float> heat_target_temperature;
   optional<float> cool_target_temperature;
   optional<float> heat_cool_target_temperature;
+  optional<float> dry_target_temperature;
 };
 
 struct HlinkAcSettings {

@@ -52,7 +52,7 @@ HlinkAc::HlinkAc() {
          }
        }});
   this->status_.polling_features.push_back(
-       {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
+      {{HlinkRequestFrame::Type::MT, {FeatureType::TARGET_TEMP}}, [this](const HlinkResponseFrame &response) {
          if (this->hlink_entity_status_.power_state.has_value() && !this->hlink_entity_status_.power_state.value()) {
            this->hlink_entity_status_.target_temperature = NAN;
            return;
@@ -141,9 +141,18 @@ void HlinkAc::setup() {
         HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
         static_cast<uint16_t>(this->initial_target_temperatures_.cool_target_temperature.value())));
   }
+  if (this->initial_target_temperatures_.dry_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial dry target temperature: %.1f",
+             this->initial_target_temperatures_.dry_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_DRY));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.dry_target_temperature.value())));
+  }
   if (this->initial_target_temperatures_.heat_cool_target_temperature.has_value()) {
-    float target = this->clamp_auto_temperature_(
-        this->initial_target_temperatures_.heat_cool_target_temperature.value());
+    float target =
+        this->clamp_auto_temperature_(this->initial_target_temperatures_.heat_cool_target_temperature.value());
     uint16_t encoded = this->encode_auto_temperature_(target);
     ESP_LOGI(TAG, "Setting initial heat_cool target temperature: %.1f (encoded: %04X)",
              this->initial_target_temperatures_.heat_cool_target_temperature.value(), encoded);

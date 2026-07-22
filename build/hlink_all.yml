@@ -33,6 +33,7 @@ climate:
       cool: 22
       heat: 24
       auto: 20
+      dry: 22
 
 sensor:
   - platform: hlink_ac
