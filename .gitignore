@@ -1,1 +1,3 @@
 __pycache__/
+scripts/mqtt-debug-log/config.yaml
+logs/
