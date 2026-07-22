@@ -331,8 +331,8 @@ void HlinkAc::loop() {
              : this->status_.state == ACK_APPLIED_REQUEST          ? "ACK_APPLIED_REQUEST"
                                                                    : "UNKNOWN");
     ESP_LOGW(TAG,
-             "Component state: requested_feature_index=%d, non_idle_timeout_limit_ms=%u, "
-             "last_status_polling_finished_at_ms=%u, last_frame_received_at_ms=%u, timeout_counter_started_at_ms=%u, "
+             "Component state: requested_feature_index=%d, non_idle_timeout_limit_ms=%lu, "
+             "last_status_polling_finished_at_ms=%lu, last_frame_received_at_ms=%lu, timeout_counter_started_at_ms=%lu, "
              "requests_left_to_apply=%u, pending_action_requests_size=%d, pending_low_priority_hlink_request=%s",
              this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
              this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
@@ -416,6 +416,8 @@ bool HlinkAc::handle_hlink_request_response_(const HlinkRequest &request, const 
       ESP_LOGW(TAG, "Received INVALID response for [%s - %04X]",
                request.request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                request.request_frame.p.address);
+      break;
+    default:
       break;
   }
   return true;
@@ -733,6 +735,8 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
         break;
       case climate::ClimateFanMode::CLIMATE_FAN_QUIET:
         h_link_fan_speed = HLINK_FAN_QUIET;
+        break;
+      default:
         break;
     }
     this->enqueue_request_(
