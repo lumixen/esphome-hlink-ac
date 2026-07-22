@@ -101,6 +101,11 @@ climate:
       - HORIZONTAL
       - BOTH
     reference_temperature: 25 # Optional. Center point (°C) for target temperature in HEAT_COOL (auto) mode. Settable range is ±3°C around this value. Defaults to 25.
+    initial_target_temperatures: # Optional. Sets target temperatures per mode on boot.
+      heat: 24
+      cool: 22
+      auto: 23
+      dry: 22
 
 switch:
   - platform: hlink_ac
