@@ -1,0 +1,26 @@
+name: Test
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker test image
+        run: docker build -t esphome-hlink-ac-test -f build/test-runner/Dockerfile .
+
+      - name: Run C++ unit tests
+        run: |
+          mkdir -p test-results
+          docker run --rm \
+            -v ${{ github.workspace }}/test-results:/results \
+            esphome-hlink-ac-test
+
+      - name: Publish Test Summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: test-results/*.xml
