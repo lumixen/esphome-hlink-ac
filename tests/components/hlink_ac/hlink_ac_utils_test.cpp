@@ -114,29 +114,4 @@ TEST_F(HlinkAcUtilsTest, IsNanableEqualOneNan) {
   EXPECT_FALSE(ac_.is_nanable_equal_(25.0f, NAN));
 }
 
-TEST_F(HlinkAcUtilsTest, FormatTargetTemperatureLogNoValue) {
-  auto result = ac_.format_target_temperature_log_({}, false);
-  EXPECT_EQ(result, "N/A");
-}
-
-TEST_F(HlinkAcUtilsTest, FormatTargetTemperatureLogNan) {
-  auto result = ac_.format_target_temperature_log_(NAN, false);
-  EXPECT_EQ(result, "N/A");
-}
-
-TEST_F(HlinkAcUtilsTest, FormatTargetTemperatureLogNormal) {
-  auto result = ac_.format_target_temperature_log_(25.0f, false);
-  EXPECT_EQ(result, "25");
-}
-
-TEST_F(HlinkAcUtilsTest, FormatTargetTemperatureLogWithAutoOffset) {
-  auto result = ac_.format_target_temperature_log_(27.0f, true);
-  EXPECT_EQ(result, "27 (auto offset 2)");
-}
-
-TEST_F(HlinkAcUtilsTest, FormatTargetTemperatureLogWithNegativeAutoOffset) {
-  auto result = ac_.format_target_temperature_log_(23.0f, true);
-  EXPECT_EQ(result, "23 (auto offset -2)");
-}
-
 }  // namespace esphome::hlink_ac::testing

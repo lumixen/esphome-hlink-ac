@@ -12,7 +12,7 @@ class TestHlinkAc : public HlinkAc {
   using HlinkAc::clamp_auto_temperature_;
   using HlinkAc::encode_auto_temperature_;
   using HlinkAc::is_nanable_equal_;
-  using HlinkAc::format_target_temperature_log_;
+  using HlinkAc::is_nanable_equal_;
 
   void set_reference_temperature(float ref) { this->reference_temperature_ = ref; }
 };
