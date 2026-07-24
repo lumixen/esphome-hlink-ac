@@ -4,7 +4,7 @@ on:
   push:
 
 jobs:
-  test:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,3 +24,4 @@ jobs:
         uses: test-summary/action@v2
         with:
           paths: test-results/*.xml
+          show: all
