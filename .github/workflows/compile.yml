@@ -33,5 +33,5 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}/build":/config \
             -v "${{ github.workspace }}/components":/components \
-            esphome/esphome:stable \
+            esphome/esphome:2026.7.2 \
             compile ${{ matrix.config }}
