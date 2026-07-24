@@ -38,7 +38,6 @@ constexpr uint32_t MIN_INTERVAL_BETWEEN_REQUESTS = 60;
 constexpr uint32_t DEFAULT_STATUS_UPDATE_INTERVAL = 5000;
 
 enum HlinkComponentState : uint8_t {
-  INIT,
   IDLE,
   REQUEST_NEXT_STATUS_FEATURE,
   REQUEST_LOW_PRIORITY_FEATURE,
@@ -371,7 +370,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  void apply_initial_target_temperatures_();
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
   void enqueue_request_(HlinkRequestFrame request_frame,

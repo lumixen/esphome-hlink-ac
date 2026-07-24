@@ -123,7 +123,44 @@ void HlinkAc::setup() {
     this->beeper_switch_->publish_state(beeper_enabled);
   }
 #endif
-  this->status_.state = INIT;
+  if (this->initial_target_temperatures_.heat_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial heat target temperature: %.1f",
+             this->initial_target_temperatures_.heat_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.heat_target_temperature.value())));
+  }
+  if (this->initial_target_temperatures_.cool_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial cool target temperature: %.1f",
+             this->initial_target_temperatures_.cool_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_COOL));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.cool_target_temperature.value())));
+  }
+  if (this->initial_target_temperatures_.dry_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Setting initial dry target temperature: %.1f",
+             this->initial_target_temperatures_.dry_target_temperature.value());
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_DRY));
+    this->enqueue_request_(HlinkRequestFrame::with_uint16(
+        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
+        static_cast<uint16_t>(this->initial_target_temperatures_.dry_target_temperature.value())));
+  }
+  if (this->initial_target_temperatures_.heat_cool_target_temperature.has_value()) {
+    float target =
+        this->clamp_auto_temperature_(this->initial_target_temperatures_.heat_cool_target_temperature.value());
+    uint16_t encoded = this->encode_auto_temperature_(target);
+    ESP_LOGI(TAG, "Setting initial heat_cool target temperature: %.1f (encoded: %04X)",
+             this->initial_target_temperatures_.heat_cool_target_temperature.value(), encoded);
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_AUTO));
+    this->enqueue_request_(
+        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, encoded));
+  }
   ESP_LOGI(TAG, "Component initialized.");
 }
 
@@ -191,34 +228,16 @@ void HlinkAc::request_status_update_() {
 
 /*
  * Main loop implements a state machine with the following states:
- * 1. INIT - polls power state on first boot; applies initial target temperatures if AC is off.
- * 2. IDLE - does nothing.
- * 3. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature; the list of requested features is
+ * 1. IDLE - does nothing.
+ * 2. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature; the list of requested features is
  *    stored in the polling_features list.
- * 4. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low-priority feature, if any.
- * 5. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
- * 6. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
- * 7. APPLY_REQUEST - applies the requested climate controls from the queue.
- * 8. ACK_APPLIED_REQUEST - confirms successfully applied control request.
+ * 3. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low-priority feature, if any.
+ * 4. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
+ * 5. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
+ * 6. APPLY_REQUEST - applies the requested climate controls from the queue.
+ * 7. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
-  if (this->status_.state == INIT && this->status_.can_send_next_frame()) {
-    HlinkRequest power_request({HlinkRequestFrame::Type::MT, {FeatureType::POWER_STATE}},
-                               [this](const HlinkResponseFrame &response) {
-                                 auto power_state = response.p_value_as_uint16();
-                                 if (power_state.has_value() && !power_state.value()) {
-                                   ESP_LOGI(TAG, "AC is off - applying initial target temperatures");
-                                   this->apply_initial_target_temperatures_();
-                                 }
-                               });
-    this->status_.current_request = make_unique<HlinkRequest>(std::move(power_request));
-    this->write_hlink_frame_(this->status_.current_request->request_frame);
-    this->status_.requested_feature_index = -1;
-    this->status_.state = READ_FEATURE_RESPONSE;
-    this->status_.refresh_non_idle_timeout(300);
-    return;
-  }
-
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
     HlinkRequest state_feature_request = this->status_.get_currently_polling_feature();
     this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
@@ -311,15 +330,15 @@ void HlinkAc::loop() {
              : this->status_.state == APPLY_REQUEST                ? "APPLY_REQUEST"
              : this->status_.state == ACK_APPLIED_REQUEST          ? "ACK_APPLIED_REQUEST"
                                                                    : "UNKNOWN");
-    ESP_LOGW(
-        TAG,
-        "Component state: requested_feature_index=%d, non_idle_timeout_limit_ms=%lu, "
-        "last_status_polling_finished_at_ms=%lu, last_frame_received_at_ms=%lu, timeout_counter_started_at_ms=%lu, "
-        "requests_left_to_apply=%u, pending_action_requests_size=%d, pending_low_priority_hlink_request=%s",
-        this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
-        this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
-        this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
-        this->pending_action_requests_.size(), this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
+    ESP_LOGW(TAG,
+             "Component state: requested_feature_index=%d, non_idle_timeout_limit_ms=%lu, "
+             "last_status_polling_finished_at_ms=%lu, last_frame_received_at_ms=%lu, timeout_counter_started_at_ms=%lu, "
+             "requests_left_to_apply=%u, pending_action_requests_size=%d, pending_low_priority_hlink_request=%s",
+             this->status_.requested_feature_index, this->status_.non_idle_timeout_limit_ms,
+             this->status_.last_status_polling_finished_at_ms, this->status_.last_frame_received_at_ms,
+             this->status_.timeout_counter_started_at_ms, this->status_.requests_left_to_apply,
+             this->pending_action_requests_.size(),
+             this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
       ESP_LOGW(TAG, "Request time out: [%s - %04X,%s]",
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
@@ -1073,47 +1092,6 @@ void HlinkAc::save_settings_() {
   HlinkAcSettings settings{beeper_enabled, 0};
   if (!this->rtc_.save(&settings)) {
     ESP_LOGW(TAG, "Failed to save settings");
-  }
-}
-
-void HlinkAc::apply_initial_target_temperatures_() {
-  if (this->initial_target_temperatures_.heat_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial heat target temperature: %.1f",
-             this->initial_target_temperatures_.heat_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.heat_target_temperature.value())));
-  }
-  if (this->initial_target_temperatures_.cool_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial cool target temperature: %.1f",
-             this->initial_target_temperatures_.cool_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_COOL));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.cool_target_temperature.value())));
-  }
-  if (this->initial_target_temperatures_.dry_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial dry target temperature: %.1f",
-             this->initial_target_temperatures_.dry_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_DRY));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.dry_target_temperature.value())));
-  }
-  if (this->initial_target_temperatures_.heat_cool_target_temperature.has_value()) {
-    float target =
-        this->clamp_auto_temperature_(this->initial_target_temperatures_.heat_cool_target_temperature.value());
-    uint16_t encoded = this->encode_auto_temperature_(target);
-    ESP_LOGI(TAG, "Setting initial heat_cool target temperature: %.1f (encoded: %04X)",
-             this->initial_target_temperatures_.heat_cool_target_temperature.value(), encoded);
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_AUTO));
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, encoded));
   }
 }
 
