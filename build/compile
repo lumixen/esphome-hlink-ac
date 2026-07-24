@@ -8,11 +8,11 @@ if [ -z "$CONFIG_FILE" ]; then
   CONFIG_FILE="*.yml"
 fi
 
-docker pull esphome/esphome:stable
+docker pull esphome/esphome:2026.7.2
 
 docker run --rm \
   -v "$(pwd)":/config \
   -v "$(pwd)/../components":/components \
-  -it esphome/esphome:stable \
+  -it esphome/esphome:2026.7.2 \
   compile \
   $CONFIG_FILE
