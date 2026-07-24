@@ -4,12 +4,20 @@
 # Builds the Docker test image and runs C++ unit tests.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$SCRIPT_DIR/.."
+CACHE_ROOT="$REPO_ROOT/test-results/.cache"
+PIO_CACHE_DIR="$CACHE_ROOT/platformio"
+ESPHOME_DATA_DIR="$CACHE_ROOT/esphome"
 
 docker build -t esphome-hlink-ac-test \
   -f "$SCRIPT_DIR/test-runner/Dockerfile" \
-  "$SCRIPT_DIR/.."
+  "$REPO_ROOT"
 
-mkdir -p "$SCRIPT_DIR/../test-results"
+mkdir -p "$REPO_ROOT/test-results" "$PIO_CACHE_DIR" "$ESPHOME_DATA_DIR"
 docker run --rm \
-  -v "$SCRIPT_DIR/../test-results":/results \
+  -e ESPHOME_DATA_DIR=/cache/esphome \
+  -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
+  -v "$REPO_ROOT/test-results":/results \
+  -v "$PIO_CACHE_DIR":/root/.platformio \
+  -v "$ESPHOME_DATA_DIR":/cache/esphome \
   esphome-hlink-ac-test

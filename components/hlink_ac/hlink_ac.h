@@ -205,20 +205,24 @@ struct ComponentStatus {
   uint32_t timeout_counter_started_at_ms = 0;
   uint8_t requests_left_to_apply = 0;
 
-  void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms) {
-    this->timeout_counter_started_at_ms = millis();
+  void refresh_non_idle_timeout(uint32_t non_idle_timeout_limit_ms, uint32_t current_time_ms) {
+    this->timeout_counter_started_at_ms = current_time_ms;
     this->non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
   }
 
-  bool reached_timeout_threshold() { return millis() - timeout_counter_started_at_ms > non_idle_timeout_limit_ms; }
-
-  bool can_send_next_frame() {
-    // Min interval between received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS
-    // ms or AC will return NG
-    return millis() - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
+  bool reached_timeout_threshold(uint32_t current_time_ms) {
+    return current_time_ms - timeout_counter_started_at_ms > non_idle_timeout_limit_ms;
   }
 
-  bool can_start_next_polling() { return (last_status_polling_finished_at_ms + status_update_interval_ms) < millis(); }
+  bool can_send_next_frame(uint32_t current_time_ms) {
+    // Min interval between received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS
+    // ms or AC will return NG
+    return current_time_ms - last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
+  }
+
+  bool can_start_next_polling(uint32_t current_time_ms) {
+    return (last_status_polling_finished_at_ms + status_update_interval_ms) < current_time_ms;
+  }
 
   HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
 
@@ -367,6 +371,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
+  virtual uint32_t current_time_ms() const { return millis(); }
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();

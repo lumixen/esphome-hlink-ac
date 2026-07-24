@@ -222,7 +222,7 @@ void HlinkAc::request_status_update_() {
     // Launch update sequence
     this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
     this->status_.requested_feature_index = 0;
-    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 500);
+    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 500, this->current_time_ms());
   }
 }
 
@@ -238,7 +238,9 @@ void HlinkAc::request_status_update_() {
  * 7. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
-  if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame()) {
+  const uint32_t current_time_ms = this->current_time_ms();
+
+  if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame(current_time_ms)) {
     HlinkRequest state_feature_request = this->status_.get_currently_polling_feature();
     this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
     this->write_hlink_frame_(state_feature_request.request_frame);
@@ -246,7 +248,7 @@ void HlinkAc::loop() {
     return;
   }
 
-  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame()) {
+  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame(current_time_ms)) {
     if (this->status_.low_priority_hlink_request.has_value()) {
       HlinkRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
       this->write_hlink_frame_(low_priority_feature_request.request_frame);
@@ -275,7 +277,7 @@ void HlinkAc::loop() {
       } else {
         this->status_.state = PUBLISH_UPDATE_IF_ANY;
         this->status_.requested_feature_index = -1;
-        this->status_.last_status_polling_finished_at_ms = millis();
+        this->status_.last_status_polling_finished_at_ms = current_time_ms;
       }
       this->status_.current_request = nullptr;
     }
@@ -287,7 +289,7 @@ void HlinkAc::loop() {
     return;
   }
 
-  if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame()) {
+  if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame(current_time_ms)) {
     if (this->status_.requests_left_to_apply > 0) {
       std::unique_ptr<HlinkRequest> request_msg = this->pending_action_requests_.dequeue();
       if (request_msg != nullptr) {
@@ -321,7 +323,7 @@ void HlinkAc::loop() {
   }
 
   // Reset status to IDLE if we reached timeout deadline
-  if (this->status_.state != IDLE && this->status_.reached_timeout_threshold()) {
+  if (this->status_.state != IDLE && this->status_.reached_timeout_threshold(current_time_ms)) {
     ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Go to IDLE.",
              this->status_.state == REQUEST_NEXT_STATUS_FEATURE    ? "REQUEST_NEXT_STATUS_FEATURE"
              : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
@@ -375,18 +377,18 @@ void HlinkAc::loop() {
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests_.size();
     this->status_.state = APPLY_REQUEST;
-    this->status_.refresh_non_idle_timeout(2000);
+    this->status_.refresh_non_idle_timeout(2000, current_time_ms);
   }
 
   // Start polling cycle if we are in IDLE state and the status update interval is reached
-  if (this->status_.state == IDLE && this->status_.can_start_next_polling()) {
+  if (this->status_.state == IDLE && this->status_.can_start_next_polling(current_time_ms)) {
     this->request_status_update_();
   }
 
   // Request low priority feature if idling and nothing else to do
   if (this->status_.state == IDLE && this->status_.low_priority_hlink_request.has_value()) {
     this->status_.state = REQUEST_LOW_PRIORITY_FEATURE;
-    this->status_.refresh_non_idle_timeout(300);
+    this->status_.refresh_non_idle_timeout(300, current_time_ms);
   }
 }
 
@@ -535,12 +537,12 @@ void HlinkAc::write_hlink_frame_(HlinkRequestFrame frame) {
 HlinkResponseFrame HlinkAc::read_hlink_frame_() {
   auto &response_buf = this->status_.hlink_response_buffer;
   auto &read_index = this->status_.hlink_response_buffer_index;
-  uint32_t started_millis = millis();
+  uint32_t read_started_at_ms = this->current_time_ms();
 
   // Read bytes from UART until CR, timeout or full buffer
   while (this->available()) {
     // Just prevent blocking the loop if it takes too long to read the response
-    if (millis() - started_millis > 30) {
+    if (this->current_time_ms() - read_started_at_ms > 30) {
       ESP_LOGD(TAG, "Partially read the message, [%d] bytes.", read_index);
       return HLINK_RESPONSE_PARTIAL;
     }
@@ -571,7 +573,7 @@ HlinkResponseFrame HlinkAc::read_hlink_frame_() {
   }
 
   // Update the timestamp of the last successfully received frame
-  this->status_.last_frame_received_at_ms = millis();
+  this->status_.last_frame_received_at_ms = this->current_time_ms();
   std::vector<std::string> response_tokens;
   for (int i = 0, last_space_i = 0; i <= read_index; i++) {
     if (response_buf[i] == ' ' || response_buf[i] == '\r') {

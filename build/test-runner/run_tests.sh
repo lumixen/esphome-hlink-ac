@@ -3,12 +3,8 @@ set -e
 
 cd /esphome
 
-EXIT_CODE=0
-python3 script/cpp_unit_test.py hlink_ac || EXIT_CODE=$?
-
-PROGRAM=$(find /esphome -path "*/.pioenvs/*/program" -type f 2>/dev/null | head -1)
-if [ -n "$PROGRAM" ] && [ -d /results ]; then
-  GTEST_OUTPUT=xml:/results/hlink_ac.xml "$PROGRAM" || EXIT_CODE=$?
+if [ -d /results ]; then
+  export GTEST_OUTPUT="${GTEST_OUTPUT:-xml:/results/hlink_ac.xml}"
 fi
 
-exit $EXIT_CODE
+python3 script/cpp_unit_test.py hlink_ac
