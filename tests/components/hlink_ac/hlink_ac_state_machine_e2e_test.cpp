@@ -11,6 +11,7 @@ class HlinkAcStateMachineE2ETest : public ::testing::Test {
     this->ac_.set_uart_parent_for_test(&this->uart_);
     this->ac_.set_current_time_ms_for_test(0);
     this->ac_.set_status_update_interval(0xFFFFFF00U);
+    this->ac_.add_on_state_callback([this](climate::Climate &) { this->publish_count_++; });
   }
 
   void send_poll_request_and_assert(const HlinkRequestFrame &expected_frame) {
@@ -27,6 +28,7 @@ class HlinkAcStateMachineE2ETest : public ::testing::Test {
 
   MockUARTComponent uart_;
   TestHlinkAc ac_;
+  int publish_count_{0};
 };
 
 TEST_F(HlinkAcStateMachineE2ETest, PollingCycleHappyPath) {
@@ -58,6 +60,7 @@ TEST_F(HlinkAcStateMachineE2ETest, PollingCycleHappyPath) {
   EXPECT_FLOAT_EQ(this->ac_.current_temperature, 24.0f);
   ASSERT_TRUE(this->ac_.fan_mode.has_value());
   EXPECT_EQ(this->ac_.fan_mode.value(), climate::ClimateFanMode::CLIMATE_FAN_HIGH);
+  EXPECT_EQ(this->publish_count_, 1);
 }
 
 TEST_F(HlinkAcStateMachineE2ETest, PartialResponseIsCompletedOnNextLoop) {
@@ -69,6 +72,7 @@ TEST_F(HlinkAcStateMachineE2ETest, PartialResponseIsCompletedOnNextLoop) {
 
   this->inject_response_and_step("FE\r");
   EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
+  EXPECT_EQ(this->publish_count_, 0);
 }
 
 TEST_F(HlinkAcStateMachineE2ETest, SendsNextRequestOnlyAfterStrictlyMoreThanMinInterval) {
@@ -92,6 +96,7 @@ TEST_F(HlinkAcStateMachineE2ETest, SendsNextRequestOnlyAfterStrictlyMoreThanMinI
   EXPECT_EQ(this->uart_.take_tx_as_string(),
             build_request_frame_string({HlinkRequestFrame::Type::MT, {FeatureType::MODE}}));
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+  EXPECT_EQ(this->publish_count_, 0);
 }
 
 TEST_F(HlinkAcStateMachineE2ETest, AppliesQueuedRequestsAndStartsStatusRefresh) {
@@ -122,6 +127,7 @@ TEST_F(HlinkAcStateMachineE2ETest, AppliesQueuedRequestsAndStartsStatusRefresh) 
   this->inject_response_and_step(ACK_OK_FRAME);
   EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
   EXPECT_EQ(ok_callbacks_called, 2);
+  EXPECT_EQ(this->publish_count_, 0);
 }
 
 TEST_F(HlinkAcStateMachineE2ETest, HandlesLowPriorityRequestFromIdle) {
@@ -147,6 +153,7 @@ TEST_F(HlinkAcStateMachineE2ETest, HandlesLowPriorityRequestFromIdle) {
   EXPECT_EQ(this->ac_.state(), IDLE);
   EXPECT_TRUE(callback_called);
   EXPECT_EQ(payload_string, "4142");
+  EXPECT_EQ(this->publish_count_, 0);
 }
 
 TEST_F(HlinkAcStateMachineE2ETest, InvokesTimeoutCallbackAndResetsState) {
@@ -170,6 +177,7 @@ TEST_F(HlinkAcStateMachineE2ETest, InvokesTimeoutCallbackAndResetsState) {
   EXPECT_TRUE(timeout_called);
   EXPECT_EQ(this->ac_.state(), IDLE);
   EXPECT_EQ(this->ac_.status().current_request, nullptr);
+  EXPECT_EQ(this->publish_count_, 0);
 }
 
 }  // namespace esphome::hlink_ac::testing
