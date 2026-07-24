@@ -5,7 +5,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir esphome==2026.7.2 platformio
 RUN pio platform install "native"
-RUN python3 -c 'import json,sys; from pathlib import Path; p=Path("/root/.platformio"); p.mkdir(parents=True, exist_ok=True); (p/".esphome.pio.stamp.json").write_text(json.dumps({"schema_version":"0","python_version":f"{sys.version_info.major}.{sys.version_info.minor}"}) + "\n", encoding="utf-8")'
 
 RUN git clone --depth 1 --branch 2026.7.2 \
     https://github.com/esphome/esphome.git /esphome
