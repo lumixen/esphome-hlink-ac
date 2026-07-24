@@ -8,7 +8,7 @@ python3 script/cpp_unit_test.py hlink_ac || EXIT_CODE=$?
 
 PROGRAM=$(find /esphome -path "*/.pioenvs/*/program" -type f 2>/dev/null | head -1)
 if [ -n "$PROGRAM" ] && [ -d /results ]; then
-  GTEST_OUTPUT=xml:/results/hlink_ac.xml "$PROGRAM" || true
+  "$PROGRAM" --gtest_output=xml:/results/hlink_ac.xml || EXIT_CODE=$?
 fi
 
 exit $EXIT_CODE
