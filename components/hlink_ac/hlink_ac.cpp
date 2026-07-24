@@ -207,7 +207,6 @@ void HlinkAc::loop() {
                                [this](const HlinkResponseFrame &response) {
                                  auto power_state = response.p_value_as_uint16();
                                  if (power_state.has_value() && !power_state.value()) {
-                                   ESP_LOGI(TAG, "AC is off - applying initial target temperatures");
                                    this->apply_initial_target_temperatures_();
                                  }
                                });
