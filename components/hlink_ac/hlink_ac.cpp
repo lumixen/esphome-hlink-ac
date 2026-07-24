@@ -217,12 +217,32 @@ void HlinkAc::set_initial_target_temperatures(const InitialTargetTemperatures &c
   this->initial_target_temperatures_ = config;
 }
 
+void HlinkAc::refresh_non_idle_timeout_(uint32_t non_idle_timeout_limit_ms) {
+  this->status_.timeout_counter_started_at_ms = this->current_time_ms();
+  this->status_.non_idle_timeout_limit_ms = non_idle_timeout_limit_ms;
+}
+
+bool HlinkAc::reached_timeout_threshold_() const {
+  return this->current_time_ms() - this->status_.timeout_counter_started_at_ms > this->status_.non_idle_timeout_limit_ms;
+}
+
+bool HlinkAc::can_send_next_frame_() const {
+  // Min interval between received frame and next request frame shouldn't be less than MIN_INTERVAL_BETWEEN_REQUESTS
+  // ms or AC will return NG
+  return this->current_time_ms() - this->status_.last_frame_received_at_ms > MIN_INTERVAL_BETWEEN_REQUESTS;
+}
+
+bool HlinkAc::can_start_next_polling_() const {
+  return (this->status_.last_status_polling_finished_at_ms + this->status_.status_update_interval_ms) <
+         this->current_time_ms();
+}
+
 void HlinkAc::request_status_update_() {
   if (this->status_.state == IDLE) {
     // Launch update sequence
     this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
     this->status_.requested_feature_index = 0;
-    this->status_.refresh_non_idle_timeout(this->status_.polling_features.size() * 500, this->current_time_ms());
+    this->refresh_non_idle_timeout_(this->status_.polling_features.size() * 500);
   }
 }
 
@@ -238,9 +258,7 @@ void HlinkAc::request_status_update_() {
  * 7. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
-  const uint32_t current_time_ms = this->current_time_ms();
-
-  if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->status_.can_send_next_frame(current_time_ms)) {
+  if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->can_send_next_frame_()) {
     HlinkRequest state_feature_request = this->status_.get_currently_polling_feature();
     this->status_.current_request = make_unique<HlinkRequest>(state_feature_request);
     this->write_hlink_frame_(state_feature_request.request_frame);
@@ -248,7 +266,7 @@ void HlinkAc::loop() {
     return;
   }
 
-  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->status_.can_send_next_frame(current_time_ms)) {
+  if (this->status_.state == REQUEST_LOW_PRIORITY_FEATURE && this->can_send_next_frame_()) {
     if (this->status_.low_priority_hlink_request.has_value()) {
       HlinkRequest low_priority_feature_request = this->status_.low_priority_hlink_request.value();
       this->write_hlink_frame_(low_priority_feature_request.request_frame);
@@ -277,7 +295,7 @@ void HlinkAc::loop() {
       } else {
         this->status_.state = PUBLISH_UPDATE_IF_ANY;
         this->status_.requested_feature_index = -1;
-        this->status_.last_status_polling_finished_at_ms = current_time_ms;
+        this->status_.last_status_polling_finished_at_ms = this->current_time_ms();
       }
       this->status_.current_request = nullptr;
     }
@@ -289,7 +307,7 @@ void HlinkAc::loop() {
     return;
   }
 
-  if (this->status_.state == APPLY_REQUEST && this->status_.can_send_next_frame(current_time_ms)) {
+  if (this->status_.state == APPLY_REQUEST && this->can_send_next_frame_()) {
     if (this->status_.requests_left_to_apply > 0) {
       std::unique_ptr<HlinkRequest> request_msg = this->pending_action_requests_.dequeue();
       if (request_msg != nullptr) {
@@ -323,7 +341,7 @@ void HlinkAc::loop() {
   }
 
   // Reset status to IDLE if we reached timeout deadline
-  if (this->status_.state != IDLE && this->status_.reached_timeout_threshold(current_time_ms)) {
+  if (this->status_.state != IDLE && this->reached_timeout_threshold_()) {
     ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action. Go to IDLE.",
              this->status_.state == REQUEST_NEXT_STATUS_FEATURE    ? "REQUEST_NEXT_STATUS_FEATURE"
              : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
@@ -377,18 +395,18 @@ void HlinkAc::loop() {
 #endif
     this->status_.requests_left_to_apply = this->pending_action_requests_.size();
     this->status_.state = APPLY_REQUEST;
-    this->status_.refresh_non_idle_timeout(2000, current_time_ms);
+    this->refresh_non_idle_timeout_(2000);
   }
 
   // Start polling cycle if we are in IDLE state and the status update interval is reached
-  if (this->status_.state == IDLE && this->status_.can_start_next_polling(current_time_ms)) {
+  if (this->status_.state == IDLE && this->can_start_next_polling_()) {
     this->request_status_update_();
   }
 
   // Request low priority feature if idling and nothing else to do
   if (this->status_.state == IDLE && this->status_.low_priority_hlink_request.has_value()) {
     this->status_.state = REQUEST_LOW_PRIORITY_FEATURE;
-    this->status_.refresh_non_idle_timeout(300, current_time_ms);
+    this->refresh_non_idle_timeout_(300);
   }
 }
 
