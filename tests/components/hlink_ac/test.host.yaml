@@ -1,0 +1,19 @@
+esphome:
+  name: test-hlink-ac
+  platform: host
+
+external_components:
+  - source:
+      type: local
+      path: .
+
+uart:
+  - id: uart_0
+    baud_rate: 9600
+    parity: ODD
+    stop_bits: 1
+
+climate:
+  - platform: hlink_ac
+    name: "AC"
+    uart_id: uart_0

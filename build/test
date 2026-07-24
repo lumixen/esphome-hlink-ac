@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Usage: ./test
+# Builds the Docker test image and runs C++ unit tests.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+docker build -t esphome-hlink-ac-test \
+  -f "$SCRIPT_DIR/test-runner/Dockerfile" \
+  "$SCRIPT_DIR/.."
+
+mkdir -p "$SCRIPT_DIR/../test-results"
+docker run --rm \
+  -v "$SCRIPT_DIR/../test-results":/results \
+  esphome-hlink-ac-test

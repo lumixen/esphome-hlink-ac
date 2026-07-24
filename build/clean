@@ -3,6 +3,6 @@
 docker run --rm \
   -v "$(pwd)":/config \
   -v "$(pwd)/../components":/components \
-  -it esphome/esphome:stable \
+  -it esphome/esphome:2026.7.2 \
   clean \
   *.yml
