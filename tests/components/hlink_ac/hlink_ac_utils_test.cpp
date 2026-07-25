@@ -4,16 +4,12 @@ namespace esphome::hlink_ac::testing {
 
 class HlinkAcUtilsTest : public ::testing::Test {
  protected:
-  void SetUp() override {
-    ac_.set_reference_temperature(25.0f);
-  }
+  void SetUp() override { ac_.set_reference_temperature(25.0f); }
 
   TestHlinkAc ac_;
 };
 
-TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeAuto) {
-  EXPECT_TRUE(ac_.is_auto_temperature_mode_(HLINK_MODE_AUTO));
-}
+TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeAuto) { EXPECT_TRUE(ac_.is_auto_temperature_mode_(HLINK_MODE_AUTO)); }
 
 TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeHeatAuto) {
   EXPECT_TRUE(ac_.is_auto_temperature_mode_(HLINK_MODE_HEAT_AUTO));
@@ -43,9 +39,7 @@ TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeFanReturnsFalse) {
   EXPECT_FALSE(ac_.is_auto_temperature_mode_(HLINK_MODE_FAN));
 }
 
-TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeZeroReturnsFalse) {
-  EXPECT_FALSE(ac_.is_auto_temperature_mode_(0x0000));
-}
+TEST_F(HlinkAcUtilsTest, IsAutoTemperatureModeZeroReturnsFalse) { EXPECT_FALSE(ac_.is_auto_temperature_mode_(0x0000)); }
 
 TEST_F(HlinkAcUtilsTest, ClampAutoTemperatureBelowMin) {
   float result = ac_.clamp_auto_temperature_(20.0f);
@@ -97,17 +91,11 @@ TEST_F(HlinkAcUtilsTest, EncodeAutoTemperatureMinOffset) {
   EXPECT_EQ(result, static_cast<uint16_t>(0xFFFD));
 }
 
-TEST_F(HlinkAcUtilsTest, IsNanableEqualBothNan) {
-  EXPECT_TRUE(ac_.is_nanable_equal_(NAN, NAN));
-}
+TEST_F(HlinkAcUtilsTest, IsNanableEqualBothNan) { EXPECT_TRUE(ac_.is_nanable_equal_(NAN, NAN)); }
 
-TEST_F(HlinkAcUtilsTest, IsNanableEqualEqualValues) {
-  EXPECT_TRUE(ac_.is_nanable_equal_(25.0f, 25.0f));
-}
+TEST_F(HlinkAcUtilsTest, IsNanableEqualEqualValues) { EXPECT_TRUE(ac_.is_nanable_equal_(25.0f, 25.0f)); }
 
-TEST_F(HlinkAcUtilsTest, IsNanableEqualDifferentValues) {
-  EXPECT_FALSE(ac_.is_nanable_equal_(25.0f, 26.0f));
-}
+TEST_F(HlinkAcUtilsTest, IsNanableEqualDifferentValues) { EXPECT_FALSE(ac_.is_nanable_equal_(25.0f, 26.0f)); }
 
 TEST_F(HlinkAcUtilsTest, IsNanableEqualOneNan) {
   EXPECT_FALSE(ac_.is_nanable_equal_(NAN, 25.0f));
