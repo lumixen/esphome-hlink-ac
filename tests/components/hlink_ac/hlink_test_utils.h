@@ -36,8 +36,8 @@ inline std::string build_request_frame_string(const HlinkRequestFrame &frame) {
   }
   const std::string type = frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST";
   if (frame.p.data.has_value()) {
-    return type + " P=" + to_hex_u16(frame.p.address) + "," + to_hex_bytes(frame.p.data.value()) + " C=" +
-           to_hex_u16(checksum) + "\r";
+    return type + " P=" + to_hex_u16(frame.p.address) + "," + to_hex_bytes(frame.p.data.value()) +
+           " C=" + to_hex_u16(checksum) + "\r";
   }
   return type + " P=" + to_hex_u16(frame.p.address) + " C=" + to_hex_u16(checksum) + "\r";
 }
