@@ -1,23 +1,47 @@
 #!/bin/bash
 
-# Usage: ./test
-# Builds the Docker test image and runs C++ unit tests.
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR/.."
-CACHE_ROOT="$REPO_ROOT/test-results/.cache"
+CACHE_ROOT="$REPO_ROOT/tests/.run/hlink_ac/cache"
 PIO_CACHE_DIR="$CACHE_ROOT/platformio"
-ESPHOME_DATA_DIR="$CACHE_ROOT/esphome"
+ESPHOME_CACHE_DIR="$CACHE_ROOT/esphome"
 
-docker build -t esphome-hlink-ac-test \
-  -f "$SCRIPT_DIR/test-runner/Dockerfile" \
-  "$REPO_ROOT"
+build_image() {
+  docker build -t esphome-hlink-ac-test \
+    -f "$SCRIPT_DIR/test-runner/Dockerfile" \
+    "$REPO_ROOT"
+}
 
-mkdir -p "$REPO_ROOT/test-results" "$PIO_CACHE_DIR" "$ESPHOME_DATA_DIR"
-docker run --rm \
-  -e ESPHOME_DATA_DIR=/cache/esphome \
-  -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
-  -v "$REPO_ROOT/test-results":/results \
-  -v "$PIO_CACHE_DIR":/root/.platformio \
-  -v "$ESPHOME_DATA_DIR":/cache/esphome \
-  esphome-hlink-ac-test
+run_tests() {
+  mkdir -p "$REPO_ROOT/tests/.run/hlink_ac" "$PIO_CACHE_DIR" "$ESPHOME_CACHE_DIR"
+  local TTY_FLAG=""
+  if [ -t 0 ]; then
+    TTY_FLAG="--tty"
+  fi
+  docker run $TTY_FLAG --rm \
+    -e ESPHOME_DATA_DIR=/cache/esphome \
+    -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
+    -v "$REPO_ROOT/tests/.run/hlink_ac":/results \
+    -v "$REPO_ROOT/components/hlink_ac:/esphome/esphome/components/hlink_ac" \
+    -v "$REPO_ROOT/tests/components/hlink_ac:/esphome/tests/components/hlink_ac" \
+    -v "$PIO_CACHE_DIR":/root/.platformio \
+    -v "$ESPHOME_CACHE_DIR":/cache/esphome \
+    esphome-hlink-ac-test
+}
+
+case "${1:-all}" in
+  build|b)
+    build_image
+    ;;
+  run|r)
+    run_tests
+    ;;
+  all|a)
+    build_image
+    run_tests
+    ;;
+  *)
+    echo "Usage: $0 {build|run|all}" >&2
+    exit 1
+    ;;
+esac
