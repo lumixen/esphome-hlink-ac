@@ -186,7 +186,8 @@ void HlinkAc::refresh_non_idle_timeout_(uint32_t non_idle_timeout_limit_ms) {
 }
 
 bool HlinkAc::reached_timeout_threshold_() const {
-  return this->current_time_ms() - this->status_.timeout_counter_started_at_ms > this->status_.non_idle_timeout_limit_ms;
+  return this->current_time_ms() - this->status_.timeout_counter_started_at_ms >
+         this->status_.non_idle_timeout_limit_ms;
 }
 
 bool HlinkAc::can_send_next_frame_() const {
