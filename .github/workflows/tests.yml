@@ -9,28 +9,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore test caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            test-results/.cache/platformio
-            test-results/.cache/esphome
-          key: test-cache-${{ runner.os }}-${{ hashFiles('build/test-runner/Dockerfile', 'build/test-runner/run_tests.sh') }}
-          restore-keys: |
-            test-cache-${{ runner.os }}-
-
       - name: Build Docker test image
         run: docker build -t esphome-hlink-ac-test -f build/test-runner/Dockerfile .
 
       - name: Run C++ unit tests
         run: |
-          mkdir -p test-results/.cache/platformio test-results/.cache/esphome
           mkdir -p test-results
           docker run --rm \
-            -e ESPHOME_DATA_DIR=/cache/esphome \
             -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
-            -v ${{ github.workspace }}/test-results/.cache/platformio:/root/.platformio \
-            -v ${{ github.workspace }}/test-results/.cache/esphome:/cache/esphome \
             -v ${{ github.workspace }}/test-results:/results \
             esphome-hlink-ac-test
 
