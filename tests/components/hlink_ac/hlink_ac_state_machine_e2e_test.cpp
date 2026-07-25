@@ -185,4 +185,69 @@ TEST_F(HlinkAcStateMachineE2ETest, InvokesTimeoutCallbackAndResetsState) {
   EXPECT_EQ(this->publish_count_, 0);
 }
 
+TEST_F(HlinkAcStateMachineE2ETest, SetupInitSendsPowerStateRequestAndTransitionsToIdle) {
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+
+  this->inject_response_and_step("OK P=01 C=FFFE\r");
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineE2ETest, SetupInitWithAcOffEnqueuesInitialTargetTemperatures) {
+  InitialTargetTemperatures initial_temps{};
+  initial_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_initial_target_temperatures(initial_temps);
+
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+
+  this->inject_response_and_step("OK P=00 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");
+  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
+
+  this->inject_response_and_step(ACK_OK_FRAME);
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0018 C=FFE4\r");
+  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
+
+  this->inject_response_and_step(ACK_OK_FRAME);
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
+  EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineE2ETest, SetupInitTimeoutResetsToIdle) {
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+
+  this->ac_.advance_current_time_ms_for_test(301);
+  this->ac_.loop();
+
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_EQ(this->ac_.status().current_request, nullptr);
+  EXPECT_EQ(this->publish_count_, 0);
+}
+
 }  // namespace esphome::hlink_ac::testing
