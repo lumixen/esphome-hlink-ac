@@ -3,7 +3,7 @@
 
 namespace esphome::hlink_ac::testing {
 
-class HlinkAcStateMachineE2ETest : public ::testing::Test {
+class HlinkAcStateMachineTest : public ::testing::Test {
  protected:
   void advance_for_next_send() { this->ac_.advance_current_time_ms_for_test(MIN_INTERVAL_BETWEEN_REQUESTS + 1); }
 
@@ -32,7 +32,7 @@ class HlinkAcStateMachineE2ETest : public ::testing::Test {
   int publish_count_{0};
 };
 
-TEST_F(HlinkAcStateMachineE2ETest, PollingCycleHappyPath) {
+TEST_F(HlinkAcStateMachineTest, PollingCycleHappyPath) {
   this->ac_.request_status_update_for_test();
   ASSERT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
 
@@ -69,7 +69,7 @@ TEST_F(HlinkAcStateMachineE2ETest, PollingCycleHappyPath) {
   EXPECT_EQ(this->publish_count_, 1);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, PartialResponseIsCompletedOnNextLoop) {
+TEST_F(HlinkAcStateMachineTest, PartialResponseIsCompletedOnNextLoop) {
   this->ac_.request_status_update_for_test();
   this->send_poll_request_and_assert("MT P=0000 C=FFFF\r");  // POWER_STATE
 
@@ -81,7 +81,7 @@ TEST_F(HlinkAcStateMachineE2ETest, PartialResponseIsCompletedOnNextLoop) {
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, SendsNextRequestOnlyAfterStrictlyMoreThanMinInterval) {
+TEST_F(HlinkAcStateMachineTest, SendsNextRequestOnlyAfterStrictlyMoreThanMinInterval) {
   this->ac_.request_status_update_for_test();
   this->send_poll_request_and_assert("MT P=0000 C=FFFF\r");  // POWER_STATE
 
@@ -105,7 +105,7 @@ TEST_F(HlinkAcStateMachineE2ETest, SendsNextRequestOnlyAfterStrictlyMoreThanMinI
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, AppliesQueuedRequestsAndStartsStatusRefresh) {
+TEST_F(HlinkAcStateMachineTest, AppliesQueuedRequestsAndStartsStatusRefresh) {
   int ok_callbacks_called = 0;
   this->ac_.enqueue_request_for_test(
       HlinkRequestFrame::with_uint8(HlinkRequestFrame::Type::ST, FeatureType::POWER_STATE, 0x01),
@@ -137,7 +137,7 @@ TEST_F(HlinkAcStateMachineE2ETest, AppliesQueuedRequestsAndStartsStatusRefresh) 
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, HandlesLowPriorityRequestFromIdle) {
+TEST_F(HlinkAcStateMachineTest, HandlesLowPriorityRequestFromIdle) {
   bool callback_called = false;
   std::string payload_string;
   this->ac_.set_low_priority_request_for_test({HlinkRequestFrame::Type::MT, {FeatureType::MODEL_NAME}},
@@ -162,7 +162,7 @@ TEST_F(HlinkAcStateMachineE2ETest, HandlesLowPriorityRequestFromIdle) {
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, InvokesTimeoutCallbackAndResetsState) {
+TEST_F(HlinkAcStateMachineTest, InvokesTimeoutCallbackAndResetsState) {
   bool timeout_called = false;
   this->ac_.set_low_priority_request_for_test({HlinkRequestFrame::Type::MT, {FeatureType::MODEL_NAME}}, nullptr,
                                               nullptr, nullptr, [&]() { timeout_called = true; });
@@ -185,7 +185,7 @@ TEST_F(HlinkAcStateMachineE2ETest, InvokesTimeoutCallbackAndResetsState) {
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, SetupInitSendsPowerStateRequestAndTransitionsToIdle) {
+TEST_F(HlinkAcStateMachineTest, SetupInitSendsPowerStateRequestAndTransitionsToIdle) {
   this->ac_.setup();
   ASSERT_EQ(this->ac_.state(), INIT);
 
@@ -199,7 +199,7 @@ TEST_F(HlinkAcStateMachineE2ETest, SetupInitSendsPowerStateRequestAndTransitions
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, SetupInitWithAcOffEnqueuesInitialTargetTemperatures) {
+TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffEnqueuesInitialTargetTemperatures) {
   InitialTargetTemperatures initial_temps{};
   initial_temps.cool_target_temperature = 24.0f;
   this->ac_.set_initial_target_temperatures(initial_temps);
@@ -233,7 +233,7 @@ TEST_F(HlinkAcStateMachineE2ETest, SetupInitWithAcOffEnqueuesInitialTargetTemper
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineE2ETest, SetupInitTimeoutResetsToIdle) {
+TEST_F(HlinkAcStateMachineTest, SetupInitTimeoutResetsToIdle) {
   this->ac_.setup();
   ASSERT_EQ(this->ac_.state(), INIT);
 
