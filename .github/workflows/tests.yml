@@ -18,6 +18,8 @@ jobs:
           docker run --rm \
             -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
             -v ${{ github.workspace }}/tests/.run/hlink_ac:/results \
+            -v ${{ github.workspace }}/components/hlink_ac:/esphome/esphome/components/hlink_ac \
+            -v ${{ github.workspace }}/tests/components/hlink_ac:/esphome/tests/components/hlink_ac \
             esphome-hlink-ac-test
 
       - name: Publish Test Summary
