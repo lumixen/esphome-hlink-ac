@@ -14,15 +14,15 @@ jobs:
 
       - name: Run C++ unit tests
         run: |
-          mkdir -p test-results
+          mkdir -p tests/.run/hlink_ac
           docker run --rm \
             -e GTEST_OUTPUT=xml:/results/hlink_ac.xml \
-            -v ${{ github.workspace }}/test-results:/results \
+            -v ${{ github.workspace }}/tests/.run/hlink_ac:/results \
             esphome-hlink-ac-test
 
       - name: Publish Test Summary
         if: always()
         uses: test-summary/action@v2
         with:
-          paths: test-results/*.xml
+          paths: tests/.run/hlink_ac/*.xml
           show: all
