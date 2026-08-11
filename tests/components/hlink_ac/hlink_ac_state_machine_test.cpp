@@ -28,6 +28,35 @@ class HlinkAcStateMachineTest : public ::testing::Test {
     this->ac_.loop();
   }
 
+  void run_polling_cycle(const std::vector<std::string> &responses) {
+    ASSERT_EQ(responses.size(), this->ac_.status().polling_features.size());
+    const std::vector<std::string> requests = {
+        "MT P=0000 C=FFFF\r",  // POWER_STATE
+        "MT P=0001 C=FFFE\r",  // MODE
+        "MT P=0003 C=FFFC\r",  // TARGET_TEMP
+        "MT P=0100 C=FFFE\r",  // CURRENT_INDOOR_TEMP
+        "MT P=0002 C=FFFD\r",  // FAN_MODE
+        "MT P=0900 C=FFF6\r",  // MODEL_NAME
+        "MT P=0304 C=FFF8\r",  // LEAVE_HOME_STATUS_READ
+    };
+    for (size_t i = 0; i < responses.size(); i++) {
+      this->send_poll_request_and_assert(requests[i]);
+      this->inject_response_and_step(responses[i]);
+    }
+    EXPECT_EQ(this->ac_.state(), CAPTURE_TARGET_TEMPERATURE);
+    this->ac_.loop();
+    EXPECT_EQ(this->ac_.state(), IDLE);
+  }
+
+  const std::vector<std::string> cool_cycle_responses_ = {
+      "OK P=01 C=FFFE\r",                    // POWER_STATE: on
+      "OK P=0040 C=FFBF\r",                  // MODE: cool
+      "OK P=0016 C=FFE9\r",                  // TARGET_TEMP: 22°C
+      "OK P=0018 C=FFE7\r",                  // CURRENT_INDOOR_TEMP: 24°C
+      "OK P=01 C=FFFE\r",                    // FAN_MODE: high
+      "OK P=52414B2D3235504543 C=FDB5\r",    // MODEL_NAME: "RAK-25PEC"
+  };
+
   MockUARTComponent uart_;
   TestHlinkAc ac_;
   int publish_count_{0};
@@ -59,7 +88,9 @@ TEST_F(HlinkAcStateMachineTest, PollingCycleHappyPath) {
 
   this->send_poll_request_and_assert("MT P=0900 C=FFF6\r");            // MODEL_NAME
   this->inject_response_and_step("OK P=52414B2D3235504543 C=FDB5\r");  // MODEL_NAME: "RAK-25PEC"
+  EXPECT_EQ(this->ac_.state(), CAPTURE_TARGET_TEMPERATURE);
 
+  this->ac_.loop();
   EXPECT_EQ(this->ac_.state(), IDLE);
   EXPECT_EQ(this->ac_.mode, climate::ClimateMode::CLIMATE_MODE_COOL);
   EXPECT_FLOAT_EQ(this->ac_.target_temperature, 22.0f);
@@ -317,6 +348,110 @@ TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureWhenRememberDisabled) {
   EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
   EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
   EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingCapturesTargetTemperaturePerMode) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle(this->cool_cycle_responses_);
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 22.0f);
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingCapturesAutoModeTargetTemperature) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.set_reference_temperature(23);
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=01 C=FFFE\r",                  // POWER_STATE: on
+                           "OK P=8010 C=FF6F\r",                // MODE: heat auto
+                           "OK P=FFFF C=FE01\r",                // TARGET_TEMP: offset -1
+                           "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                  // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.heat_cool_target_temperature.has_value());
+  // Auto heating offset -1 is adjusted to -3, clamped to the auto range [20; 26].
+  EXPECT_FLOAT_EQ(stored_temps.heat_cool_target_temperature.value(), 20.0f);
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureWhenAcOff) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=00 C=FFFF\r",                  // POWER_STATE: off
+                           "OK P=0000 C=FFFF\r",                // MODE: off
+                           "OK P=0016 C=FFE9\r",                // TARGET_TEMP: 22°C (ignored when off)
+                           "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                  // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureWhenRememberDisabled) {
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle(this->cool_cycle_responses_);
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureAwayModeTargetTemperature) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.set_supported_climate_presets({climate::ClimatePreset::CLIMATE_PRESET_AWAY});
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=01 C=FFFE\r",                  // POWER_STATE: on
+                           "OK P=0010 C=FFEF\r",                // MODE: heat
+                           "OK P=000A C=FFF5\r",                // TARGET_TEMP: 10°C (away marker)
+                           "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                  // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r",  // MODEL_NAME: "RAK-25PEC"
+                           "OK P=80 C=FF7F\r"});                // LEAVE_HOME_STATUS_READ: enabled
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingSavesTargetTemperaturesOnlyOnChange) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle(this->cool_cycle_responses_);
+  EXPECT_EQ(this->ac_.save_settings_call_count_for_test(), 1);
+
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle(this->cool_cycle_responses_);
+  EXPECT_EQ(this->ac_.save_settings_call_count_for_test(), 1);
+
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=01 C=FFFE\r",                  // POWER_STATE: on
+                           "OK P=0040 C=FFBF\r",                // MODE: cool
+                           "OK P=0017 C=FFE8\r",                // TARGET_TEMP: 23°C
+                           "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                  // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
+  EXPECT_EQ(this->ac_.save_settings_call_count_for_test(), 2);
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 23.0f);
 }
 
 TEST_F(HlinkAcStateMachineTest, PersistsTargetTemperaturesAcrossRestarts) {

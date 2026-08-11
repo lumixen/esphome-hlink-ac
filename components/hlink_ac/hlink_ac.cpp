@@ -228,8 +228,10 @@ void HlinkAc::request_status_update_() {
  * 4. REQUEST_LOW_PRIORITY_FEATURE - sends a request for the low-priority feature, if any.
  * 5. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
  * 6. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
- * 7. APPLY_REQUEST - applies the requested climate controls from the queue.
- * 8. ACK_APPLIED_REQUEST - confirms successfully applied control request.
+ * 7. CAPTURE_TARGET_TEMPERATURE - stores the last seen target temperature per mode if the corresponding option is
+ *    enabled.
+ * 8. APPLY_REQUEST - applies the requested climate controls from the queue.
+ * 9. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
   if (this->status_.state == INIT && this->can_send_next_frame_()) {
@@ -293,6 +295,12 @@ void HlinkAc::loop() {
 
   if (this->status_.state == PUBLISH_UPDATE_IF_ANY) {
     this->publish_updates_if_any_();
+    this->status_.state = CAPTURE_TARGET_TEMPERATURE;
+    return;
+  }
+
+  if (this->status_.state == CAPTURE_TARGET_TEMPERATURE) {
+    this->capture_target_temperature_from_status_();
     this->status_.state = IDLE;
     return;
   }
@@ -337,6 +345,7 @@ void HlinkAc::loop() {
              : this->status_.state == REQUEST_LOW_PRIORITY_FEATURE ? "REQUEST_LOW_PRIORITY_FEATURE"
              : this->status_.state == READ_FEATURE_RESPONSE        ? "READ_FEATURE_RESPONSE"
              : this->status_.state == PUBLISH_UPDATE_IF_ANY        ? "PUBLISH_UPDATE_IF_ANY"
+             : this->status_.state == CAPTURE_TARGET_TEMPERATURE   ? "CAPTURE_TARGET_TEMPERATURE"
              : this->status_.state == APPLY_REQUEST                ? "APPLY_REQUEST"
              : this->status_.state == ACK_APPLIED_REQUEST          ? "ACK_APPLIED_REQUEST"
                                                                    : "UNKNOWN");
@@ -1116,31 +1125,46 @@ void HlinkAc::capture_target_temperature_(climate::ClimateMode mode, float tempe
   if (!this->remember_target_temperatures_) {
     return;
   }
-  bool updated = false;
+  optional<float> *target_temperature = nullptr;
   switch (mode) {
     case climate::ClimateMode::CLIMATE_MODE_HEAT:
-      this->stored_target_temperatures_.heat_target_temperature = temperature;
-      updated = true;
+      target_temperature = &this->stored_target_temperatures_.heat_target_temperature;
       break;
     case climate::ClimateMode::CLIMATE_MODE_COOL:
-      this->stored_target_temperatures_.cool_target_temperature = temperature;
-      updated = true;
+      target_temperature = &this->stored_target_temperatures_.cool_target_temperature;
       break;
     case climate::ClimateMode::CLIMATE_MODE_DRY:
-      this->stored_target_temperatures_.dry_target_temperature = temperature;
-      updated = true;
+      target_temperature = &this->stored_target_temperatures_.dry_target_temperature;
       break;
     case climate::ClimateMode::CLIMATE_MODE_HEAT_COOL:
-      this->stored_target_temperatures_.heat_cool_target_temperature = temperature;
-      updated = true;
+      target_temperature = &this->stored_target_temperatures_.heat_cool_target_temperature;
       break;
     default:
       // OFF and FAN_ONLY modes don't have a target temperature.
-      break;
+      return;
   }
-  if (updated) {
-    this->save_settings_();
+  if (target_temperature->has_value() && this->is_nanable_equal_(target_temperature->value(), temperature)) {
+    return;
   }
+  *target_temperature = temperature;
+  this->save_settings_();
+}
+
+void HlinkAc::capture_target_temperature_from_status_() {
+  if (!this->hlink_entity_status_.has_minimal_hvac_status()) {
+    return;
+  }
+  if (std::isnan(this->hlink_entity_status_.target_temperature.value())) {
+    return;
+  }
+  if (this->hlink_entity_status_.leave_home_enabled.value_or(false) &&
+      this->hlink_entity_status_.power_state.value_or(false) &&
+      this->hlink_entity_status_.target_temperature.value() == 10) {
+    // Away (leave home) mode uses target temperature 10 as a marker, don't remember it.
+    return;
+  }
+  this->capture_target_temperature_(this->hlink_entity_status_.mode.value(),
+                                    this->hlink_entity_status_.target_temperature.value());
 }
 
 optional<float> HlinkAc::restore_target_temperature_(float value, float min_temperature, float max_temperature) const {

@@ -44,6 +44,7 @@ enum HlinkComponentState : uint8_t {
   REQUEST_LOW_PRIORITY_FEATURE,
   READ_FEATURE_RESPONSE,
   PUBLISH_UPDATE_IF_ANY,
+  CAPTURE_TARGET_TEMPERATURE,
   APPLY_REQUEST,
   ACK_APPLIED_REQUEST
 };
@@ -366,6 +367,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
   void apply_stored_target_temperatures_();
+  void capture_target_temperature_from_status_();
   void capture_target_temperature_(esphome::climate::ClimateMode mode, float temperature);
   optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;
   HlinkResponseFrame read_hlink_frame_();
@@ -397,7 +399,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
   std::string format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const;
-  void save_settings_();
+  virtual void save_settings_();
 };
 }  // namespace hlink_ac
 }  // namespace esphome

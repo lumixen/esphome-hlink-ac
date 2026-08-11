@@ -109,14 +109,22 @@ class TestHlinkAc : public HlinkAc {
 
   StoredTargetTemperatures stored_target_temperatures_for_test() const { return this->stored_target_temperatures_; }
 
+  int save_settings_call_count_for_test() const { return this->save_settings_call_count_; }
+
   HlinkComponentState state() const { return this->status_.state; }
 
   ComponentStatus &status() { return this->status_; }
 
  protected:
+  void save_settings_() override {
+    this->save_settings_call_count_++;
+    HlinkAc::save_settings_();
+  }
+
   uint32_t current_time_ms() const override { return this->current_time_ms_; }
 
   uint32_t current_time_ms_{1000};
+  int save_settings_call_count_{0};
 };
 
 }  // namespace esphome::hlink_ac::testing
