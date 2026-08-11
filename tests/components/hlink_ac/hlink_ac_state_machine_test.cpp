@@ -387,7 +387,7 @@ TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureAwayModeTargetTemperature) 
                            "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
                            "OK P=01 C=FFFE\r",                  // FAN_MODE: high
                            "OK P=52414B2D3235504543 C=FDB5\r",  // MODEL_NAME: "RAK-25PEC"
-                           "OK P=80 C=FF7F\r"});                // LEAVE_HOME_STATUS_READ: enabled
+                           "OK P=00000080 C=FF7F\r"});            // LEAVE_HOME_STATUS_READ: enabled
 
   auto stored_temps = this->ac_.stored_target_temperatures_for_test();
   EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
