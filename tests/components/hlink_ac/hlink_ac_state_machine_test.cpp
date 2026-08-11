@@ -8,6 +8,7 @@ class HlinkAcStateMachineTest : public ::testing::Test {
   void advance_for_next_send() { this->ac_.advance_current_time_ms_for_test(MIN_INTERVAL_BETWEEN_REQUESTS + 1); }
 
   void SetUp() override {
+    global_preferences->reset();
     this->ac_.set_uart_parent_for_test(&this->uart_);
     this->ac_.set_current_time_ms_for_test(0);
     this->ac_.set_status_update_interval(0xFFFFFF00U);
@@ -199,13 +200,14 @@ TEST_F(HlinkAcStateMachineTest, SetupInitSendsPowerStateRequestAndTransitionsToI
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffEnqueuesInitialTargetTemperatures) {
-  InitialTargetTemperatures initial_temps{};
-  initial_temps.cool_target_temperature = 24.0f;
-  this->ac_.set_initial_target_temperatures(initial_temps);
-
+TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffAppliesStoredTargetTemperatures) {
+  this->ac_.set_remember_target_temperatures(true);
   this->ac_.setup();
   ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
 
   this->advance_for_next_send();
   this->ac_.loop();
@@ -231,6 +233,110 @@ TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffEnqueuesInitialTargetTemperatu
   this->inject_response_and_step(ACK_OK_FRAME);
   EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
   EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffAndNoStoredTargetTemperaturesDoesNothing) {
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+
+  this->inject_response_and_step("OK P=00 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+  EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffAndRememberDisabledDoesNotApplyStoredTargetTemperatures) {
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+
+  this->inject_response_and_step("OK P=00 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+  EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlCapturesTargetTemperaturePerMode) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.set_reference_temperature(23);
+  this->ac_.setup();
+
+  auto call = this->ac_.make_call();
+  call.set_mode(climate::ClimateMode::CLIMATE_MODE_COOL).set_target_temperature(24.0f);
+  this->ac_.control(call);
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+
+  // Auto-mode temperature is clamped and stored in the auto range.
+  auto auto_call = this->ac_.make_call();
+  auto_call.set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT_COOL).set_target_temperature(28.0f);
+  this->ac_.control(auto_call);
+
+  stored_temps = this->ac_.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FLOAT_EQ(stored_temps.heat_cool_target_temperature.value(), 26.0f);
+  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
+
+  // OFF mode does not capture a target temperature.
+  auto off_call = this->ac_.make_call();
+  off_call.set_mode(climate::ClimateMode::CLIMATE_MODE_OFF).set_target_temperature(22.0f);
+  this->ac_.control(off_call);
+
+  stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureWhenRememberDisabled) {
+  this->ac_.setup();
+
+  auto call = this->ac_.make_call();
+  call.set_mode(climate::ClimateMode::CLIMATE_MODE_COOL).set_target_temperature(24.0f);
+  this->ac_.control(call);
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PersistsTargetTemperaturesAcrossRestarts) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  auto call = this->ac_.make_call();
+  call.set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT).set_target_temperature(26.0f);
+  this->ac_.control(call);
+
+  TestHlinkAc restarted_ac;
+  restarted_ac.set_uart_parent_for_test(&this->uart_);
+  restarted_ac.set_current_time_ms_for_test(0);
+  restarted_ac.setup();
+
+  auto stored_temps = restarted_ac.stored_target_temperatures_for_test();
+  ASSERT_TRUE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FLOAT_EQ(stored_temps.heat_target_temperature.value(), 26.0f);
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
 }
 
 TEST_F(HlinkAcStateMachineTest, SetupInitTimeoutResetsToIdle) {

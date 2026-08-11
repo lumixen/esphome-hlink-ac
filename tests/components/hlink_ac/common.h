@@ -103,6 +103,12 @@ class TestHlinkAc : public HlinkAc {
         HlinkRequest{request_frame, ok_callback, ng_callback, invalid_callback, timeout_callback};
   }
 
+  void set_stored_target_temperatures_for_test(const StoredTargetTemperatures &stored_target_temperatures) {
+    this->stored_target_temperatures_ = stored_target_temperatures;
+  }
+
+  StoredTargetTemperatures stored_target_temperatures_for_test() const { return this->stored_target_temperatures_; }
+
   HlinkComponentState state() const { return this->status_.state; }
 
   ComponentStatus &status() { return this->status_; }

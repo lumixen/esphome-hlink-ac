@@ -253,7 +253,7 @@ enum class TextSensorType {
 };
 #endif
 
-struct InitialTargetTemperatures {
+struct StoredTargetTemperatures {
   optional<float> heat_target_temperature;
   optional<float> cool_target_temperature;
   optional<float> heat_cool_target_temperature;
@@ -262,8 +262,11 @@ struct InitialTargetTemperatures {
 
 struct HlinkAcSettings {
   bool beeper_enabled;
-  // Preserve the preference layout from releases that stored a second settings byte.
-  uint8_t reserved;
+  // Last user-set target temperatures per mode. NAN means the temperature was never set.
+  float heat_target_temperature;
+  float cool_target_temperature;
+  float heat_cool_target_temperature;
+  float dry_target_temperature;
 };
 
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
@@ -340,7 +343,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
   void set_reference_temperature(float reference_temperature);
-  void set_initial_target_temperatures(const InitialTargetTemperatures &config);
+  void set_remember_target_temperatures(bool remember);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
@@ -349,7 +352,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   float reference_temperature_{25.0f};
-  InitialTargetTemperatures initial_target_temperatures_;
+  bool remember_target_temperatures_{false};
+  StoredTargetTemperatures stored_target_temperatures_;
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
@@ -361,7 +365,9 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void request_status_update_();
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  void apply_initial_target_temperatures_();
+  void apply_stored_target_temperatures_();
+  void capture_target_temperature_(esphome::climate::ClimateMode mode, float temperature);
+  optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
   void enqueue_request_(HlinkRequestFrame request_frame,

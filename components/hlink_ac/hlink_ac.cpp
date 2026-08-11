@@ -111,12 +111,21 @@ HlinkAc::HlinkAc() {
 }
 
 void HlinkAc::setup() {
-  constexpr uint32_t settings_version = 0xA7C3B2E4;
+  // Version must be bumped when the settings struct layout changes.
+  constexpr uint32_t settings_version = 0x5E6C7A8B;
   this->rtc_ = this->make_entity_preference<HlinkAcSettings>(settings_version);
   HlinkAcSettings recovered_settings{};
   auto beeper_enabled = false;
   if (this->rtc_.load(&recovered_settings)) {
     beeper_enabled = recovered_settings.beeper_enabled;
+    this->stored_target_temperatures_.heat_target_temperature = this->restore_target_temperature_(
+        recovered_settings.heat_target_temperature, this->auto_min_temperature_(), this->auto_max_temperature_());
+    this->stored_target_temperatures_.cool_target_temperature = this->restore_target_temperature_(
+        recovered_settings.cool_target_temperature, PROTOCOL_TARGET_TEMP_MIN, PROTOCOL_TARGET_TEMP_MAX);
+    this->stored_target_temperatures_.heat_cool_target_temperature = this->restore_target_temperature_(
+        recovered_settings.heat_cool_target_temperature, this->auto_min_temperature_(), this->auto_max_temperature_());
+    this->stored_target_temperatures_.dry_target_temperature = this->restore_target_temperature_(
+        recovered_settings.dry_target_temperature, PROTOCOL_TARGET_TEMP_MIN, PROTOCOL_TARGET_TEMP_MAX);
   }
 #ifdef USE_SWITCH
   if (this->beeper_switch_ != nullptr && beeper_enabled != this->beeper_switch_->state) {
@@ -176,8 +185,8 @@ void HlinkAc::set_reference_temperature(float reference_temperature) {
   this->reference_temperature_ = reference_temperature;
 }
 
-void HlinkAc::set_initial_target_temperatures(const InitialTargetTemperatures &config) {
-  this->initial_target_temperatures_ = config;
+void HlinkAc::set_remember_target_temperatures(bool remember) {
+  this->remember_target_temperatures_ = remember;
 }
 
 void HlinkAc::refresh_non_idle_timeout_(uint32_t non_idle_timeout_limit_ms) {
@@ -212,7 +221,7 @@ void HlinkAc::request_status_update_() {
 
 /*
  * Main loop implements a state machine with the following states:
- * 1. INIT - polls power state on first boot; applies initial target temperatures if AC is off.
+ * 1. INIT - polls power state on first boot; restores stored target temperatures if AC is off.
  * 2. IDLE - does nothing.
  * 3. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next status feature; the list of requested features is
  *    stored in the polling_features list.
@@ -228,7 +237,7 @@ void HlinkAc::loop() {
                                [this](const HlinkResponseFrame &response) {
                                  auto power_state = response.p_value_as_uint16();
                                  if (power_state.has_value() && !power_state.value()) {
-                                   this->apply_initial_target_temperatures_();
+                                   this->apply_stored_target_temperatures_();
                                  }
                                });
     this->status_.current_request = make_unique<HlinkRequest>(std::move(power_request));
@@ -755,6 +764,7 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
       target_temperature = this->clamp_auto_temperature_(target_temperature);
       hlink_target_temperature = this->encode_auto_temperature_(target_temperature);
     }
+    this->capture_target_temperature_(requested_mode, target_temperature);
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_target_temperature),
         [this, target_temperature](const HlinkResponseFrame &response) {
@@ -1090,46 +1100,98 @@ void HlinkAc::save_settings_() {
     beeper_enabled = this->beeper_switch_->state;
   }
 #endif
-  HlinkAcSettings settings{beeper_enabled, 0};
+  HlinkAcSettings settings{
+      beeper_enabled,
+      this->stored_target_temperatures_.heat_target_temperature.value_or(NAN),
+      this->stored_target_temperatures_.cool_target_temperature.value_or(NAN),
+      this->stored_target_temperatures_.heat_cool_target_temperature.value_or(NAN),
+      this->stored_target_temperatures_.dry_target_temperature.value_or(NAN),
+  };
   if (!this->rtc_.save(&settings)) {
     ESP_LOGW(TAG, "Failed to save settings");
   }
 }
 
-void HlinkAc::apply_initial_target_temperatures_() {
-  if (this->initial_target_temperatures_.heat_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial heat target temperature: %.1f",
-             this->initial_target_temperatures_.heat_target_temperature.value());
+void HlinkAc::capture_target_temperature_(climate::ClimateMode mode, float temperature) {
+  if (!this->remember_target_temperatures_) {
+    return;
+  }
+  bool updated = false;
+  switch (mode) {
+    case climate::ClimateMode::CLIMATE_MODE_HEAT:
+      this->stored_target_temperatures_.heat_target_temperature = temperature;
+      updated = true;
+      break;
+    case climate::ClimateMode::CLIMATE_MODE_COOL:
+      this->stored_target_temperatures_.cool_target_temperature = temperature;
+      updated = true;
+      break;
+    case climate::ClimateMode::CLIMATE_MODE_DRY:
+      this->stored_target_temperatures_.dry_target_temperature = temperature;
+      updated = true;
+      break;
+    case climate::ClimateMode::CLIMATE_MODE_HEAT_COOL:
+      this->stored_target_temperatures_.heat_cool_target_temperature = temperature;
+      updated = true;
+      break;
+    default:
+      // OFF and FAN_ONLY modes don't have a target temperature.
+      break;
+  }
+  if (updated) {
+    this->save_settings_();
+  }
+}
+
+optional<float> HlinkAc::restore_target_temperature_(float value, float min_temperature, float max_temperature) const {
+  if (std::isnan(value)) {
+    return {};
+  }
+  if (value < min_temperature || value > max_temperature) {
+    ESP_LOGW(TAG, "Stored target temperature %.1f is out of range [%.1f; %.1f], ignoring it", value, min_temperature,
+             max_temperature);
+    return {};
+  }
+  return value;
+}
+
+void HlinkAc::apply_stored_target_temperatures_() {
+  if (!this->remember_target_temperatures_) {
+    return;
+  }
+  if (this->stored_target_temperatures_.heat_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Restoring last set heat target temperature: %.1f",
+             this->stored_target_temperatures_.heat_target_temperature.value());
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT));
     this->enqueue_request_(HlinkRequestFrame::with_uint16(
         HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.heat_target_temperature.value())));
+        static_cast<uint16_t>(this->stored_target_temperatures_.heat_target_temperature.value())));
   }
-  if (this->initial_target_temperatures_.cool_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial cool target temperature: %.1f",
-             this->initial_target_temperatures_.cool_target_temperature.value());
+  if (this->stored_target_temperatures_.cool_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Restoring last set cool target temperature: %.1f",
+             this->stored_target_temperatures_.cool_target_temperature.value());
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_COOL));
     this->enqueue_request_(HlinkRequestFrame::with_uint16(
         HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.cool_target_temperature.value())));
+        static_cast<uint16_t>(this->stored_target_temperatures_.cool_target_temperature.value())));
   }
-  if (this->initial_target_temperatures_.dry_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Setting initial dry target temperature: %.1f",
-             this->initial_target_temperatures_.dry_target_temperature.value());
+  if (this->stored_target_temperatures_.dry_target_temperature.has_value()) {
+    ESP_LOGI(TAG, "Restoring last set dry target temperature: %.1f",
+             this->stored_target_temperatures_.dry_target_temperature.value());
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_DRY));
     this->enqueue_request_(HlinkRequestFrame::with_uint16(
         HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->initial_target_temperatures_.dry_target_temperature.value())));
+        static_cast<uint16_t>(this->stored_target_temperatures_.dry_target_temperature.value())));
   }
-  if (this->initial_target_temperatures_.heat_cool_target_temperature.has_value()) {
+  if (this->stored_target_temperatures_.heat_cool_target_temperature.has_value()) {
     float target =
-        this->clamp_auto_temperature_(this->initial_target_temperatures_.heat_cool_target_temperature.value());
+        this->clamp_auto_temperature_(this->stored_target_temperatures_.heat_cool_target_temperature.value());
     uint16_t encoded = this->encode_auto_temperature_(target);
-    ESP_LOGI(TAG, "Setting initial heat_cool target temperature: %.1f (encoded: %04X)",
-             this->initial_target_temperatures_.heat_cool_target_temperature.value(), encoded);
+    ESP_LOGI(TAG, "Restoring last set heat_cool target temperature: %.1f (encoded: %04X)",
+             this->stored_target_temperatures_.heat_cool_target_temperature.value(), encoded);
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_AUTO));
     this->enqueue_request_(
