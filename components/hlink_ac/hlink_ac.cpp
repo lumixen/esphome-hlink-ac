@@ -773,7 +773,6 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
       target_temperature = this->clamp_auto_temperature_(target_temperature);
       hlink_target_temperature = this->encode_auto_temperature_(target_temperature);
     }
-    this->capture_target_temperature_(requested_mode, target_temperature);
     this->enqueue_request_(
         HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_target_temperature),
         [this, target_temperature](const HlinkResponseFrame &response) {

@@ -300,43 +300,9 @@ TEST_F(HlinkAcStateMachineTest, SetupInitWithAcOffAndRememberDisabledDoesNotAppl
   EXPECT_EQ(this->publish_count_, 0);
 }
 
-TEST_F(HlinkAcStateMachineTest, ControlCapturesTargetTemperaturePerMode) {
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureTargetTemperature) {
   this->ac_.set_remember_target_temperatures(true);
   this->ac_.set_reference_temperature(23);
-  this->ac_.setup();
-
-  auto call = this->ac_.make_call();
-  call.set_mode(climate::ClimateMode::CLIMATE_MODE_COOL).set_target_temperature(24.0f);
-  this->ac_.control(call);
-
-  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
-  ASSERT_TRUE(stored_temps.cool_target_temperature.has_value());
-  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
-  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
-  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
-  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
-
-  // Auto-mode temperature is clamped and stored in the auto range.
-  auto auto_call = this->ac_.make_call();
-  auto_call.set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT_COOL).set_target_temperature(28.0f);
-  this->ac_.control(auto_call);
-
-  stored_temps = this->ac_.stored_target_temperatures_for_test();
-  ASSERT_TRUE(stored_temps.heat_cool_target_temperature.has_value());
-  EXPECT_FLOAT_EQ(stored_temps.heat_cool_target_temperature.value(), 26.0f);
-  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
-
-  // OFF mode does not capture a target temperature.
-  auto off_call = this->ac_.make_call();
-  off_call.set_mode(climate::ClimateMode::CLIMATE_MODE_OFF).set_target_temperature(22.0f);
-  this->ac_.control(off_call);
-
-  stored_temps = this->ac_.stored_target_temperatures_for_test();
-  EXPECT_FLOAT_EQ(stored_temps.cool_target_temperature.value(), 24.0f);
-  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
-}
-
-TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureWhenRememberDisabled) {
   this->ac_.setup();
 
   auto call = this->ac_.make_call();
@@ -457,9 +423,20 @@ TEST_F(HlinkAcStateMachineTest, PollingSavesTargetTemperaturesOnlyOnChange) {
 TEST_F(HlinkAcStateMachineTest, PersistsTargetTemperaturesAcrossRestarts) {
   this->ac_.set_remember_target_temperatures(true);
   this->ac_.setup();
-  auto call = this->ac_.make_call();
-  call.set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT).set_target_temperature(26.0f);
-  this->ac_.control(call);
+  ASSERT_EQ(this->ac_.state(), INIT);
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");  // INIT: POWER_STATE
+  this->inject_response_and_step("OK P=01 C=FFFE\r");                // POWER_STATE: on
+  ASSERT_EQ(this->ac_.state(), IDLE);
+
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=01 C=FFFE\r",                  // POWER_STATE: on
+                           "OK P=0010 C=FFEF\r",                // MODE: heat
+                           "OK P=001A C=FFE5\r",                // TARGET_TEMP: 26°C
+                           "OK P=0018 C=FFE7\r",                // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                  // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
 
   TestHlinkAc restarted_ac;
   restarted_ac.set_uart_parent_for_test(&this->uart_);
