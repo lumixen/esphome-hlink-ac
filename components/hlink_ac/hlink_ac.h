@@ -205,7 +205,6 @@ struct PollCycleDefinition {
 class PollingCycle {
  public:
   void start(PollCycleDefinition def) {
-    assert(!def.features.empty());
     this->def_ = std::move(def);
     this->requested_feature_index_ = 0;
     this->active_ = true;
@@ -219,10 +218,7 @@ class PollingCycle {
 
   bool is_active() const { return this->active_; }
 
-  const HlinkRequest &current_request() const {
-    assert(this->active_);
-    return this->def_.features[this->requested_feature_index_];
-  }
+  const HlinkRequest &current_request() const { return this->def_.features[this->requested_feature_index_]; }
 
   bool has_more_features() const {
     return this->active_ && this->requested_feature_index_ + 1 < this->def_.features.size();
