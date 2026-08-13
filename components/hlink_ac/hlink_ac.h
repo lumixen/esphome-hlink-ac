@@ -41,8 +41,9 @@ enum HlinkComponentState : uint8_t {
   INIT,
   IDLE,
   REQUEST_NEXT_STATUS_FEATURE,
-  REQUEST_LOW_PRIORITY_FEATURE,
   READ_FEATURE_RESPONSE,
+  POLL_DONE,
+  RESTORE_TARGET_TEMPERATURES,
   PUBLISH_UPDATE_IF_ANY,
   CAPTURE_TARGET_TEMPERATURE,
   APPLY_REQUEST,
@@ -192,6 +193,58 @@ struct HlinkRequest {
   std::function<void()> timeout_callback;
 };
 
+struct PollCycleDefinition {
+  std::vector<HlinkRequest> features;
+  // Invoked when all features of the cycle have been polled successfully.
+  std::function<HlinkComponentState()> on_completed = {};
+  HlinkComponentState next_state_on_timeout = IDLE;
+};
+
+// Run state and lifecycle of a single polling cycle.
+class PollingCycle {
+ public:
+  void start(PollCycleDefinition def) {
+    assert(!def.features.empty());
+    this->def_ = std::move(def);
+    this->requested_feature_index_ = 0;
+    this->active_ = true;
+  }
+
+  void clear() {
+    this->active_ = false;
+    this->requested_feature_index_ = 0;
+    this->def_ = {};
+  }
+
+  bool is_active() const { return this->active_; }
+
+  const HlinkRequest &current_request() const {
+    assert(this->active_);
+    return this->def_.features[this->requested_feature_index_];
+  }
+
+  bool has_more_features() const {
+    return this->active_ && this->requested_feature_index_ + 1 < this->def_.features.size();
+  }
+
+  void advance() { this->requested_feature_index_++; }
+
+  HlinkComponentState dispatch_completion() const {
+    return this->def_.on_completed ? this->def_.on_completed() : PUBLISH_UPDATE_IF_ANY;
+  }
+
+  HlinkComponentState next_state_on_timeout() const { return this->def_.next_state_on_timeout; }
+
+  uint32_t timeout_ms() const { return this->def_.features.size() * 500; }
+
+  int get_requested_feature_index_for_debug() const { return this->requested_feature_index_; }
+
+ private:
+  bool active_{false};
+  uint16_t requested_feature_index_{0};
+  PollCycleDefinition def_;
+};
+
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
   std::string hlink_response_buffer = std::string(HLINK_MSG_READ_BUFFER_SIZE, '\0');
@@ -199,7 +252,7 @@ struct ComponentStatus {
   std::unique_ptr<HlinkRequest> current_request = nullptr;
   std::vector<HlinkRequest> polling_features = {};
   optional<HlinkRequest> low_priority_hlink_request = {};
-  int16_t requested_feature_index = -1;
+  PollingCycle polling_cycle;
   uint32_t status_update_interval_ms = DEFAULT_STATUS_UPDATE_INTERVAL;
   uint32_t non_idle_timeout_limit_ms = 0;
   uint32_t last_status_polling_finished_at_ms = 0;
@@ -207,16 +260,14 @@ struct ComponentStatus {
   uint32_t timeout_counter_started_at_ms = 0;
   uint8_t requests_left_to_apply = 0;
 
-  HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
-
   void reset_state() {
     state = IDLE;
     timeout_counter_started_at_ms = 0;
     non_idle_timeout_limit_ms = 0;
     last_status_polling_finished_at_ms = 0;
-    requested_feature_index = -1;
     requests_left_to_apply = 0;
     current_request = nullptr;
+    polling_cycle.clear();
   }
 
   void reset_response_buffer() {
@@ -305,10 +356,14 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
   sensor::Sensor *indoor_temperature_sensor_{nullptr};
+  sensor::Sensor *outdoor_temperature_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
  public:
   void set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *s);
+
+ protected:
+  binary_sensor::BinarySensor *air_filter_warning_sensor_{nullptr};
 #endif
 #ifdef USE_TEXT_SENSOR
  public:
@@ -364,9 +419,24 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   bool can_send_next_frame_() const;
   bool can_start_next_polling_() const;
   void request_status_update_();
+  void start_poll_cycle_(PollCycleDefinition def);
+  HlinkRequest make_power_state_request_();
+  HlinkRequest make_mode_request_();
+  HlinkRequest make_target_temp_request_();
+  HlinkRequest make_current_temp_request_();
+  HlinkRequest make_fan_mode_request_();
+  HlinkRequest make_swing_mode_request_();
+  HlinkRequest make_leave_home_request_();
+  HlinkRequest make_activity_status_request_();
+  HlinkRequest make_remote_control_lock_request_();
+  HlinkRequest make_current_outdoor_temp_request_();
+  HlinkRequest make_air_filter_warning_request_();
+  HlinkRequest make_model_name_request_();
+  HlinkRequest make_debug_request_(uint16_t address, text_sensor::TextSensor *sens);
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
   void apply_stored_target_temperatures_();
+  void apply_restored_target_temperatures_if_needed_();
   void capture_target_temperature_from_status_();
   void capture_target_temperature_(esphome::climate::ClimateMode mode, float temperature);
   optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;
