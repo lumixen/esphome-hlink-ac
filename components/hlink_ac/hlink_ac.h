@@ -425,11 +425,17 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   HlinkRequest make_swing_mode_request_();
   HlinkRequest make_leave_home_request_();
   HlinkRequest make_activity_status_request_();
+#ifdef USE_SWITCH
   HlinkRequest make_remote_control_lock_request_();
+#endif
+#ifdef USE_SENSOR
   HlinkRequest make_current_outdoor_temp_request_();
+#endif
+#ifdef USE_BINARY_SENSOR
   HlinkRequest make_air_filter_warning_request_();
-  HlinkRequest make_model_name_request_();
+#endif
 #ifdef USE_TEXT_SENSOR
+  HlinkRequest make_model_name_request_();
   HlinkRequest make_debug_request_(uint16_t address, text_sensor::TextSensor *sens);
 #endif
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
