@@ -226,8 +226,19 @@ bool HlinkAc::can_start_next_polling_() const {
 
 void HlinkAc::request_status_update_() {
   if (this->status_.state == IDLE) {
-    // Launch a full polling cycle over all configured features
-    this->start_poll_cycle_({this->status_.polling_features, nullptr, nullptr});
+    // Launch a full polling cycle over all configured features. Completing or failing the cycle re-arms the status
+    // update interval, allowing the IDLE block to start the next polling cycle on time.
+    PollCycleDefinition def{};
+    def.features = this->status_.polling_features;
+    def.on_completed = [this]() {
+      this->refresh_status_polling_finished_at_();
+      return PUBLISH_UPDATE_IF_ANY;
+    };
+    def.on_failure = [this]() {
+      this->refresh_status_polling_finished_at_();
+      return IDLE;
+    };
+    this->start_poll_cycle_(std::move(def));
   }
 }
 
@@ -260,9 +271,13 @@ void HlinkAc::loop() {
     boot_definition.features = {this->make_power_state_request_(), this->make_mode_request_(),
                                 this->make_target_temp_request_(), this->make_current_temp_request_()};
     boot_definition.on_completed = [this]() {
+      this->refresh_status_polling_finished_at_();
       return this->hlink_entity_status_.has_minimal_hvac_status() ? RESTORE_TARGET_TEMPERATURES : INIT;
     };
-    boot_definition.on_timeout = []() { return INIT; };
+    boot_definition.on_failure = [this]() {
+      this->refresh_status_polling_finished_at_();
+      return INIT;
+    };
     this->start_poll_cycle_(std::move(boot_definition));
     return;
   }
@@ -284,19 +299,23 @@ void HlinkAc::loop() {
     }
     HlinkRequest requested_feature = *this->status_.current_request;
     if (this->handle_hlink_request_response_(requested_feature, response)) {
+      if (response.status != HlinkResponseFrame::Status::OK) {
+        this->status_.polling_cycle.mark_feature_failure();
+      }
       if (this->status_.polling_cycle.has_more_features()) {
         this->status_.polling_cycle.advance();
         this->status_.state = REQUEST_NEXT_STATUS_FEATURE;
       } else {
         this->status_.state = POLL_DONE;
-        this->status_.last_status_polling_finished_at_ms = this->current_time_ms();
       }
       this->status_.current_request = nullptr;
     }
   }
 
   if (this->status_.state == POLL_DONE) {
-    HlinkComponentState next_state = this->status_.polling_cycle.dispatch_completion();
+    HlinkComponentState next_state = this->status_.polling_cycle.has_feature_failure()
+                                         ? this->status_.polling_cycle.dispatch_failure()
+                                         : this->status_.polling_cycle.dispatch_completion();
     this->status_.polling_cycle.clear();
     this->status_.state = next_state;
     return;
@@ -398,7 +417,7 @@ void HlinkAc::loop() {
       this->pending_action_requests_.dequeue();
     }
     HlinkComponentState next_state =
-        this->status_.polling_cycle.is_active() ? this->status_.polling_cycle.dispatch_timeout() : IDLE;
+        this->status_.polling_cycle.is_active() ? this->status_.polling_cycle.dispatch_failure() : IDLE;
     this->status_.reset_state();
     this->status_.state = next_state;
   }
@@ -429,7 +448,7 @@ void HlinkAc::loop() {
     PollCycleDefinition low_priority_definition{};
     low_priority_definition.features.push_back(this->status_.low_priority_hlink_request.value());
     low_priority_definition.on_completed = []() { return IDLE; };
-    low_priority_definition.on_timeout = []() { return IDLE; };
+    low_priority_definition.on_failure = []() { return IDLE; };
     this->status_.low_priority_hlink_request = {};
     this->start_poll_cycle_(std::move(low_priority_definition));
   }

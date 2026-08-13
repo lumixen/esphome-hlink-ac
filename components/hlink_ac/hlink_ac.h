@@ -197,8 +197,8 @@ struct PollCycleDefinition {
   std::vector<HlinkRequest> features;
   // Invoked when all features of the cycle have been polled successfully.
   std::function<HlinkComponentState()> on_completed = {};
-  // Invoked when the polling cycle hits the timeout deadline.
-  std::function<HlinkComponentState()> on_timeout = {};
+  // Invoked when the polling cycle cannot be completed (timeout or a failed feature).
+  std::function<HlinkComponentState()> on_failure = {};
 };
 
 // Run state and lifecycle of a single polling cycle.
@@ -207,12 +207,14 @@ class PollingCycle {
   void start(PollCycleDefinition def) {
     this->def_ = std::move(def);
     this->requested_feature_index_ = 0;
+    this->feature_failure_ = false;
     this->active_ = true;
   }
 
   void clear() {
     this->active_ = false;
     this->requested_feature_index_ = 0;
+    this->feature_failure_ = false;
     this->def_ = {};
   }
 
@@ -226,11 +228,15 @@ class PollingCycle {
 
   void advance() { this->requested_feature_index_++; }
 
+  void mark_feature_failure() { this->feature_failure_ = true; }
+
+  bool has_feature_failure() const { return this->feature_failure_; }
+
   HlinkComponentState dispatch_completion() const {
     return this->def_.on_completed ? this->def_.on_completed() : PUBLISH_UPDATE_IF_ANY;
   }
 
-  HlinkComponentState dispatch_timeout() const { return this->def_.on_timeout ? this->def_.on_timeout() : IDLE; }
+  HlinkComponentState dispatch_failure() const { return this->def_.on_failure ? this->def_.on_failure() : IDLE; }
 
   uint32_t timeout_ms() const { return this->def_.features.size() * 500; }
 
@@ -239,6 +245,7 @@ class PollingCycle {
  private:
   bool active_{false};
   uint16_t requested_feature_index_{0};
+  bool feature_failure_{false};
   PollCycleDefinition def_;
 };
 
@@ -412,6 +419,9 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
   virtual uint32_t current_time_ms() const { return millis(); }
   void refresh_non_idle_timeout_(uint32_t non_idle_timeout_limit_ms);
+  void refresh_status_polling_finished_at_() {
+    this->status_.last_status_polling_finished_at_ms = this->current_time_ms();
+  }
   bool reached_timeout_threshold_() const;
   bool can_send_next_frame_() const;
   bool can_start_next_polling_() const;

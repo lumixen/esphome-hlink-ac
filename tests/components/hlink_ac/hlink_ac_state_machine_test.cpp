@@ -150,6 +150,60 @@ TEST_F(HlinkAcStateMachineTest, PollingCycleHappyPath) {
   EXPECT_EQ(this->publish_count_, 1);
 }
 
+TEST_F(HlinkAcStateMachineTest, PollingCycleWithFailedFeatureDoesNotPublishOrCapture) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  ASSERT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
+
+  this->send_poll_request_and_assert("MT P=0000 C=FFFF\r");  // POWER_STATE
+  this->inject_response_and_step("OK P=01 C=FFFE\r");        // POWER_STATE: on
+  this->send_poll_request_and_assert("MT P=0001 C=FFFE\r");  // MODE
+  this->inject_response_and_step("NG P=FFFF C=FFFF\r");      // MODE: NG
+  this->send_poll_request_and_assert("MT P=0003 C=FFFC\r");  // TARGET_TEMP
+  this->inject_response_and_step("OK P=0016 C=FFE9\r");      // TARGET_TEMP: 22°C
+  this->send_poll_request_and_assert("MT P=0100 C=FFFE\r");  // CURRENT_INDOOR_TEMP
+  this->inject_response_and_step("OK P=0018 C=FFE7\r");      // CURRENT_INDOOR_TEMP: 24°C
+  this->send_poll_request_and_assert("MT P=0002 C=FFFD\r");  // FAN_MODE
+  this->inject_response_and_step("OK P=01 C=FFFE\r");        // FAN_MODE: high
+  this->send_poll_request_and_assert("MT P=0900 C=FFF6\r");            // MODEL_NAME
+  this->inject_response_and_step("OK P=52414B2D3235504543 C=FDB5\r");  // MODEL_NAME: "RAK-25PEC"
+
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_EQ(this->publish_count_, 0);
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
+TEST_F(HlinkAcStateMachineTest, PollingCycleWithInvalidResponseDoesNotPublishOrCapture) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  ASSERT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
+
+  this->send_poll_request_and_assert("MT P=0000 C=FFFF\r");  // POWER_STATE
+  this->inject_response_and_step("XX P=0000 C=FFFF\r");      // POWER_STATE: INVALID
+  this->send_poll_request_and_assert("MT P=0001 C=FFFE\r");  // MODE
+  this->inject_response_and_step("OK P=0040 C=FFBF\r");      // MODE: cool
+  this->send_poll_request_and_assert("MT P=0003 C=FFFC\r");  // TARGET_TEMP
+  this->inject_response_and_step("OK P=0016 C=FFE9\r");      // TARGET_TEMP: 22°C
+  this->send_poll_request_and_assert("MT P=0100 C=FFFE\r");  // CURRENT_INDOOR_TEMP
+  this->inject_response_and_step("OK P=0018 C=FFE7\r");      // CURRENT_INDOOR_TEMP: 24°C
+  this->send_poll_request_and_assert("MT P=0002 C=FFFD\r");  // FAN_MODE
+  this->inject_response_and_step("OK P=01 C=FFFE\r");        // FAN_MODE: high
+  this->send_poll_request_and_assert("MT P=0900 C=FFF6\r");            // MODEL_NAME
+  this->inject_response_and_step("OK P=52414B2D3235504543 C=FDB5\r");  // MODEL_NAME: "RAK-25PEC"
+
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  EXPECT_EQ(this->publish_count_, 0);
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
 TEST_F(HlinkAcStateMachineTest, PartialResponseIsCompletedOnNextLoop) {
   this->ac_.request_status_update_for_test();
   this->send_poll_request_and_assert("MT P=0000 C=FFFF\r");  // POWER_STATE
@@ -241,6 +295,26 @@ TEST_F(HlinkAcStateMachineTest, HandlesLowPriorityRequestFromIdle) {
   EXPECT_TRUE(callback_called);
   EXPECT_EQ(payload_string, "52414B2D3235504543");
   EXPECT_EQ(this->publish_count_, 0);
+}
+
+TEST_F(HlinkAcStateMachineTest, LowPriorityCycleDoesNotDelayNextStatusPolling) {
+  this->ac_.set_status_update_interval(1000);
+  this->ac_.set_low_priority_request_for_test({HlinkRequestFrame::Type::MT, {FeatureType::MODEL_NAME}});
+
+  this->ac_.loop();
+  ASSERT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0900 C=FFF6\r");
+  this->inject_response_and_step("OK P=52414B2D3235504543 C=FDB5\r");
+  EXPECT_EQ(this->ac_.state(), IDLE);
+  // A low-priority (discovery) cycle must not re-arm the status polling interval.
+  EXPECT_EQ(this->ac_.status().last_status_polling_finished_at_ms, 0);
+
+  // Status polling still starts as soon as the update interval has elapsed.
+  this->ac_.advance_current_time_ms_for_test(1000);
+  this->ac_.loop();
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
 }
 
 TEST_F(HlinkAcStateMachineTest, InvokesTimeoutCallbackAndResetsState) {
@@ -348,6 +422,41 @@ TEST_F(HlinkAcStateMachineTest, BootPollingRetriesToInitOnIncompleteStatus) {
   this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
   EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");  // boot cycle retry
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+}
+
+TEST_F(HlinkAcStateMachineTest, BootRetryWithFailedPowerReadDoesNotRestoreStoredTemperatures) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  // First boot cycle: the power read succeeds (off), the mode read fails, so the cycle is incomplete.
+  this->run_boot_cycle({"OK P=00 C=FFFF\r", "NG P=FFFF C=FFFF\r", "OK P=0016 C=FFE9\r",
+                        "OK P=0018 C=FFE7\r"});
+  EXPECT_EQ(this->ac_.state(), INIT);
+  EXPECT_EQ(this->publish_count_, 0);
+
+  // Retry: the power read fails again (stale off state is retained), the rest succeeds.
+  this->advance_for_next_send();
+  this->ac_.loop();  // INIT: start the boot cycle
+  this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
+  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+  this->inject_response_and_step("NG P=FFFF C=FFFF\r");      // POWER_STATE: NG
+  this->send_poll_request_and_assert("MT P=0001 C=FFFE\r");  // MODE
+  this->inject_response_and_step("OK P=0010 C=FFEF\r");      // MODE: heat (stale off power -> OFF)
+  this->send_poll_request_and_assert("MT P=0003 C=FFFC\r");  // TARGET_TEMP
+  this->inject_response_and_step("OK P=0016 C=FFE9\r");      // TARGET_TEMP: 22°C
+  this->send_poll_request_and_assert("MT P=0100 C=FFFE\r");  // CURRENT_INDOOR_TEMP
+  this->inject_response_and_step("OK P=0018 C=FFE7\r");      // CURRENT_INDOOR_TEMP: 24°C
+
+  // The failed power read must prevent the cycle from completing, so no stored temperatures are restored.
+  EXPECT_EQ(this->ac_.state(), INIT);
+  EXPECT_EQ(this->publish_count_, 0);
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
 }
 
 TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureTargetTemperature) {
