@@ -197,7 +197,8 @@ struct PollCycleDefinition {
   std::vector<HlinkRequest> features;
   // Invoked when all features of the cycle have been polled successfully.
   std::function<HlinkComponentState()> on_completed = {};
-  HlinkComponentState next_state_on_timeout = IDLE;
+  // Invoked when the polling cycle hits the timeout deadline.
+  std::function<HlinkComponentState()> on_timeout = {};
 };
 
 // Run state and lifecycle of a single polling cycle.
@@ -233,7 +234,7 @@ class PollingCycle {
     return this->def_.on_completed ? this->def_.on_completed() : PUBLISH_UPDATE_IF_ANY;
   }
 
-  HlinkComponentState next_state_on_timeout() const { return this->def_.next_state_on_timeout; }
+  HlinkComponentState dispatch_timeout() const { return this->def_.on_timeout ? this->def_.on_timeout() : IDLE; }
 
   uint32_t timeout_ms() const { return this->def_.features.size() * 500; }
 
