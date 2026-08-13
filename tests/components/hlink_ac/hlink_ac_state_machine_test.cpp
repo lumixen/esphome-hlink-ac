@@ -446,6 +446,23 @@ TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureAwayModeTargetTemperature) 
   EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
 }
 
+TEST_F(HlinkAcStateMachineTest, PollingDoesNotCaptureAwayModeTargetTemperatureWhenLeaveHomeStatusUnknown) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.request_status_update_for_test();
+  this->run_polling_cycle({"OK P=01 C=FFFE\r",                    // POWER_STATE: on
+                           "OK P=0010 C=FFEF\r",                  // MODE: heat
+                           "OK P=000A C=FFF5\r",                  // TARGET_TEMP: 10°C (away marker)
+                           "OK P=0018 C=FFE7\r",                  // CURRENT_INDOOR_TEMP: 24°C
+                           "OK P=01 C=FFFE\r",                    // FAN_MODE: high
+                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
+
+  auto stored_temps = this->ac_.stored_target_temperatures_for_test();
+  EXPECT_FALSE(stored_temps.cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.heat_cool_target_temperature.has_value());
+  EXPECT_FALSE(stored_temps.dry_target_temperature.has_value());
+}
+
 TEST_F(HlinkAcStateMachineTest, PollingSavesTargetTemperaturesOnlyOnChange) {
   this->ac_.set_remember_target_temperatures(true);
   this->ac_.request_status_update_for_test();

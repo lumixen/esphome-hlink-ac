@@ -1207,9 +1207,8 @@ void HlinkAc::capture_target_temperature_from_status_() {
   if (std::isnan(this->hlink_entity_status_.target_temperature.value())) {
     return;
   }
-  if (this->hlink_entity_status_.leave_home_enabled.value_or(false) &&
-      this->hlink_entity_status_.power_state.value_or(false) &&
-      this->hlink_entity_status_.target_temperature.value() == 10) {
+  if (this->hlink_entity_status_.mode.value() == climate::ClimateMode::CLIMATE_MODE_HEAT &&
+      this->hlink_entity_status_.target_temperature.value() == PROTOCOL_TARGET_TEMP_MIN) {
     // Away (leave home) mode uses target temperature 10 as a marker, don't remember it.
     return;
   }
