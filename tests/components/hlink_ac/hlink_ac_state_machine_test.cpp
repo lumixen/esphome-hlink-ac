@@ -59,7 +59,13 @@ class HlinkAcStateMachineTest : public ::testing::Test {
         "MT P=0003 C=FFFC\r",  // TARGET_TEMP
         "MT P=0100 C=FFFE\r",  // CURRENT_INDOOR_TEMP
     };
-    for (size_t i = 0; i < responses.size(); i++) {
+    this->advance_for_next_send();
+    this->ac_.loop();  // INIT: start the boot cycle
+    this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the first request
+    EXPECT_EQ(this->uart_.take_tx_as_string(), requests[0]);
+    EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
+    this->inject_response_and_step(responses[0]);
+    for (size_t i = 1; i < responses.size(); i++) {
       this->send_poll_request_and_assert(requests[i]);
       this->inject_response_and_step(responses[i]);
     }
@@ -338,7 +344,8 @@ TEST_F(HlinkAcStateMachineTest, BootPollingRetriesToInitOnIncompleteStatus) {
   EXPECT_EQ(this->publish_count_, 0);
 
   this->advance_for_next_send();
-  this->ac_.loop();
+  this->ac_.loop();  // INIT: start the boot cycle
+  this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
   EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");  // boot cycle retry
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
 }
@@ -584,7 +591,8 @@ TEST_F(HlinkAcStateMachineTest, BootPollingTimedOutCycleRetriesToInit) {
   ASSERT_EQ(this->ac_.state(), INIT);
 
   this->advance_for_next_send();
-  this->ac_.loop();
+  this->ac_.loop();  // INIT: start the boot cycle
+  this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the first request
   EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
 
@@ -596,7 +604,8 @@ TEST_F(HlinkAcStateMachineTest, BootPollingTimedOutCycleRetriesToInit) {
   EXPECT_EQ(this->publish_count_, 0);
 
   this->advance_for_next_send();
-  this->ac_.loop();
+  this->ac_.loop();  // INIT: start the boot cycle
+  this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
   EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
 }

@@ -264,7 +264,7 @@ void HlinkAc::loop() {
     };
     boot_definition.on_timeout = []() { return INIT; };
     this->start_poll_cycle_(std::move(boot_definition));
-    // Continue to the REQUEST_NEXT_STATUS_FEATURE block below to send the first request right away
+    return;
   }
 
   if (this->status_.state == REQUEST_NEXT_STATUS_FEATURE && this->can_send_next_frame_()) {
