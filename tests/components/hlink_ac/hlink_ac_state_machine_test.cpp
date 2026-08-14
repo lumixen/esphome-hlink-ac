@@ -50,7 +50,7 @@ class HlinkAcStateMachineTest : public ::testing::Test {
   }
 
   // Sends the 4 minimal boot cycle requests and feeds them the given responses. The cycle completion
-  // lambda has already run, so the state is RESTORE_TARGET_TEMPERATURES on success or INIT on incomplete status.
+  // lambda has already run, so the state is PUBLISH_UPDATE_IF_ANY on success or INIT on incomplete status.
   void run_boot_cycle(const std::vector<std::string> &responses) {
     ASSERT_EQ(responses.size(), 4U);
     const std::vector<std::string> requests = {
@@ -71,11 +71,10 @@ class HlinkAcStateMachineTest : public ::testing::Test {
     }
   }
 
-  // Runs the boot cycle tail: RESTORE_TARGET_TEMPERATURES -> PUBLISH_UPDATE_IF_ANY -> CAPTURE_TARGET_TEMPERATURE ->
-  // IDLE. Must be called after a successful run_boot_cycle.
+  // Runs the boot cycle tail: PUBLISH_UPDATE_IF_ANY -> CAPTURE_TARGET_TEMPERATURE -> IDLE.
+  // Must be called after a successful run_boot_cycle.
   void finish_boot_cycle_to_idle() {
-    EXPECT_EQ(this->ac_.state(), RESTORE_TARGET_TEMPERATURES);
-    this->ac_.loop();  // RESTORE_TARGET_TEMPERATURES
+    EXPECT_EQ(this->ac_.state(), PUBLISH_UPDATE_IF_ANY);
     this->ac_.loop();  // PUBLISH_UPDATE_IF_ANY
     this->ac_.loop();  // CAPTURE_TARGET_TEMPERATURE
     EXPECT_EQ(this->ac_.state(), IDLE);
@@ -345,64 +344,7 @@ TEST_F(HlinkAcStateMachineTest, BootPollingCycleSendsOnlyMinimalRequestsAndTrans
   ASSERT_EQ(this->ac_.state(), INIT);
 
   this->run_boot_cycle(this->boot_cool_cycle_responses_);
-  EXPECT_EQ(this->ac_.state(), RESTORE_TARGET_TEMPERATURES);
-  this->finish_boot_cycle_to_idle();
-  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
-  EXPECT_EQ(this->publish_count_, 1);
-}
-
-TEST_F(HlinkAcStateMachineTest, RestoresTargetTemperaturesAfterFirstSuccessfulBootPoll) {
-  this->ac_.set_remember_target_temperatures(true);
-  this->ac_.setup();
-  ASSERT_EQ(this->ac_.state(), INIT);
-
-  StoredTargetTemperatures stored_temps{};
-  stored_temps.cool_target_temperature = 24.0f;
-  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
-
-  this->run_boot_cycle(this->boot_off_cycle_responses_);
-  this->finish_boot_cycle_to_idle();
-
-  this->ac_.loop();  // pending restore requests -> APPLY_REQUEST
-  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
-
-  this->advance_for_next_send();
-  this->ac_.loop();
-  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");
-  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
-
-  this->inject_response_and_step(ACK_OK_FRAME);
-  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
-
-  this->advance_for_next_send();
-  this->ac_.loop();
-  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0018 C=FFE4\r");
-  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
-
-  this->inject_response_and_step(ACK_OK_FRAME);
-  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);
-  EXPECT_EQ(this->publish_count_, 1);
-}
-
-TEST_F(HlinkAcStateMachineTest, BootPollingWithAcOffAndNoStoredTargetTemperaturesDoesNothing) {
-  this->ac_.setup();
-  ASSERT_EQ(this->ac_.state(), INIT);
-
-  this->run_boot_cycle(this->boot_off_cycle_responses_);
-  this->finish_boot_cycle_to_idle();
-  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
-  EXPECT_EQ(this->publish_count_, 1);
-}
-
-TEST_F(HlinkAcStateMachineTest, BootPollingWithAcOffAndRememberDisabledDoesNotApplyStoredTargetTemperatures) {
-  this->ac_.setup();
-  ASSERT_EQ(this->ac_.state(), INIT);
-
-  StoredTargetTemperatures stored_temps{};
-  stored_temps.cool_target_temperature = 24.0f;
-  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
-
-  this->run_boot_cycle(this->boot_off_cycle_responses_);
+  EXPECT_EQ(this->ac_.state(), PUBLISH_UPDATE_IF_ANY);
   this->finish_boot_cycle_to_idle();
   EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
   EXPECT_EQ(this->publish_count_, 1);
@@ -422,41 +364,6 @@ TEST_F(HlinkAcStateMachineTest, BootPollingRetriesToInitOnIncompleteStatus) {
   this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
   EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");  // boot cycle retry
   EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
-}
-
-TEST_F(HlinkAcStateMachineTest, BootRetryWithFailedPowerReadDoesNotRestoreStoredTemperatures) {
-  this->ac_.set_remember_target_temperatures(true);
-  this->ac_.setup();
-  ASSERT_EQ(this->ac_.state(), INIT);
-
-  StoredTargetTemperatures stored_temps{};
-  stored_temps.cool_target_temperature = 24.0f;
-  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
-
-  // First boot cycle: the power read succeeds (off), the mode read fails, so the cycle is incomplete.
-  this->run_boot_cycle({"OK P=00 C=FFFF\r", "NG P=FFFF C=FFFF\r", "OK P=0016 C=FFE9\r",
-                        "OK P=0018 C=FFE7\r"});
-  EXPECT_EQ(this->ac_.state(), INIT);
-  EXPECT_EQ(this->publish_count_, 0);
-
-  // Retry: the power read fails again (stale off state is retained), the rest succeeds.
-  this->advance_for_next_send();
-  this->ac_.loop();  // INIT: start the boot cycle
-  this->ac_.loop();  // REQUEST_NEXT_STATUS_FEATURE: send the retry request
-  EXPECT_EQ(this->uart_.take_tx_as_string(), "MT P=0000 C=FFFF\r");
-  EXPECT_EQ(this->ac_.state(), READ_FEATURE_RESPONSE);
-  this->inject_response_and_step("NG P=FFFF C=FFFF\r");      // POWER_STATE: NG
-  this->send_poll_request_and_assert("MT P=0001 C=FFFE\r");  // MODE
-  this->inject_response_and_step("OK P=0010 C=FFEF\r");      // MODE: heat (stale off power -> OFF)
-  this->send_poll_request_and_assert("MT P=0003 C=FFFC\r");  // TARGET_TEMP
-  this->inject_response_and_step("OK P=0016 C=FFE9\r");      // TARGET_TEMP: 22°C
-  this->send_poll_request_and_assert("MT P=0100 C=FFFE\r");  // CURRENT_INDOOR_TEMP
-  this->inject_response_and_step("OK P=0018 C=FFE7\r");      // CURRENT_INDOOR_TEMP: 24°C
-
-  // The failed power read must prevent the cycle from completing, so no stored temperatures are restored.
-  EXPECT_EQ(this->ac_.state(), INIT);
-  EXPECT_EQ(this->publish_count_, 0);
-  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
 }
 
 TEST_F(HlinkAcStateMachineTest, ControlDoesNotCaptureTargetTemperature) {
@@ -677,7 +584,7 @@ TEST_F(HlinkAcStateMachineTest, DoesNotRestoreWhenAcIsOnAtFirstPoll) {
   EXPECT_FLOAT_EQ(current_temps.cool_target_temperature.value(), 22.0f);
 }
 
-TEST_F(HlinkAcStateMachineTest, DoesNotReapplyStoredTargetTemperaturesOnSubsequentCycles) {
+TEST_F(HlinkAcStateMachineTest, ControlRestoresStoredTargetTemperatureWhenTurningOn) {
   this->ac_.set_remember_target_temperatures(true);
   this->ac_.setup();
   ASSERT_EQ(this->ac_.state(), INIT);
@@ -688,28 +595,185 @@ TEST_F(HlinkAcStateMachineTest, DoesNotReapplyStoredTargetTemperaturesOnSubseque
 
   this->run_boot_cycle(this->boot_off_cycle_responses_);
   this->finish_boot_cycle_to_idle();
-  this->ac_.loop();  // pending restore requests -> APPLY_REQUEST
-  ASSERT_EQ(this->ac_.state(), APPLY_REQUEST);
-  this->advance_for_next_send();
-  this->ac_.loop();
-  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");
-  this->inject_response_and_step(ACK_OK_FRAME);
-  this->advance_for_next_send();
-  this->ac_.loop();
-  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0018 C=FFE4\r");
-  this->inject_response_and_step(ACK_OK_FRAME);
-  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // status refresh cycle after the restore apply
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
 
-  this->run_polling_cycle({"OK P=00 C=FFFF\r",                    // POWER_STATE: off
-                           "OK P=0000 C=FFFF\r",                  // MODE: off
-                           "OK P=0016 C=FFE9\r",                  // TARGET_TEMP: 22°C (ignored when off)
-                           "OK P=0018 C=FFE7\r",                  // CURRENT_INDOOR_TEMP: 24°C
-                           "OK P=01 C=FFFE\r",                    // FAN_MODE: high
-                           "OK P=52414B2D3235504543 C=FDB5\r"});  // MODEL_NAME: "RAK-25PEC"
-  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());           // no restore requests on subsequent cycles
-  auto restored_temps = this->ac_.stored_target_temperatures_for_test();
-  ASSERT_TRUE(restored_temps.cool_target_temperature.has_value());
-  EXPECT_FLOAT_EQ(restored_temps.cool_target_temperature.value(), 24.0f);
+  // The AC is turned on from Home Assistant without a target temperature, e.g. after a power cut.
+  this->ac_.control(this->ac_.make_call().set_mode(climate::ClimateMode::CLIMATE_MODE_COOL));
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");  // set MODE: cool
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0018 C=FFE4\r");  // TARGET_TEMP: 24°C (restored)
+  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
+
+  this->inject_response_and_step(ACK_OK_FRAME);
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // status refresh after the restore apply
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenCallIncludesTargetTemperature) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->run_boot_cycle(this->boot_off_cycle_responses_);
+  this->finish_boot_cycle_to_idle();
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+
+  // The user turns the AC on and sets 22°C in the same call; the explicit value must win over the stored 24°C.
+  auto call = this->ac_.make_call();
+  call.set_mode(climate::ClimateMode::CLIMATE_MODE_COOL).set_target_temperature(22.0f);
+  this->ac_.control(call);
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");  // set MODE: cool
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0016 C=FFE6\r");  // TARGET_TEMP: 22°C
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // no restore request follows the explicit write
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenAcIsAlreadyOn) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->run_boot_cycle(this->boot_cool_cycle_responses_);
+  this->finish_boot_cycle_to_idle();
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+
+  // Changing the mode while the AC is already running must not clobber its current temperature.
+  this->ac_.control(this->ac_.make_call().set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT));
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0010 C=FFEE\r");  // set MODE: heat
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // no restore request follows the mode write
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreOnAwayPresetTurnOn) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.heat_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->run_boot_cycle(this->boot_off_cycle_responses_);
+  this->finish_boot_cycle_to_idle();
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+
+  // Entering away mode turns the AC on via the leave home sequence; it must not restore a regular temperature.
+  auto call = this->ac_.make_call();
+  call.set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT).set_preset(climate::ClimatePreset::CLIMATE_PRESET_AWAY);
+  this->ac_.control(call);
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0010 C=FFEE\r");  // set MODE: heat
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0010 C=FFEE\r");  // set MODE: heat (leave home sequence)
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0300,0040 C=FFBC\r");  // set LEAVE_HOME_STATUS_WRITE: enable
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on (leave home sequence)
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // no restore request in the leave home sequence
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlRestoresHeatCoolModeAutoEncodedTargetTemperature) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.set_reference_temperature(25);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.heat_cool_target_temperature = 24.0f;  // offset -1 from the reference temperature
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->run_boot_cycle(this->boot_off_cycle_responses_);
+  this->finish_boot_cycle_to_idle();
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+
+  // The AC is turned on from Home Assistant in HEAT_COOL (auto) mode without a target temperature.
+  this->ac_.control(this->ac_.make_call().set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT_COOL));
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,8000 C=FF7E\r");  // set MODE: auto (HEAT_COOL)
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,FFFF C=FDFE\r");  // TARGET_TEMP: offset -1 (24°C)
+  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
+
+  this->inject_response_and_step(ACK_OK_FRAME);
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // status refresh after the restore apply
 }
 
 TEST_F(HlinkAcStateMachineTest, BootPollingTimedOutCycleRetriesToInit) {

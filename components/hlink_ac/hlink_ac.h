@@ -43,7 +43,6 @@ enum HlinkComponentState : uint8_t {
   REQUEST_NEXT_STATUS_FEATURE,
   READ_FEATURE_RESPONSE,
   POLL_DONE,
-  RESTORE_TARGET_TEMPERATURES,
   PUBLISH_UPDATE_IF_ANY,
   CAPTURE_TARGET_TEMPERATURE,
   APPLY_REQUEST,
@@ -450,8 +449,8 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
 #endif
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  void apply_stored_target_temperatures_();
-  void apply_restored_target_temperatures_if_needed_();
+  void enqueue_remembered_target_temperature_(esphome::climate::ClimateMode mode);
+  optional<float> *stored_target_temperature_for_(esphome::climate::ClimateMode mode);
   void capture_target_temperature_from_status_();
   void capture_target_temperature_(esphome::climate::ClimateMode mode, float temperature);
   optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;

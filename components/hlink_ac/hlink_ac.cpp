@@ -251,19 +251,18 @@ void HlinkAc::start_poll_cycle_(PollCycleDefinition def) {
 /*
  * Main loop implements a state machine with the following states:
  * 1. INIT - starts a minimal polling cycle (power, mode, target and current temperature) on first boot. The cycle is
- *    retried until a minimal status is received, then the component transitions to RESTORE_TARGET_TEMPERATURES.
+ *    retried until a minimal status is received, then the component transitions to PUBLISH_UPDATE_IF_ANY.
  * 2. IDLE - does nothing.
  * 3. REQUEST_NEXT_STATUS_FEATURE - sends a request for the next feature of the current polling cycle; the cycle
  *    definition is stored in the polling_cycle.
  * 4. READ_FEATURE_RESPONSE - reads a response for the requested hlink feature.
  * 5. POLL_DONE - all features of the current polling cycle were polled; runs the cycle completion hook which decides
  *    the next state.
- * 6. RESTORE_TARGET_TEMPERATURES - restores the stored target temperatures if the AC is off; boot transition state.
- * 7. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
- * 8. CAPTURE_TARGET_TEMPERATURE - stores the last seen target temperature per mode if the corresponding option is
+ * 6. PUBLISH_UPDATE_IF_ANY - once all features are read, updates components if there are any changes.
+ * 7. CAPTURE_TARGET_TEMPERATURE - stores the last seen target temperature per mode if the corresponding option is
  *    enabled.
- * 9. APPLY_REQUEST - applies the requested climate controls from the queue.
- * 10. ACK_APPLIED_REQUEST - confirms successfully applied control request.
+ * 8. APPLY_REQUEST - applies the requested climate controls from the queue.
+ * 9. ACK_APPLIED_REQUEST - confirms successfully applied control request.
  */
 void HlinkAc::loop() {
   if (this->status_.state == INIT && this->can_send_next_frame_()) {
@@ -272,7 +271,7 @@ void HlinkAc::loop() {
                                 this->make_target_temp_request_(), this->make_current_temp_request_()};
     boot_definition.on_completed = [this]() {
       this->refresh_status_polling_finished_at_();
-      return this->hlink_entity_status_.has_minimal_hvac_status() ? RESTORE_TARGET_TEMPERATURES : INIT;
+      return this->hlink_entity_status_.has_minimal_hvac_status() ? PUBLISH_UPDATE_IF_ANY : INIT;
     };
     boot_definition.on_failure = [this]() {
       this->refresh_status_polling_finished_at_();
@@ -318,12 +317,6 @@ void HlinkAc::loop() {
                                          : this->status_.polling_cycle.dispatch_completion();
     this->status_.polling_cycle.clear();
     this->status_.state = next_state;
-    return;
-  }
-
-  if (this->status_.state == RESTORE_TARGET_TEMPERATURES) {
-    this->apply_restored_target_temperatures_if_needed_();
-    this->status_.state = PUBLISH_UPDATE_IF_ANY;
     return;
   }
 
@@ -375,15 +368,14 @@ void HlinkAc::loop() {
   // Reset status if we reached timeout deadline
   if (this->status_.state != IDLE && this->reached_timeout_threshold_()) {
     ESP_LOGW(TAG, "Reached global timeout threshold while performing [%s] state action.",
-             this->status_.state == REQUEST_NEXT_STATUS_FEATURE   ? "REQUEST_NEXT_STATUS_FEATURE"
-             : this->status_.state == READ_FEATURE_RESPONSE       ? "READ_FEATURE_RESPONSE"
-             : this->status_.state == POLL_DONE                   ? "POLL_DONE"
-             : this->status_.state == RESTORE_TARGET_TEMPERATURES ? "RESTORE_TARGET_TEMPERATURES"
-             : this->status_.state == PUBLISH_UPDATE_IF_ANY       ? "PUBLISH_UPDATE_IF_ANY"
-             : this->status_.state == CAPTURE_TARGET_TEMPERATURE  ? "CAPTURE_TARGET_TEMPERATURE"
-             : this->status_.state == APPLY_REQUEST               ? "APPLY_REQUEST"
-             : this->status_.state == ACK_APPLIED_REQUEST         ? "ACK_APPLIED_REQUEST"
-                                                                  : "UNKNOWN");
+             this->status_.state == REQUEST_NEXT_STATUS_FEATURE  ? "REQUEST_NEXT_STATUS_FEATURE"
+             : this->status_.state == READ_FEATURE_RESPONSE      ? "READ_FEATURE_RESPONSE"
+             : this->status_.state == POLL_DONE                  ? "POLL_DONE"
+             : this->status_.state == PUBLISH_UPDATE_IF_ANY      ? "PUBLISH_UPDATE_IF_ANY"
+             : this->status_.state == CAPTURE_TARGET_TEMPERATURE ? "CAPTURE_TARGET_TEMPERATURE"
+             : this->status_.state == APPLY_REQUEST              ? "APPLY_REQUEST"
+             : this->status_.state == ACK_APPLIED_REQUEST        ? "ACK_APPLIED_REQUEST"
+                                                                 : "UNKNOWN");
     ESP_LOGW(
         TAG,
         "Component state: polling_cycle_active=%s, polling_cycle_index=%d, non_idle_timeout_limit_ms=%lu, "
@@ -780,6 +772,11 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              }
                              this->publish_state();
                            });
+    if (power_state && this->remember_target_temperatures_ && !this->hlink_entity_status_.power_state.value_or(false) &&
+        !call.get_target_temperature().has_value() &&
+        call.get_preset() != climate::ClimatePreset::CLIMATE_PRESET_AWAY) {
+      this->enqueue_remembered_target_temperature_(mode);
+    }
   }
   if (call.get_fan_mode().has_value()) {
     climate::ClimateFanMode fan_mode = *call.get_fan_mode();
@@ -1194,23 +1191,9 @@ void HlinkAc::capture_target_temperature_(climate::ClimateMode mode, float tempe
   if (!this->remember_target_temperatures_) {
     return;
   }
-  optional<float> *target_temperature = nullptr;
-  switch (mode) {
-    case climate::ClimateMode::CLIMATE_MODE_HEAT:
-      target_temperature = &this->stored_target_temperatures_.heat_target_temperature;
-      break;
-    case climate::ClimateMode::CLIMATE_MODE_COOL:
-      target_temperature = &this->stored_target_temperatures_.cool_target_temperature;
-      break;
-    case climate::ClimateMode::CLIMATE_MODE_DRY:
-      target_temperature = &this->stored_target_temperatures_.dry_target_temperature;
-      break;
-    case climate::ClimateMode::CLIMATE_MODE_HEAT_COOL:
-      target_temperature = &this->stored_target_temperatures_.heat_cool_target_temperature;
-      break;
-    default:
-      // OFF and FAN_ONLY modes don't have a target temperature.
-      return;
+  optional<float> *target_temperature = this->stored_target_temperature_for_(mode);
+  if (target_temperature == nullptr) {
+    return;
   }
   if (target_temperature->has_value() && this->is_nanable_equal_(target_temperature->value(), temperature)) {
     return;
@@ -1223,16 +1206,50 @@ void HlinkAc::capture_target_temperature_from_status_() {
   if (!this->hlink_entity_status_.has_minimal_hvac_status()) {
     return;
   }
+  if (!this->hlink_entity_status_.power_state.value()) {
+    return;
+  }
   if (std::isnan(this->hlink_entity_status_.target_temperature.value())) {
     return;
   }
-  if (this->hlink_entity_status_.mode.value() == climate::ClimateMode::CLIMATE_MODE_HEAT &&
-      this->hlink_entity_status_.target_temperature.value() == PROTOCOL_TARGET_TEMP_MIN) {
+  const climate::ClimateMode mode = this->hlink_entity_status_.mode.value();
+  const float reported_target_temperature = this->hlink_entity_status_.target_temperature.value();
+  if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT && reported_target_temperature == PROTOCOL_TARGET_TEMP_MIN) {
     // Away (leave home) mode uses target temperature 10 as a marker, don't remember it.
     return;
   }
-  this->capture_target_temperature_(this->hlink_entity_status_.mode.value(),
-                                    this->hlink_entity_status_.target_temperature.value());
+  this->capture_target_temperature_(mode, reported_target_temperature);
+}
+
+optional<float> *HlinkAc::stored_target_temperature_for_(climate::ClimateMode mode) {
+  switch (mode) {
+    case climate::ClimateMode::CLIMATE_MODE_HEAT:
+      return &this->stored_target_temperatures_.heat_target_temperature;
+    case climate::ClimateMode::CLIMATE_MODE_COOL:
+      return &this->stored_target_temperatures_.cool_target_temperature;
+    case climate::ClimateMode::CLIMATE_MODE_DRY:
+      return &this->stored_target_temperatures_.dry_target_temperature;
+    case climate::ClimateMode::CLIMATE_MODE_HEAT_COOL:
+      return &this->stored_target_temperatures_.heat_cool_target_temperature;
+    default:
+      // OFF and FAN_ONLY modes don't have a target temperature.
+      return nullptr;
+  }
+}
+
+void HlinkAc::enqueue_remembered_target_temperature_(climate::ClimateMode mode) {
+  const optional<float> *stored_target_temperature = this->stored_target_temperature_for_(mode);
+  if (stored_target_temperature == nullptr || !stored_target_temperature->has_value()) {
+    return;
+  }
+  float target_temperature = stored_target_temperature->value();
+  uint16_t hlink_target_temperature = static_cast<uint16_t>(target_temperature);
+  if (mode == climate::ClimateMode::CLIMATE_MODE_HEAT_COOL) {
+    target_temperature = this->clamp_auto_temperature_(target_temperature);
+    hlink_target_temperature = this->encode_auto_temperature_(target_temperature);
+  }
+  this->enqueue_request_(
+      HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, hlink_target_temperature));
 }
 
 optional<float> HlinkAc::restore_target_temperature_(float value, float min_temperature, float max_temperature) const {
@@ -1245,56 +1262,6 @@ optional<float> HlinkAc::restore_target_temperature_(float value, float min_temp
     return {};
   }
   return value;
-}
-
-void HlinkAc::apply_stored_target_temperatures_() {
-  if (!this->remember_target_temperatures_) {
-    return;
-  }
-  if (this->stored_target_temperatures_.heat_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Restoring last set heat target temperature: %.1f",
-             this->stored_target_temperatures_.heat_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_HEAT));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->stored_target_temperatures_.heat_target_temperature.value())));
-  }
-  if (this->stored_target_temperatures_.cool_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Restoring last set cool target temperature: %.1f",
-             this->stored_target_temperatures_.cool_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_COOL));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->stored_target_temperatures_.cool_target_temperature.value())));
-  }
-  if (this->stored_target_temperatures_.dry_target_temperature.has_value()) {
-    ESP_LOGI(TAG, "Restoring last set dry target temperature: %.1f",
-             this->stored_target_temperatures_.dry_target_temperature.value());
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_DRY));
-    this->enqueue_request_(HlinkRequestFrame::with_uint16(
-        HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP,
-        static_cast<uint16_t>(this->stored_target_temperatures_.dry_target_temperature.value())));
-  }
-  if (this->stored_target_temperatures_.heat_cool_target_temperature.has_value()) {
-    float target =
-        this->clamp_auto_temperature_(this->stored_target_temperatures_.heat_cool_target_temperature.value());
-    uint16_t encoded = this->encode_auto_temperature_(target);
-    ESP_LOGI(TAG, "Restoring last set heat_cool target temperature: %.1f (encoded: %04X)",
-             this->stored_target_temperatures_.heat_cool_target_temperature.value(), encoded);
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::MODE, HLINK_MODE_AUTO));
-    this->enqueue_request_(
-        HlinkRequestFrame::with_uint16(HlinkRequestFrame::Type::ST, FeatureType::TARGET_TEMP, encoded));
-  }
-}
-
-void HlinkAc::apply_restored_target_temperatures_if_needed_() {
-  if (this->hlink_entity_status_.power_state.has_value() && !this->hlink_entity_status_.power_state.value()) {
-    this->apply_stored_target_temperatures_();
-  }
 }
 
 std::string HlinkAc::format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const {

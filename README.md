@@ -101,7 +101,7 @@ climate:
       - HORIZONTAL
       - BOTH
     reference_temperature: 25 # Optional. Center point (°C) for target temperature in HEAT_COOL (auto) mode. Settable range is ±3°C around this value. Defaults to 25.
-    remember_target_temperatures: false # Optional. Defaults to false. Remembers the last target temperature set by the user per mode and restores it on boot when the AC is off.
+    remember_target_temperatures: false # Optional. Defaults to false. Remembers the last target temperature set by the user per mode and writes it back when the AC is turned on from Home Assistant.
 
 switch:
   - platform: hlink_ac
