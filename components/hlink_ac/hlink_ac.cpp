@@ -772,7 +772,12 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              }
                              this->publish_state();
                            });
-    if (power_state && this->remember_target_temperatures_ && !this->hlink_entity_status_.power_state.value_or(false) &&
+    // The AC may resume an unexpected state (e.g. its last remembered one or a factory default) when it is turned on
+    // or switched to another mode, so fill in the last remembered target temperature when the call doesn't specify
+    // one. Re-selecting the mode the AC is already running in is skipped.
+    if (power_state && this->remember_target_temperatures_ &&
+        (!this->hlink_entity_status_.power_state.value_or(false) ||
+         this->hlink_entity_status_.mode.value_or(esphome::climate::ClimateMode::CLIMATE_MODE_OFF) != mode) &&
         !call.get_target_temperature().has_value() &&
         call.get_preset() != climate::ClimatePreset::CLIMATE_PRESET_AWAY) {
       this->enqueue_remembered_target_temperature_(mode);

@@ -659,20 +659,20 @@ TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenCallIncludesTargetTempe
   EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // no restore request follows the explicit write
 }
 
-TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenAcIsAlreadyOn) {
+TEST_F(HlinkAcStateMachineTest, ControlRestoresRememberedTemperatureWhenSwitchingModes) {
   this->ac_.set_remember_target_temperatures(true);
   this->ac_.setup();
   ASSERT_EQ(this->ac_.state(), INIT);
 
   StoredTargetTemperatures stored_temps{};
-  stored_temps.cool_target_temperature = 24.0f;
+  stored_temps.heat_target_temperature = 24.0f;
   this->ac_.set_stored_target_temperatures_for_test(stored_temps);
 
   this->run_boot_cycle(this->boot_cool_cycle_responses_);
   this->finish_boot_cycle_to_idle();
   EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
 
-  // Changing the mode while the AC is already running must not clobber its current temperature.
+  // Switching from cool to heat must restore the remembered heat target temperature.
   this->ac_.control(this->ac_.make_call().set_mode(climate::ClimateMode::CLIMATE_MODE_HEAT));
   this->ac_.loop();  // pending requests -> APPLY_REQUEST
   EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
@@ -685,6 +685,43 @@ TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenAcIsAlreadyOn) {
   this->advance_for_next_send();
   this->ac_.loop();
   EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0010 C=FFEE\r");  // set MODE: heat
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0003,0018 C=FFE4\r");  // TARGET_TEMP: 24°C (restored)
+  EXPECT_EQ(this->ac_.state(), ACK_APPLIED_REQUEST);
+
+  this->inject_response_and_step(ACK_OK_FRAME);
+  EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // status refresh after the restore apply
+}
+
+TEST_F(HlinkAcStateMachineTest, ControlDoesNotRestoreWhenAcAlreadyInRequestedMode) {
+  this->ac_.set_remember_target_temperatures(true);
+  this->ac_.setup();
+  ASSERT_EQ(this->ac_.state(), INIT);
+
+  StoredTargetTemperatures stored_temps{};
+  stored_temps.cool_target_temperature = 24.0f;
+  this->ac_.set_stored_target_temperatures_for_test(stored_temps);
+
+  this->run_boot_cycle(this->boot_cool_cycle_responses_);
+  this->finish_boot_cycle_to_idle();
+  EXPECT_TRUE(this->uart_.take_tx_as_string().empty());
+
+  // Re-selecting the mode the AC is already running in must not clobber its current temperature.
+  this->ac_.control(this->ac_.make_call().set_mode(climate::ClimateMode::CLIMATE_MODE_COOL));
+  this->ac_.loop();  // pending requests -> APPLY_REQUEST
+  EXPECT_EQ(this->ac_.state(), APPLY_REQUEST);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0000,01 C=FFFE\r");  // set POWER_STATE: on
+  this->inject_response_and_step(ACK_OK_FRAME);
+
+  this->advance_for_next_send();
+  this->ac_.loop();
+  EXPECT_EQ(this->uart_.take_tx_as_string(), "ST P=0001,0040 C=FFBE\r");  // set MODE: cool
   this->inject_response_and_step(ACK_OK_FRAME);
 
   EXPECT_EQ(this->ac_.state(), REQUEST_NEXT_STATUS_FEATURE);  // no restore request follows the mode write
