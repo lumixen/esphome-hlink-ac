@@ -772,9 +772,6 @@ void HlinkAc::control(const esphome::climate::ClimateCall &call) {
                              }
                              this->publish_state();
                            });
-    // The AC may resume an unexpected state (e.g. its last remembered one or a factory default) when it is turned on
-    // or switched to another mode, so fill in the last remembered target temperature when the call doesn't specify
-    // one. Re-selecting the mode the AC is already running in is skipped.
     if (power_state && this->remember_target_temperatures_ &&
         (!this->hlink_entity_status_.power_state.value_or(false) ||
          this->hlink_entity_status_.mode.value_or(esphome::climate::ClimateMode::CLIMATE_MODE_OFF) != mode) &&
@@ -1192,22 +1189,10 @@ void HlinkAc::save_settings_() {
   }
 }
 
-void HlinkAc::capture_target_temperature_(climate::ClimateMode mode, float temperature) {
+void HlinkAc::capture_target_temperature_from_status_() {
   if (!this->remember_target_temperatures_) {
     return;
   }
-  optional<float> *target_temperature = this->stored_target_temperature_for_(mode);
-  if (target_temperature == nullptr) {
-    return;
-  }
-  if (target_temperature->has_value() && this->is_nanable_equal_(target_temperature->value(), temperature)) {
-    return;
-  }
-  *target_temperature = temperature;
-  this->save_settings_();
-}
-
-void HlinkAc::capture_target_temperature_from_status_() {
   if (!this->hlink_entity_status_.has_minimal_hvac_status()) {
     return;
   }
@@ -1223,7 +1208,16 @@ void HlinkAc::capture_target_temperature_from_status_() {
     // Away (leave home) mode uses target temperature 10 as a marker, don't remember it.
     return;
   }
-  this->capture_target_temperature_(mode, reported_target_temperature);
+  optional<float> *target_temperature = this->stored_target_temperature_for_(mode);
+  if (target_temperature == nullptr) {
+    return;
+  }
+  if (target_temperature->has_value() &&
+      this->is_nanable_equal_(target_temperature->value(), reported_target_temperature)) {
+    return;
+  }
+  *target_temperature = reported_target_temperature;
+  this->save_settings_();
 }
 
 optional<float> *HlinkAc::stored_target_temperature_for_(climate::ClimateMode mode) {

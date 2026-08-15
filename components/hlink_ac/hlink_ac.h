@@ -452,7 +452,6 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void enqueue_remembered_target_temperature_(esphome::climate::ClimateMode mode);
   optional<float> *stored_target_temperature_for_(esphome::climate::ClimateMode mode);
   void capture_target_temperature_from_status_();
-  void capture_target_temperature_(esphome::climate::ClimateMode mode, float temperature);
   optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
