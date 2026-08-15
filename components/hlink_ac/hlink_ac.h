@@ -41,9 +41,10 @@ enum HlinkComponentState : uint8_t {
   INIT,
   IDLE,
   REQUEST_NEXT_STATUS_FEATURE,
-  REQUEST_LOW_PRIORITY_FEATURE,
   READ_FEATURE_RESPONSE,
+  POLL_DONE,
   PUBLISH_UPDATE_IF_ANY,
+  CAPTURE_TARGET_TEMPERATURE,
   APPLY_REQUEST,
   ACK_APPLIED_REQUEST
 };
@@ -191,6 +192,62 @@ struct HlinkRequest {
   std::function<void()> timeout_callback;
 };
 
+struct PollCycleDefinition {
+  std::vector<HlinkRequest> features;
+  // Invoked when all features of the cycle have been polled successfully.
+  std::function<HlinkComponentState()> on_completed = {};
+  // Invoked when the polling cycle cannot be completed (timeout or a failed feature).
+  std::function<HlinkComponentState()> on_failure = {};
+};
+
+// Run state and lifecycle of a single polling cycle.
+class PollingCycle {
+ public:
+  void start(PollCycleDefinition def) {
+    this->def_ = std::move(def);
+    this->requested_feature_index_ = 0;
+    this->feature_failure_ = false;
+    this->active_ = true;
+  }
+
+  void clear() {
+    this->active_ = false;
+    this->requested_feature_index_ = 0;
+    this->feature_failure_ = false;
+    this->def_ = {};
+  }
+
+  bool is_active() const { return this->active_; }
+
+  const HlinkRequest &current_request() const { return this->def_.features[this->requested_feature_index_]; }
+
+  bool has_more_features() const {
+    return this->active_ && this->requested_feature_index_ + 1 < this->def_.features.size();
+  }
+
+  void advance() { this->requested_feature_index_++; }
+
+  void mark_feature_failure() { this->feature_failure_ = true; }
+
+  bool has_feature_failure() const { return this->feature_failure_; }
+
+  HlinkComponentState dispatch_completion() const {
+    return this->def_.on_completed ? this->def_.on_completed() : PUBLISH_UPDATE_IF_ANY;
+  }
+
+  HlinkComponentState dispatch_failure() const { return this->def_.on_failure ? this->def_.on_failure() : IDLE; }
+
+  uint32_t timeout_ms() const { return this->def_.features.size() * 500; }
+
+  int get_requested_feature_index_for_debug() const { return this->requested_feature_index_; }
+
+ private:
+  bool active_{false};
+  uint16_t requested_feature_index_{0};
+  bool feature_failure_{false};
+  PollCycleDefinition def_;
+};
+
 struct ComponentStatus {
   HlinkComponentState state = IDLE;
   std::string hlink_response_buffer = std::string(HLINK_MSG_READ_BUFFER_SIZE, '\0');
@@ -198,7 +255,7 @@ struct ComponentStatus {
   std::unique_ptr<HlinkRequest> current_request = nullptr;
   std::vector<HlinkRequest> polling_features = {};
   optional<HlinkRequest> low_priority_hlink_request = {};
-  int16_t requested_feature_index = -1;
+  PollingCycle polling_cycle;
   uint32_t status_update_interval_ms = DEFAULT_STATUS_UPDATE_INTERVAL;
   uint32_t non_idle_timeout_limit_ms = 0;
   uint32_t last_status_polling_finished_at_ms = 0;
@@ -206,16 +263,14 @@ struct ComponentStatus {
   uint32_t timeout_counter_started_at_ms = 0;
   uint8_t requests_left_to_apply = 0;
 
-  HlinkRequest get_currently_polling_feature() { return polling_features[requested_feature_index]; }
-
   void reset_state() {
     state = IDLE;
     timeout_counter_started_at_ms = 0;
     non_idle_timeout_limit_ms = 0;
     last_status_polling_finished_at_ms = 0;
-    requested_feature_index = -1;
     requests_left_to_apply = 0;
     current_request = nullptr;
+    polling_cycle.clear();
   }
 
   void reset_response_buffer() {
@@ -253,7 +308,7 @@ enum class TextSensorType {
 };
 #endif
 
-struct InitialTargetTemperatures {
+struct StoredTargetTemperatures {
   optional<float> heat_target_temperature;
   optional<float> cool_target_temperature;
   optional<float> heat_cool_target_temperature;
@@ -262,8 +317,11 @@ struct InitialTargetTemperatures {
 
 struct HlinkAcSettings {
   bool beeper_enabled;
-  // Preserve the preference layout from releases that stored a second settings byte.
-  uint8_t reserved;
+  // Last user-set target temperatures per mode. NAN means the temperature was never set.
+  float heat_target_temperature;
+  float cool_target_temperature;
+  float heat_cool_target_temperature;
+  float dry_target_temperature;
 };
 
 static const uint8_t REQUESTS_QUEUE_SIZE = 16;
@@ -301,10 +359,14 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
  protected:
   void update_sensor_state_(sensor::Sensor *sensor, float value);
   sensor::Sensor *indoor_temperature_sensor_{nullptr};
+  sensor::Sensor *outdoor_temperature_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
  public:
   void set_binary_sensor(BinarySensorType type, binary_sensor::BinarySensor *s);
+
+ protected:
+  binary_sensor::BinarySensor *air_filter_warning_sensor_{nullptr};
 #endif
 #ifdef USE_TEXT_SENSOR
  public:
@@ -340,7 +402,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   void reset_air_filter_clean_warning();
   void set_status_update_interval(uint32_t interval_ms);
   void set_reference_temperature(float reference_temperature);
-  void set_initial_target_temperatures(const InitialTargetTemperatures &config);
+  void set_remember_target_temperatures(bool remember);
   void send_hlink_cmd(std::string cmd_type, std::string address, optional<std::string> data);
   void add_send_hlink_cmd_result_callback(std::function<void(const SendHlinkCmdResult &)> &&callback);
 
@@ -349,19 +411,48 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
   HlinkEntityStatus hlink_entity_status_ = HlinkEntityStatus();
   climate::ClimateTraits traits_ = climate::ClimateTraits();
   float reference_temperature_{25.0f};
-  InitialTargetTemperatures initial_target_temperatures_;
+  bool remember_target_temperatures_{false};
+  StoredTargetTemperatures stored_target_temperatures_;
   CircularRequestsQueue pending_action_requests_;
   ESPPreferenceObject rtc_;
   CallbackManager<void(const SendHlinkCmdResult &)> send_hlink_cmd_result_callback_{};
   virtual uint32_t current_time_ms() const { return millis(); }
   void refresh_non_idle_timeout_(uint32_t non_idle_timeout_limit_ms);
+  void refresh_status_polling_finished_at_() {
+    this->status_.last_status_polling_finished_at_ms = this->current_time_ms();
+  }
   bool reached_timeout_threshold_() const;
   bool can_send_next_frame_() const;
   bool can_start_next_polling_() const;
   void request_status_update_();
+  void start_poll_cycle_(PollCycleDefinition def);
+  HlinkRequest make_power_state_request_();
+  HlinkRequest make_mode_request_();
+  HlinkRequest make_target_temp_request_();
+  HlinkRequest make_current_temp_request_();
+  HlinkRequest make_fan_mode_request_();
+  HlinkRequest make_swing_mode_request_();
+  HlinkRequest make_leave_home_request_();
+  HlinkRequest make_activity_status_request_();
+#ifdef USE_SWITCH
+  HlinkRequest make_remote_control_lock_request_();
+#endif
+#ifdef USE_SENSOR
+  HlinkRequest make_current_outdoor_temp_request_();
+#endif
+#ifdef USE_BINARY_SENSOR
+  HlinkRequest make_air_filter_warning_request_();
+#endif
+#ifdef USE_TEXT_SENSOR
+  HlinkRequest make_model_name_request_();
+  HlinkRequest make_debug_request_(uint16_t address, text_sensor::TextSensor *sens);
+#endif
   bool handle_hlink_request_response_(const HlinkRequest &request, const HlinkResponseFrame &response);
   void publish_updates_if_any_();
-  void apply_initial_target_temperatures_();
+  void enqueue_remembered_target_temperature_(esphome::climate::ClimateMode mode);
+  optional<float> *stored_target_temperature_for_(esphome::climate::ClimateMode mode);
+  void capture_target_temperature_from_status_();
+  optional<float> restore_target_temperature_(float value, float min_temperature, float max_temperature) const;
   HlinkResponseFrame read_hlink_frame_();
   void write_hlink_frame_(HlinkRequestFrame frame);
   void enqueue_request_(HlinkRequestFrame request_frame,
@@ -391,7 +482,7 @@ class HlinkAc : public Component, public uart::UARTDevice, public climate::Clima
     return static_cast<uint16_t>(static_cast<uint8_t>(offset)) + 0xFF00;
   }
   std::string format_target_temperature_log_(optional<float> target_temperature, bool show_auto_offset) const;
-  void save_settings_();
+  virtual void save_settings_();
 };
 }  // namespace hlink_ac
 }  // namespace esphome
