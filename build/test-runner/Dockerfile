@@ -3,10 +3,10 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git build-essential && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir esphome==2026.7.2 platformio
-RUN pio platform install "native"
+RUN pip install --no-cache-dir esphome==2026.8.2 platformio
+RUN pio pkg install --global --platform "native"
 
-RUN git clone --depth 1 --branch 2026.7.2 \
+RUN git clone --depth 1 --branch 2026.8.2 \
     https://github.com/esphome/esphome.git /esphome
 RUN cd /esphome && pip install -e . --quiet --no-deps 2>&1 | tail -1
 
