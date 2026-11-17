@@ -298,7 +298,10 @@ void HlinkAc::loop() {
     }
     HlinkRequest requested_feature = *this->status_.current_request;
     if (this->handle_hlink_request_response_(requested_feature, response)) {
-      if (response.status != HlinkResponseFrame::Status::OK) {
+      // Only essential features (power, mode, target temp, current temp; indices 0-3) may invalidate a cycle.
+      // NG on optional features must not block publishing the state.
+      if (response.status != HlinkResponseFrame::Status::OK &&
+          this->status_.polling_cycle.get_requested_feature_index_for_debug() < 4) {
         this->status_.polling_cycle.mark_feature_failure();
       }
       if (this->status_.polling_cycle.has_more_features()) {
