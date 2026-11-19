@@ -190,7 +190,9 @@ void HlinkAc::dump_config() {
                     ? this->hlink_entity_status_.remote_control_lock.value() ? "ON" : "OFF"
                     : "N/A");
 #endif
-  this->check_uart_settings(9600, 1, uart::UART_CONFIG_PARITY_ODD, 8);
+  // UART settings (9600, odd parity, 8 data bits, 1 stop bit) are validated at
+  // build time in climate.py FINAL_VALIDATE_SCHEMA. This replaces the deprecated
+  // check_uart_settings() runtime call, which is removed in ESPHome 2027.3.0.
 }
 
 void HlinkAc::set_status_update_interval(uint32_t interval_ms) {
@@ -393,7 +395,7 @@ void HlinkAc::loop() {
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                this->status_.current_request->request_frame.p.address,
                this->status_.current_request->request_frame.p.data.has_value()
-                   ? esphome::format_hex_pretty(this->status_.current_request->request_frame.p.data.value()).c_str()
+                   ? esphome::format_hex_pretty_to(this->status_.current_request->request_frame.p.data.value()).c_str()
                    : "none");
       auto timeout_callback = this->status_.current_request->timeout_callback;
       if (timeout_callback != nullptr) {
