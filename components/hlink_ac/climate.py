@@ -184,16 +184,19 @@ def validate_visual(config):
 # Final validation: the component requires a UART with these settings. This replaces the
 # deprecated runtime check_uart_settings() call in hlink_ac.cpp dump_config(), which is
 # removed in ESPHome 2027.3.0. Validated at build time instead.
-FINAL_VALIDATE_SCHEMA = cv.All(
-    uart.final_validate_device_schema(
-        "hlink_ac",
-        baud_rate=9600,
-        require_tx=True,
-        require_rx=True,
-        data_bits=8,
-        parity="ODD",
-        stop_bits=1,
-    ),
+#
+# Do NOT wrap this in cv.All()! ESPHome loads FINAL_VALIDATE_SCHEMA from the module
+# (loader.py) and calls it against the full config itself. If it is also inside cv.All(),
+# it runs a second time in a context where the full_config ContextVar is unset, which
+# raises LookupError on it. Pattern: midea_portasplit/climate.py.
+FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
+    "hlink_ac",
+    baud_rate=9600,
+    require_tx=True,
+    require_rx=True,
+    data_bits=8,
+    parity="ODD",
+    stop_bits=1,
 )
 
 
@@ -246,7 +249,6 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA),
     validate_visual,
-    FINAL_VALIDATE_SCHEMA,
 )
 
 

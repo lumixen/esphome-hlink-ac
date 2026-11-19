@@ -391,11 +391,17 @@ void HlinkAc::loop() {
         this->status_.requests_left_to_apply, this->pending_action_requests_.size(),
         this->status_.low_priority_hlink_request.has_value() ? "YES" : "NO");
     if (this->status_.current_request != nullptr) {
+      // ESPHome 2026.11.0 replaced format_hex_pretty(vector), which returned
+      // std::string, with format_hex_pretty_to(buffer, data). The new helper
+      // writes into caller-owned storage and returns char*. An H-Link payload
+      // is only a few bytes, so a 64-byte buffer is ample.
+      char hex_buf[64];
       ESP_LOGW(TAG, "Request time out: [%s - %04X,%s]",
                this->status_.current_request->request_frame.type == HlinkRequestFrame::Type::MT ? "MT" : "ST",
                this->status_.current_request->request_frame.p.address,
                this->status_.current_request->request_frame.p.data.has_value()
-                   ? esphome::format_hex_pretty_to(this->status_.current_request->request_frame.p.data.value()).c_str()
+                   ? esphome::format_hex_pretty_to(
+                         hex_buf, this->status_.current_request->request_frame.p.data.value())
                    : "none");
       auto timeout_callback = this->status_.current_request->timeout_callback;
       if (timeout_callback != nullptr) {
